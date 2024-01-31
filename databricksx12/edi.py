@@ -48,8 +48,8 @@ class MsgHeader():
 
 class Segment():
 
-    def __init__(self):
-        pass #???
+    def __init__(self, data):
+        self.data = data
 
     #
     # @param field_number - numeric value of the field
