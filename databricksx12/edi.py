@@ -1,12 +1,25 @@
 
 
+#
+# TODO make this an enum
+#  https://www.ibm.com/docs/en/sgfmw/5.3.1?topic=gs-edi-delimiters
+#  https://github.com/databrickslabs/dbignite/blob/main/dbignite/readers.py#L1-L9
+#
+class AnsiX12Delim():
+
+    def __init__():
+        pass
+
+    
+
 class EDI():
 
     #
     # @drew what internal fields are needed to represent an EDI? 
     #
-    def __init__(self, raw_data):
+    def __init__(self, raw_data, delim = AnsiX12Delim()):
         self.raw_data
+        self.delim = delim
         #self.??? = ???
         #self.??? = ??? 
 
