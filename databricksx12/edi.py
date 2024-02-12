@@ -13,9 +13,6 @@ class EDI():
         self.df = df
         self.format_cls = delim_class
         self.column = column_name
-        #self.??? = ???
-        #self.??? = ??? 
-
 
     #
     # Return edi file delimiter (leading _ => class internal function)
@@ -26,10 +23,14 @@ class EDI():
 
     #
     # @param segment_name - the segment to search for within an EDI
-    # @returns - an array of 0 or more segments that match the segment name
+    # @returns - an dataframe containing an array of 0*N of segments
     #
     def get_segments(self, segment_name):
-        pass 
+        return (self.df.select(self.column).rdd
+                .map(lambda x: x[self.column].split(self.format_cls.SEGMENT_DELIM))
+                .map(lambda x: [y for y in x if y.startswith(segment_name)])
+                .map(lambda x: self.format_cls.SEGMENT_DELIM.join(x))
+                ).toDF([segment_name])
 
     #
     # @returns - header class object from EDI
@@ -37,20 +38,6 @@ class EDI():
     def get_header(self):
         pass
 
-
-class MsgHeader():
-
-    #
-    #
-    #
-    def __init__(self, data):
-        self.data = data
-
-    #
-    #
-    #
-    def get_msg_separator(self):
-        pass 
 
 class Segment():
 
