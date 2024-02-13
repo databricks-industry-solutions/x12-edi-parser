@@ -9,9 +9,9 @@ class EDI():
     # @param column_name - the column containing the UTF-8 edi data
     # @param delim_class - class that contains the delimiter information for parsing the EDI transactions
     #             - AnsiX12Delim is the default and most used
-    def __init__(self, df, column_name = "raw_data", delim_class = AnsiX12Delim):
+    def __init__(self, df, column_name = "raw_data", delim_cls = AnsiX12Delim):
         self.df = df
-        self.format_cls = delim_class
+        self.format_cls = delim_cls
         self.column = column_name
 
     #
@@ -41,20 +41,33 @@ class EDI():
 
 class Segment():
 
-    def __init__(self, data):
+    #
+    # data 
+    #
+    def __init__(self, data, delim_cls = AnsiX12Delim):
         self.data = data
+        self.format_cls
 
     #
     # @param field_number - numeric value of the field
     # @param delim - the delimiter used to separate values from the segment  
     # @return the value in the field from the specified segment 
     #
-    def get_field(self, field_number, delim):
+    def get_field(self, field_number):
         pass
 
     #
-    # @param delimiter to use
     # @returns number of elements in a segment 
     #
-    def get_length(self, delim):
-        pass 
+    def element_len(self):
+        return len(self.data.split(self.format_cls.ELEMENT_DELIM))
+
+    #
+    # @returns the number of sub elements in a segment
+    #
+    def sub_elements(self):
+        return len(self.data.split(self.format_cls.SUB_DELIM))
+
+    @staticmethod
+    def from_string(data, delim_cls = AnsiX12Delim):
+        return Segment(data, delim_cls)
