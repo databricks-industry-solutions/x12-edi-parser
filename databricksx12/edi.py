@@ -1,4 +1,6 @@
-    
+import re
+from databricksx12.format import *
+
 #
 # 
 #
@@ -46,7 +48,7 @@ class Segment():
     #
     def __init__(self, data, delim_cls = AnsiX12Delim):
         self.data = data
-        self.format_cls
+        self.format_cls = delim_cls
 
     #
     # @param field_number - numeric value of the field
@@ -68,6 +70,3 @@ class Segment():
     def sub_elements(self):
         return len(self.data.split(self.format_cls.SUB_DELIM))
 
-    @staticmethod
-    def from_string(data, delim_cls = AnsiX12Delim):
-        return Segment(data, delim_cls)
