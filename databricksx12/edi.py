@@ -17,22 +17,30 @@ class EDI():
         self.column = column_name
 
     #
-    # Return edi file delimiter (leading _ => class internal function)
-    #
-    def _get_delimiter(self):
-        pass
-
-
-    #
     # @param segment_name - the segment to search for within an EDI
+    #
     # @returns - an dataframe containing an array of 0*N of segments
     #
-    def get_segments(self, segment_name):
+    def get_segments_by_name(self, segment_name):
         return (self.df.select(self.column).rdd
                 .map(lambda x: x[self.column].split(self.format_cls.SEGMENT_DELIM))
                 .map(lambda x: [y for y in x if y.startswith(segment_name)])
                 .map(lambda x: self.format_cls.SEGMENT_DELIM.join(x))
-                ).toDF([segment_name])
+            ).toDF([segment_name])
+
+    #
+    # @param position_start - integer, the first segment to include (inclusive) starting at 0
+    # @param position_end - integer, the last segment to include (exclusive) starting at 0
+    #
+    # @returns - all segements between start and end positions
+    #          - if end_position is beyond last segment, returns up until last segment 
+    #
+    def get_segments_by_position(self, position_start, position_end):
+        return (self.df.select(self.column).rdd
+                .map(lambda x: x[self.column].split(self.format_cls.SEGMENT_DELIM))
+                .map(lambda x: x[position_start:min(position_end, len(x))])
+                .map(lambda x: self.format_cls.SEGMENT_DELIM.join(x))
+            ).toDF([position_start + "_" + position_end])
 
     #
     # @returns - header class object from EDI
