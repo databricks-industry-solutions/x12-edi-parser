@@ -51,12 +51,19 @@ class Segment():
         self.format_cls = delim_cls
 
     #
-    # @param field_number - numeric value of the field
-    # @param delim - the delimiter used to separate values from the segment  
-    # @return the value in the field from the specified segment 
+    # @param element - numeric value of the field (starting at 0)
+    # @param sub_element - get a sub-element value (-1 for all, 0 through N for sub number)
+    # @param dne - "Does Not Exist" value to return if  the element or sub element requested exceeds what is there
+    # @returns a single element or sub element string
     #
-    def get_field(self, field_number):
-        pass
+    def get_element(self, element, sub_element=-1, dne="na/dne"):
+        try:
+            return ( self.data.split(self.format_cls.ELEMENT_DELIM)[element]
+                     if sub_element == -1 else
+                     self.data.split(self.format_cls.ELEMENT_DELIM)[element].split(self.format_cls.SUB_DELIM)[sub_element]
+                    )
+        except:
+            return dne
 
     #
     # @returns number of elements in a segment 
@@ -67,6 +74,6 @@ class Segment():
     #
     # @returns the number of sub elements in a segment
     #
-    def sub_elements(self):
+    def sub_element_len(self):
         return len(self.data.split(self.format_cls.SUB_DELIM))
 
