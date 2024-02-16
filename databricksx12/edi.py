@@ -1,5 +1,7 @@
 import re
 from databricksx12.format import *
+from pyspark.sql.functions import col, regexp_replace
+from pyspark.sql import Row
 
 #
 # 
@@ -11,22 +13,22 @@ class EDI():
     # @param column_name - the column containing the UTF-8 edi data
     # @param delim_class - class that contains the delimiter information for parsing the EDI transactions
     #             - AnsiX12Delim is the default and most used
-    def __init__(self, df, column_name = "raw_data", delim_cls = AnsiX12Delim):
-        self.df = df
+    def __init__(self, data, delim_cls = AnsiX12Delim):
+        self.raw_data = data
         self.format_cls = delim_cls
-        self.column = column_name
+        self.data = [Segment(x, self.format_cls) for x in data.split(self.format_cls.SEGMENT_DELIM)[:-1]]
 
     #
-    # @param segment_name - the segment to search for within an EDI
+    # Returns total count of segments
     #
-    # @returns - an dataframe containing an array of 0*N of segments
+    def segment_count(self):
+        return len(self.data)
+
+    #
+    # Returns all segments matching segment_name
     #
     def get_segments_by_name(self, segment_name):
-        return (self.df.select(self.column).rdd
-                .map(lambda x: x[self.column].split(self.format_cls.SEGMENT_DELIM))
-                .map(lambda x: [y for y in x if y.startswith(segment_name)])
-                .map(lambda x: self.format_cls.SEGMENT_DELIM.join(x))
-            ).toDF([segment_name])
+        return [x for x in self.data if x.segment_name() == segment_name]
 
     #
     # @param position_start - integer, the first segment to include (inclusive) starting at 0
@@ -36,18 +38,19 @@ class EDI():
     #          - if end_position is beyond last segment, returns up until last segment 
     #
     def get_segments_by_position(self, position_start, position_end):
-        return (self.df.select(self.column).rdd
-                .map(lambda x: x[self.column].split(self.format_cls.SEGMENT_DELIM))
-                .map(lambda x: x[position_start:min(position_end, len(x))])
-                .map(lambda x: self.format_cls.SEGMENT_DELIM.join(x))
-            ).toDF([position_start + "_" + position_end])
+        return self.data[position_start:position_end]
 
     #
     # @returns - header class object from EDI
     #
     def get_header(self):
-        pass
+        return self.data[0]
 
+    #
+    # 
+    #
+    def position_of(self, segment_name):
+        pass
 
 class Segment():
 
@@ -55,7 +58,7 @@ class Segment():
     # data 
     #
     def __init__(self, data, delim_cls = AnsiX12Delim):
-        self.data = data
+        self.data = data.lstrip("\r").lstrip("\n").lstrip("\r\n")
         self.format_cls = delim_cls
 
     #
@@ -85,3 +88,8 @@ class Segment():
     def sub_element_len(self):
         return len(self.data.split(self.format_cls.SUB_DELIM))
 
+    #
+    # First element is the segment name
+    #
+    def segment_name(self):
+        return self.data.split(self.format_cls.ELEMENT_DELIM)[0]
