@@ -1,7 +1,5 @@
 import re
 from databricksx12.format import *
-from pyspark.sql.functions import col, regexp_replace
-from pyspark.sql import Row
 
 #
 # 
@@ -27,9 +25,15 @@ class EDI():
     #
     # Returns all segments matching segment_name
     #
-    def get_segments_by_name(self, segment_name):
+    def segments_by_name(self, segment_name):
         return [x for x in self.data if x.segment_name() == segment_name]
 
+    #
+    # Returns a tuple of all segments matching segment_name and their index
+    #
+    def segments_by_name_index(self, segment_name):
+        return [(i,x) for i,x in enumerate(self.data) if x.segment_name() == segment_name]
+    
     #
     # @param position_start - integer, the first segment to include (inclusive) starting at 0
     # @param position_end - integer, the last segment to include (exclusive) starting at 0
@@ -37,20 +41,14 @@ class EDI():
     # @returns - all segements between start and end positions
     #          - if end_position is beyond last segment, returns up until last segment 
     #
-    def get_segments_by_position(self, position_start, position_end):
+    def segments_by_position(self, position_start, position_end):
         return self.data[position_start:position_end]
 
     #
     # @returns - header class object from EDI
     #
-    def get_header(self):
+    def header(self):
         return self.data[0]
-
-    #
-    # 
-    #
-    def position_of(self, segment_name):
-        pass
 
 class Segment():
 
@@ -67,7 +65,7 @@ class Segment():
     # @param dne - "Does Not Exist" value to return if  the element or sub element requested exceeds what is there
     # @returns a single element or sub element string
     #
-    def get_element(self, element, sub_element=-1, dne="na/dne"):
+    def element(self, element, sub_element=-1, dne="na/dne"):
         try:
             return ( self.data.split(self.format_cls.ELEMENT_DELIM)[element]
                      if sub_element == -1 else
@@ -93,3 +91,11 @@ class Segment():
     #
     def segment_name(self):
         return self.data.split(self.format_cls.ELEMENT_DELIM)[0]
+
+    #
+    # Filter this segment for element/sub_element values
+    #
+    def filter(self, value, element, sub_element, dne="na/dne"):
+        return self if value == self.get_element(element, sub_element, dne) else None
+
+    
