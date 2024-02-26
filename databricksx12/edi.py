@@ -45,6 +45,20 @@ class EDI():
         return self.data[position_start:position_end]
 
     #
+    # Returns the total number of transactions using trailer segment 
+    #
+    def num_transactions(self):
+        return len(self.segments_by_name("SE"))
+    
+    #
+    # Return all segments associated with each transaction
+    #  [ trx1[SEGMENT1, ... SEGMENTN], trx2[SEGMENT1, ... SEGMENTN] ... ]
+    #
+    def transaction_segments(self):
+        return [Transaction(self.segments_by_position(i - int(x.element(1)),i+1), self.format_cls) for i,x in self.segments_by_name_index("SE")]
+        
+    
+    #
     # @returns - header class object from EDI
     #
     def header(self):
