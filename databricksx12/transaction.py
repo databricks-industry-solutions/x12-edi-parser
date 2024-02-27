@@ -20,27 +20,15 @@ class Transaction(EDI):
         self.format_cls = delim_cls
         self.funcs = [x for x in dir(self) if x.startswith("fx_") and x not in funcs]
         self.fields = {**fields, **{x[3:]:getattr(self,x)() for x in self.funcs}}
-        
-    #
-    # Override this method for each subclass 
-    #  
-    def toJson(self):
-        return self.fields
 
-    
+    def claim_count(self):
+        pass #TODO
 
 """
  Parsing 837 for relevant information about a transaction.
 
 """
 class Claim(Transaction):
-
-    def __init__(self):
-        pass
-
-
-    #
-    # Determine the transaction type, 837I, 837P, 835 etc...
-    #
-    def fx_edi_transaction_type(self):
-        pass
+    
+    def claim_line_count(self):
+        pass #TODO 

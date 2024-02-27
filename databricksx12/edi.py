@@ -61,6 +61,12 @@ class EDI():
         return [Transaction(self.segments_by_position(i - int(x.element(1)),i+1), self.format_cls, self.fields, self.funcs) for i,x in self.segments_by_name_index("SE")]
         
 
+    """
+     spark dataframe can be built from json
+    """
+    def toJson(self):
+        return self.fields
+    
     #
     # e.g. 835 -> 221 according to https://www.cgsmedicare.com/pdf/edi/835_compguide.pdf
     # 
