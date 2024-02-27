@@ -59,14 +59,15 @@ ediDF.show()
 Look at all data refernce -> https://justransform.com/edi-essentials/edi-structure/
   (1) Including control header / ISA & IEA segments
 """
-( df.rdd
-  .map(lambda x: x.asDict().get("value"))
-  .map(lambda x: EDI(x))
-  .map(lambda x: x.toRows())
+( df.withColumn("filename", input_file_name()).rdd
+  .map(lambda x: (x.asDict().get("filename"),x.asDict().get("value")))
+  .map(lambda x: (x[0], EDI(x[1])))
+  .map(lambda x: [{**{"filename": x[0]}, **y} for y in x[1].toRows()])
   .flatMap(lambda x: x)
   .toDF()).show()
 
 """
+Includes filename column but not shown below
 +--------------------+----------+--------------------------+--------------+------------+-----------------------------+
 |            row_data|row_number|segment_element_delim_char|segment_length|segment_name|segment_subelement_delim_char|
 +--------------------+----------+--------------------------+--------------+------------+-----------------------------+
@@ -80,17 +81,18 @@ Look at all data refernce -> https://justransform.com/edi-essentials/edi-structu
 """
 
 # (2) Functional header / ST & SE segments
-trxDF = ( df.rdd
-  .map(lambda x: x.asDict().get("value"))
-  .map(lambda x: EDI(x))
-  .map(lambda x: x.transaction_segments())
+trxDF = ( df.withColumn("filename", input_file_name()).rdd
+  .map(lambda x: (x.asDict().get("filename"),x.asDict().get("value")))
+  .map(lambda x: (x[0], EDI(x[1])))
+  .map(lambda x: [(x[0], y) for y in x[1].transaction_segments()])
   .flatMap(lambda x: x)
-  .map(lambda x: x.toRows())
+  .map(lambda x: [{**{"filename": x[0]}, **y} for y in x[1].toRows()])
   .flatMap(lambda x: x)
   .toDF())
 
 trxDF.show()
 """
+Includes filename column but not shown below
 +--------------------+----------+--------------------------+--------------+------------+-----------------------------+
 |            row_data|row_number|segment_element_delim_char|segment_length|segment_name|segment_subelement_delim_char|
 +--------------------+----------+--------------------------+--------------+------------+-----------------------------+
