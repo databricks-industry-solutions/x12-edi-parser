@@ -4,42 +4,71 @@
 [![POC](https://img.shields.io/badge/POC-10_days-green?style=for-the-badge)](https://databricks.com/try-databricks)
 
 ## Business Problem
-<List of the business use case the solution accelerator address>
 
-## Scope
-<How we expect the user to use this content>
+Addressing the issue of working with various parts of an x12 EDI transaction in Spark on Databricks.
 
-___
-<john.doe@databricks.com>
+## Install
 
-___
+## Run (Under Construction / Not Stable)
 
+### Reading in EDI Data
 
-IMAGE TO REFERENCE ARCHITECTURE
+```python
+#read EDI and save predefined fields to DF (WIP) 
+df = spark.read.text("sampledata/837/*", wholetext = True)
+ediDF = (
+  df.rdd
+    .map(lambda x: x.asDict().get("value"))
+    .map(lambda x: EDI(x))
+    .map(lambda x: x.toJson())
+).toDF()
 
-___
+ediDF.show()
+"""
++--------------------+--------------------+
+|edi_transaction_type|transaction_datetime|
++--------------------+--------------------+
+|                837P|       20180508:0833|
+|                837P|     20180710:214339|
+|                837I|   20180807:12022761|
+|                837P|   20180807:12022605|
++--------------------+--------------------+
+"""
 
-&copy; 2022 Databricks, Inc. All rights reserved. The source in this notebook is provided subject to the Databricks License [https://databricks.com/db-license-source].  All included or referenced third party libraries are subject to the licenses set forth below.
+#Count number of transactions
+(df.rdd
+  .map(lambda x: x.asDict().get("value"))
+  .map(lambda x: EDI(x))
+  .map(lambda x: {"transaction_count": x.num_transactions()})
+).toDF().show()
+"""
++-----------------+
+|transaction_count|
++-----------------+
+|                5|
+|                1|
+|                1|
+|                1|
++-----------------+
+"""
+``` 
 
-| library                                | description             | license    | source                                              |
-|----------------------------------------|-------------------------|------------|-----------------------------------------------------|
-| PyYAML                                 | Reading Yaml files      | MIT        | https://github.com/yaml/pyyaml                      |
+### Different EDI Formats
 
-## Getting started
+Default used is AnsiX12 (* as a delim and ~ as segment separator)
 
-Although specific solutions can be downloaded as .dbc archives from our websites, we recommend cloning these repositories onto your databricks environment. Not only will you get access to latest code, but you will be part of a community of experts driving industry best practices and re-usable solutions, influencing our respective industries. 
+```python
+from databricksx12.format import *
+ediFormat = AnsiX12Delim #specifying formats of data  
 
-<img width="500" alt="add_repo" src="https://user-images.githubusercontent.com/4445837/177207338-65135b10-8ccc-4d17-be21-09416c861a76.png">
+(df.rdd
+  .map(lambda x: x.asDict().get("value"))
+  .map(lambda x: EDI(x), delim_cls = ediFormat)
+  .map(lambda x: {"transaction_count": x.num_transactions()})
+).toDF().show()
+```
 
-To start using a solution accelerator in Databricks simply follow these steps: 
-
-1. Clone solution accelerator repository in Databricks using [Databricks Repos](https://www.databricks.com/product/repos)
-2. Attach the `RUNME` notebook to any cluster and execute the notebook via Run-All. A multi-step-job describing the accelerator pipeline will be created, and the link will be provided. The job configuration is written in the RUNME notebook in json format. 
-3. Execute the multi-step-job to see how the pipeline runs. 
-4. You might want to modify the samples in the solution accelerator to your need, collaborate with other users and run the code samples against your own data. To do so start by changing the Git remote of your repository  to your organization’s repository vs using our samples repository (learn more). You can now commit and push code, collaborate with other user’s via Git and follow your organization’s processes for code development.
-
-The cost associated with running the accelerator is the user's responsibility.
-
+### 
 
 ## Project support 
 
