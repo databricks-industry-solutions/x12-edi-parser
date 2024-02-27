@@ -66,6 +66,19 @@ Look at all data refernce -> https://justransform.com/edi-essentials/edi-structu
   .flatMap(lambda x: x)
   .toDF()).show()
 
+"""
++--------------------+----------+--------------------------+--------------+------------+-----------------------------+
+|            row_data|row_number|segment_element_delim_char|segment_length|segment_name|segment_subelement_delim_char|
++--------------------+----------+--------------------------+--------------+------------+-----------------------------+
+|ISA*00*          ...|         0|                         *|            17|         ISA|                            :|
+|GS*HC*CLEARINGHOU...|         1|                         *|             9|          GS|                            :|
+|ST*837*000000001*...|         2|                         *|             4|          ST|                            :|
+|BHT*0019*00*73490...|         3|                         *|             7|         BHT|                            :|
+|NM1*41*2*CLEARING...|         4|                         *|            10|         NM1|                            :|
+|PER*IC*CLEARINGHO...|         5|                         *|             7|         PER|                            :|
+|NM1*40*2*12345678...|         6|                         *|            10|         NM1|                            :|
+"""
+
 # (2) Functional header / ST & SE segments
 trxDF = ( df.rdd
   .map(lambda x: x.asDict().get("value"))
@@ -87,21 +100,6 @@ trxDF.show()
 |PER*IC*CLEARINGHO...|         3|                         *|             7|         PER|                            :|
 |NM1*40*2*12345678...|         4|                         *|            10|         NM1|                            :|
 |          HL*1**20*1|         5|                         *|             5|          HL|                            :|
-|NM1*85*2*BH CLINI...|         6|                         *|            10|         NM1|                            :|
-|    N3*12345 MAIN ST|         7|                         *|             2|          N3|                            :|
-|N4*VANCOUVER*WA*9...|         8|                         *|             4|          N4|                            :|
-|    REF*EI*720000000|         9|                         *|             3|         REF|                            :|
-|PER*IC*CONTACT*TE...|        10|                         *|             5|         PER|                            :|
-|            NM1*87*2|        11|                         *|             3|         NM1|                            :|
-|      N3*PO BOX 1234|        12|                         *|             2|          N3|                            :|
-|N4*VANCOUVER*WA*9...|        13|                         *|             4|          N4|                            :|
-|         HL*2*1*22*0|        14|                         *|             5|          HL|                            :|
-|SBR*P*18**COMMUNI...|        15|                         *|            10|         SBR|                            :|
-|NM1*IL*1*SUBSCRIB...|        16|                         *|            10|         NM1|                            :|
-|      N3*987 65TH PL|        17|                         *|             2|          N3|                            :|
-|N4*VANCOUVER*WA*9...|        18|                         *|             4|          N4|                            :|
-|   DMG*D8*19881225*M|        19|                         *|             4|         DMG|                            :|
-+--------------------+----------+--------------------------+--------------+------------+-----------------------------+
 """
 
 #show first line of each transaction
