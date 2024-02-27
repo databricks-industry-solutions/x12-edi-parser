@@ -80,7 +80,7 @@ Includes filename column but not shown below
 |NM1*40*2*12345678...|         6|                         *|            10|         NM1|                            :|
 """
 
-# (2) Functional header / ST & SE segments
+# (2) Individual Transactions (Functional header) / ST & SE segments
 trxDF = ( df.withColumn("filename", input_file_name()).rdd
   .map(lambda x: (x.asDict().get("filename"),x.asDict().get("value")))
   .map(lambda x: (x[0], EDI(x[1])))
