@@ -2,7 +2,7 @@ import re
 from databricksx12.format import *
 
 #
-# 
+# Base class for parsing EDI x12 
 #
 class EDI():
 
@@ -15,7 +15,9 @@ class EDI():
         self.raw_data = data
         self.format_cls = delim_cls
         self.data = [Segment(x, self.format_cls) for x in data.split(self.format_cls.SEGMENT_DELIM)[:-1]]
-
+        self.funcs = [x for x in dir(self) if x.startswith("fx_")] 
+        self.fields = {x[3:]:getattr(self,x)() for x in self.funcs}
+        
     #
     # Returns total count of segments
     #
@@ -55,8 +57,25 @@ class EDI():
     #  [ trx1[SEGMENT1, ... SEGMENTN], trx2[SEGMENT1, ... SEGMENTN] ... ]
     #
     def transaction_segments(self):
-        return [Transaction(self.segments_by_position(i - int(x.element(1)),i+1), self.format_cls) for i,x in self.segments_by_name_index("SE")]
+        from databricksx12.transaction import Transaction
+        return [Transaction(self.segments_by_position(i - int(x.element(1)),i+1), self.format_cls, self.fields, self.funcs) for i,x in self.segments_by_name_index("SE")]
         
+
+    #
+    # e.g. 835 -> 221 according to https://www.cgsmedicare.com/pdf/edi/835_compguide.pdf
+    # 
+    def fx_edi_transaction_type(self):
+        if self.segments_by_name("GS")[0].element(8)[7:10] == '222':
+            return '837P'
+        elif self.segments_by_name("GS")[0].element(8)[7:10] == '223':
+            return '837I'
+        elif self.segments_by_name("GS")[0].element(8)[7:10] == '221':
+            return '835'
+        else:
+            return 'not implemented error for segment GS08 ' + self.segments_by_name("GS")[0].element(8)
+        
+    def fx_transaction_datetime(self):
+        return self.segments_by_name("GS")[0].element(4) + ":" + self.segments_by_name("GS")[0].element(5)
     
     #
     # @returns - header class object from EDI
