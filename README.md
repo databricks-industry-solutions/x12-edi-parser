@@ -14,6 +14,8 @@ Addressing the issue of working with various parts of an x12 EDI transaction in 
 ### Reading in EDI Data
 
 ```python
+from databricksx12.edi import *
+
 #read EDI and save predefined fields to DF (WIP) 
 df = spark.read.text("sampledata/837/*", wholetext = True)
 ediDF = (
@@ -22,6 +24,7 @@ ediDF = (
     .map(lambda x: EDI(x))
     .map(lambda x: x.toJson())
 ).toDF()
+
 
 ediDF.show()
 """
@@ -50,6 +53,73 @@ ediDF.show()
 |                1|
 |                1|
 +-----------------+
+"""
+
+""""
+Look at all data refernce -> https://justransform.com/edi-essentials/edi-structure/
+  (1) Including control header / ISA & IEA segments
+"""
+( df.rdd
+  .map(lambda x: x.asDict().get("value"))
+  .map(lambda x: EDI(x))
+  .map(lambda x: x.toRows())
+  .flatMap(lambda x: x)
+  .toDF()).show()
+
+# (2) Functional header / ST & SE segments
+trxDF = ( df.rdd
+  .map(lambda x: x.asDict().get("value"))
+  .map(lambda x: EDI(x))
+  .map(lambda x: x.transaction_segments())
+  .flatMap(lambda x: x)
+  .map(lambda x: x.toRows())
+  .flatMap(lambda x: x)
+  .toDF())
+
+trxDF.show()
+"""
++--------------------+----------+--------------------------+--------------+------------+-----------------------------+
+|            row_data|row_number|segment_element_delim_char|segment_length|segment_name|segment_subelement_delim_char|
++--------------------+----------+--------------------------+--------------+------------+-----------------------------+
+|ST*837*000000001*...|         0|                         *|             4|          ST|                            :|
+|BHT*0019*00*73490...|         1|                         *|             7|         BHT|                            :|
+|NM1*41*2*CLEARING...|         2|                         *|            10|         NM1|                            :|
+|PER*IC*CLEARINGHO...|         3|                         *|             7|         PER|                            :|
+|NM1*40*2*12345678...|         4|                         *|            10|         NM1|                            :|
+|          HL*1**20*1|         5|                         *|             5|          HL|                            :|
+|NM1*85*2*BH CLINI...|         6|                         *|            10|         NM1|                            :|
+|    N3*12345 MAIN ST|         7|                         *|             2|          N3|                            :|
+|N4*VANCOUVER*WA*9...|         8|                         *|             4|          N4|                            :|
+|    REF*EI*720000000|         9|                         *|             3|         REF|                            :|
+|PER*IC*CONTACT*TE...|        10|                         *|             5|         PER|                            :|
+|            NM1*87*2|        11|                         *|             3|         NM1|                            :|
+|      N3*PO BOX 1234|        12|                         *|             2|          N3|                            :|
+|N4*VANCOUVER*WA*9...|        13|                         *|             4|          N4|                            :|
+|         HL*2*1*22*0|        14|                         *|             5|          HL|                            :|
+|SBR*P*18**COMMUNI...|        15|                         *|            10|         SBR|                            :|
+|NM1*IL*1*SUBSCRIB...|        16|                         *|            10|         NM1|                            :|
+|      N3*987 65TH PL|        17|                         *|             2|          N3|                            :|
+|N4*VANCOUVER*WA*9...|        18|                         *|             4|          N4|                            :|
+|   DMG*D8*19881225*M|        19|                         *|             4|         DMG|                            :|
++--------------------+----------+--------------------------+--------------+------------+-----------------------------+
+"""
+
+#show first line of each transaction
+trxDF.filter(x.row_number == 0).show()
+"""
++--------------------+----------+--------------------------+--------------+------------+-----------------------------+
+|            row_data|row_number|segment_element_delim_char|segment_length|segment_name|segment_subelement_delim_char|
++--------------------+----------+--------------------------+--------------+------------+-----------------------------+
+|ST*837*000000001*...|         0|                         *|             4|          ST|                            :|
+|ST*837*000000002*...|         0|                         *|             4|          ST|                            :|
+|ST*837*000000003*...|         0|                         *|             4|          ST|                            :|
+|ST*837*000000004*...|         0|                         *|             4|          ST|                            :|
+|ST*837*000000005*...|         0|                         *|             4|          ST|                            :|
+|ST*837*000000001*...|         0|                         *|             4|          ST|                            :|
+|ST*837*0001*00501...|         0|                         *|             4|          ST|                            :|
+|ST*837*0001*00501...|         0|                         *|             4|          ST|                            :|
+|ST*837*0001*00501...|         0|                         *|             4|          ST|                            :|
++--------------------+----------+--------------------------+--------------+------------+-----------------------------+
 """
 ``` 
 
