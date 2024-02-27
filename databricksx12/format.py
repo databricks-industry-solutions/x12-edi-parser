@@ -15,9 +15,6 @@ class AnsiX12Delim(Format):
     ELEMENT_DELIM = "*"
     SUB_DELIM = ":"
 
-    def __init__(self):
-        pass
-
 class EDIFactDelim(Format):
     TAG_DELIM = "+"
     SEGMENT_DELIM = "'"
@@ -26,9 +23,6 @@ class EDIFactDelim(Format):
     DECIMAL_DELIM = "."
     RELEASE_DELIM = "?"    
 
-    def __init__(self):
-        pass
-
 class TradacomsDelim(Format):
     TAG_DELIM = "="
     SEGMENT_DELIM = "'"
@@ -36,7 +30,3 @@ class TradacomsDelim(Format):
     SUB_DELIM = ":"
     DECIMAL_DELIM = "."
     RELEASE_DELIM = "?"
-    def __init__(self):
-        pass
-
-
