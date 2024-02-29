@@ -58,9 +58,23 @@ class EDI():
     #
     def transaction_segments(self):
         from databricksx12.transaction import Transaction
-        return [Transaction(self.segments_by_position(i - int(x.element(1)),i+1), self.format_cls, self.fields, self.funcs) for i,x in self.segments_by_name_index("SE")]
-        
-
+        return [Transaction(self.segments_by_position(i - int(x.element(1))+1,i+1), self.format_cls, self.fields, self.funcs) for i,x in self.segments_by_name_index("SE")]
+    """
+     Convert entire dataset into consumable row/column format
+        Preserves the following information:
+          *Segment names 
+          *Row numbers for hierarchy
+          *Row length for easy query access
+          *Row data with split functionality to easily access row members 
+    """
+    def toRows(self):
+        return [{"segment_name": x.segment_name()
+                 ,"segment_length": x.segment_len()
+                 ,"row_number": i
+                 ,"row_data": x.data
+                 ,"segment_element_delim_char": x.format_cls.ELEMENT_DELIM
+                 ,"segment_subelement_delim_char": x.format_cls.SUB_DELIM} for i,x in enumerate(self.data)] 
+    
     """
      spark dataframe can be built from json
     """
@@ -116,7 +130,7 @@ class Segment():
     #
     # @returns number of elements in a segment 
     #
-    def element_len(self):
+    def segment_len(self):
         return len(self.data.split(self.format_cls.ELEMENT_DELIM))
 
     #

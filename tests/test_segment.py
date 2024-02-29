@@ -12,7 +12,7 @@ class TestSegment(PysparkBaseTest):
     #
     def test_segment_length(self):
         assert(len(TestSegment.segments) == 66)
-        assert( set([s.element_len() == len(s.data.split("*")) for s in TestSegment.segments]) == {True} )
+        assert( set([s.segment_len() == len(s.data.split("*")) for s in TestSegment.segments]) == {True} )
         
     def test_sub_element_length(self):
         assert(len(TestSegment.segments) == 66)

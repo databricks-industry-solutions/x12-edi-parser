@@ -3,8 +3,20 @@ from databricksx12.edi import *
 
 class TestPyspark(PysparkBaseTest):
 
-    df = spark.read.text("sampledata/837/CC_837I_EDI.txt", wholetext=True)
+    df = spark.read.text("sampledata/837/*txt", wholetext=True)
 
 
-    def test_spark_df(self):
-        df.withColumn(
+    def test_transaction_count(self):
+        data = (df.rdd
+                .map(lambda x: x.asDict().get("value"))
+                .map(lambda x: EDI(x))
+                .map(lambda x: {"transaction_count": x.num_transactions()})
+                ).toDF()
+        assert ( data.count() == 4) #4 rows
+        assert ( data.select(sum(data.transaction_count)) == 8) #8 ST/SE transactions
+
+    def test_tbd(self):
+        data = data = (df.rdd
+                .map(lambda x: x.asDict().get("value"))
+                .map(lambda x: EDI(x))
+                       
