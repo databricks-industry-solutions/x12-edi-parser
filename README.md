@@ -98,8 +98,8 @@ from pyspark.sql.functions import input_file_name
 ```python
 
 """
-
 # (2) Individual Transactions (Functional header) / ST & SE segments
+"""
 trxDF = ( df.withColumn("filename", input_file_name()).rdd
   .map(lambda x: (x.asDict().get("filename"),x.asDict().get("value")))
   .map(lambda x: (x[0], EDI(x[1])))
