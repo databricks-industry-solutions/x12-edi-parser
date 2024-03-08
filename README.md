@@ -17,6 +17,50 @@ pip install git+https://github.com/databricks-industry-solutions/x12-edi-parser
 
 ### Reading in EDI Data
 
+#### EDI Formats
+
+Default used is AnsiX12 (* as a delim and ~ as segment separator)
+
+```python
+from databricksx12.format import *
+ediFormat = AnsiX12Delim #specifying formats of data, ansi is also the default if nothing is specified 
+df = spark.read.text("sampledata/837/*", wholetext = True)
+
+(df.rdd
+  .map(lambda x: x.asDict().get("value"))
+  .map(lambda x: EDI(x, delim_cls = ediFormat))
+  .map(lambda x: {"transaction_count": x.num_transactions()})
+).toDF().show()
++-----------------+
+|transaction_count|
++-----------------+
+|                5|
+|                1|
+|                1|
+|                1|
++-----------------+
+
+
+
+#Building a dynamic/custom format
+customFormat = type("", (), dict({'SEGMENT_DELIM': '~', 'ELEMENT_DELIM': '*', 'SUB_DELIM': ':'}))
+(df.rdd
+  .map(lambda x: x.asDict().get("value"))
+  .map(lambda x: EDI(x, delim_cls = customFormat))
+  .map(lambda x: {"transaction_count": x.num_transactions()})
+).toDF().show()
++-----------------+
+|transaction_count|
++-----------------+
+|                5|
+|                1|
+|                1|
+|                1|
++-----------------+
+
+
+```
+
 ```python
 from databricksx12.edi import *
 
@@ -126,21 +170,6 @@ trxDF.filter(x.row_number == 0).show()
 +--------------------+----------+--------------------------+--------------+------------+-----------------------------+
 """
 ``` 
-
-### Different EDI Formats
-
-Default used is AnsiX12 (* as a delim and ~ as segment separator)
-
-```python
-from databricksx12.format import *
-ediFormat = AnsiX12Delim #specifying formats of data  
-
-(df.rdd
-  .map(lambda x: x.asDict().get("value"))
-  .map(lambda x: EDI(x), delim_cls = ediFormat)
-  .map(lambda x: {"transaction_count": x.num_transactions()})
-).toDF().show()
-```
 
 ### 
 
