@@ -23,6 +23,7 @@ Default used is AnsiX12 (* as a delim and ~ as segment separator)
 
 ```python
 from databricksx12.format import *
+from databricksx12.edi import *
 ediFormat = AnsiX12Delim #specifying formats of data, ansi is also the default if nothing is specified 
 df = spark.read.text("sampledata/837/*", wholetext = True)
 
@@ -90,8 +91,39 @@ from pyspark.sql.functions import input_file_name
 |NM1*40*2*12345678...|         6|                         *|            10|         NM1|                            :|file:///|
 ```
 
+#### Further EDI Parsing in Pyspark
+
+
+>  **Warning** 
+> Sections below this are under construction
+
 ```python
-from databricksx12.edi import *
+
+"""
+
+# (2) Individual Transactions (Functional header) / ST & SE segments
+trxDF = ( df.withColumn("filename", input_file_name()).rdd
+  .map(lambda x: (x.asDict().get("filename"),x.asDict().get("value")))
+  .map(lambda x: (x[0], EDI(x[1])))
+  .map(lambda x: [(x[0], y) for y in x[1].transaction_segments()])
+  .flatMap(lambda x: x)
+  .map(lambda x: [{**{"filename": x[0]}, **y} for y in x[1].toRows()])
+  .flatMap(lambda x: x)
+  .toDF())
+
+trxDF.show()
+"""
+Includes filename column but not shown below
++--------------------+----------+--------------------------+--------------+------------+-----------------------------+
+|            row_data|row_number|segment_element_delim_char|segment_length|segment_name|segment_subelement_delim_char|
++--------------------+----------+--------------------------+--------------+------------+-----------------------------+
+|ST*837*000000001*...|         0|                         *|             4|          ST|                            :|
+|BHT*0019*00*73490...|         1|                         *|             7|         BHT|                            :|
+|NM1*41*2*CLEARING...|         2|                         *|            10|         NM1|                            :|
+|PER*IC*CLEARINGHO...|         3|                         *|             7|         PER|                            :|
+|NM1*40*2*12345678...|         4|                         *|            10|         NM1|                            :|
+|          HL*1**20*1|         5|                         *|             5|          HL|                            :|
+"""
 
 #read EDI and save predefined fields to DF (WIP) 
 df = spark.read.text("sampledata/837/*", wholetext = True)
@@ -133,31 +165,7 @@ ediDF.show()
 """
 
 
-"""
 
-# (2) Individual Transactions (Functional header) / ST & SE segments
-trxDF = ( df.withColumn("filename", input_file_name()).rdd
-  .map(lambda x: (x.asDict().get("filename"),x.asDict().get("value")))
-  .map(lambda x: (x[0], EDI(x[1])))
-  .map(lambda x: [(x[0], y) for y in x[1].transaction_segments()])
-  .flatMap(lambda x: x)
-  .map(lambda x: [{**{"filename": x[0]}, **y} for y in x[1].toRows()])
-  .flatMap(lambda x: x)
-  .toDF())
-
-trxDF.show()
-"""
-Includes filename column but not shown below
-+--------------------+----------+--------------------------+--------------+------------+-----------------------------+
-|            row_data|row_number|segment_element_delim_char|segment_length|segment_name|segment_subelement_delim_char|
-+--------------------+----------+--------------------------+--------------+------------+-----------------------------+
-|ST*837*000000001*...|         0|                         *|             4|          ST|                            :|
-|BHT*0019*00*73490...|         1|                         *|             7|         BHT|                            :|
-|NM1*41*2*CLEARING...|         2|                         *|            10|         NM1|                            :|
-|PER*IC*CLEARINGHO...|         3|                         *|             7|         PER|                            :|
-|NM1*40*2*12345678...|         4|                         *|            10|         NM1|                            :|
-|          HL*1**20*1|         5|                         *|             5|          HL|                            :|
-"""
 
 #show first line of each transaction
 trxDF.filter(x.row_number == 0).show()
