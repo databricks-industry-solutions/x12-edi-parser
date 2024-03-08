@@ -17,9 +17,7 @@ pip install git+https://github.com/databricks-industry-solutions/x12-edi-parser
 
 ### Reading in EDI Data
 
-#### EDI Formats
-
-Default used is AnsiX12 (* as a delim and ~ as segment separator)
+Default format used is AnsiX12 (* as a delim and ~ as segment separator)
 
 ```python
 from databricksx12.format import *
