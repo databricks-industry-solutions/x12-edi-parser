@@ -9,6 +9,10 @@ Addressing the issue of working with various parts of an x12 EDI transaction in 
 
 ## Install
 
+```python
+pip install git+https://github.com/databricks-industry-solutions/x12-edi-parser
+```
+
 ## Run 
 
 ### Reading in EDI Data
