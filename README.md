@@ -3,13 +3,13 @@
 [![CLOUD](https://img.shields.io/badge/CLOUD-ALL-blue?logo=googlecloud&style=for-the-badge)](https://cloud.google.com/databricks)
 [![POC](https://img.shields.io/badge/POC-10_days-green?style=for-the-badge)](https://databricks.com/try-databricks)
 
-## Business Problem
+## Business Problem (Under Construction / Not Stable)
 
 Addressing the issue of working with various parts of an x12 EDI transaction in Spark on Databricks.
 
 ## Install
 
-## Run (Under Construction / Not Stable)
+## Run 
 
 ### Reading in EDI Data
 
