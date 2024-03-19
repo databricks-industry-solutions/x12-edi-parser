@@ -18,8 +18,8 @@ class Transaction(EDI):
     def __init__(self, segments, delim_cls = AnsiX12Delim, fields = None, funcs = None):
         self.data = segments
         self.format_cls = delim_cls
-        self.funcs = [x for x in dir(self) if x.startswith("fx_") and x not in funcs]
-        self.fields = {**fields, **{x[3:]:getattr(self,x)() for x in self.funcs}}
+        #self.funcs = [x for x in dir(self) if x.startswith("fx_") and x not in funcs]
+        #self.fields = {**fields, **{x[3:]:getattr(self,x)() for x in self.funcs}}
 
     #
     # Returns number of claims in the transaction

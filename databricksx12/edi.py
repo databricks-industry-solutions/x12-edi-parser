@@ -2,7 +2,9 @@ import re
 from databricksx12.format import *
 
 #
-# Base class for parsing EDI x12 
+# Base class for parsing EDI x12
+#  provides base interface to functional groups and transactions 
+#   https://justransform.com/edi-essentials/edi-structure/
 #
 class EDI():
 
@@ -51,6 +53,12 @@ class EDI():
     #
     def num_transactions(self):
         return len(self.segments_by_name("SE"))
+
+    #
+    # Functional groups
+    #
+    def num_functional_groups(self):
+        pass
     
     #
     # Return all segments associated with each transaction

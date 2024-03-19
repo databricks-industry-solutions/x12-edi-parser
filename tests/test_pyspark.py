@@ -16,7 +16,8 @@ class TestPyspark(PysparkBaseTest):
         assert ( data.select(sum(data.transaction_count)) == 8) #8 ST/SE transactions
 
     def test_tbd(self):
-        data = data = (df.rdd
+        data =  (df.rdd
                 .map(lambda x: x.asDict().get("value"))
                 .map(lambda x: EDI(x))
+                 )
                        
