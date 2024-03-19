@@ -3,10 +3,8 @@ from databricksx12.edi import *
 
 class TestPyspark(PysparkBaseTest):
 
-    df = spark.read.text("sampledata/837/*txt", wholetext=True)
-
-
     def test_transaction_count(self):
+        df = self.spark.read.text("sampledata/837/*txt", wholetext=True)
         data = (df.rdd
                 .map(lambda x: x.asDict().get("value"))
                 .map(lambda x: EDI(x))

@@ -1,4 +1,4 @@
-import re
+import re, functools
 from databricksx12.format import *
 
 #
@@ -29,14 +29,14 @@ class EDI():
     #
     # Returns all segments matching segment_name
     #
-    def segments_by_name(self, segment_name):
-        return [x for x in self.data if x.segment_name() == segment_name]
+    def segments_by_name(self, segment_name, range_start=-1, range_end=None):
+        return [x for i,x in enumerate(self.data) if x.segment_name() == segment_name and range_start <= i <= (range_end or len(self.data))]
 
     #
     # Returns a tuple of all segments matching segment_name and their index
     #
-    def segments_by_name_index(self, segment_name):
-        return [(i,x) for i,x in enumerate(self.data) if x.segment_name() == segment_name]
+    def segments_by_name_index(self, segment_name, range_start=-1, range_end = None):
+        return [(i,x) for i,x in enumerate(self.data) if x.segment_name() == segment_name and range_start <= i <= (range_end or len(self.data))]
     
     #
     # @param position_start - integer, the first segment to include (inclusive) starting at 0
@@ -58,15 +58,53 @@ class EDI():
     # Functional groups
     #
     def num_functional_groups(self):
-        pass
+        return len(self.segments_by_name("GE"))
     
     #
     # Return all segments associated with each transaction
     #  [ trx1[SEGMENT1, ... SEGMENTN], trx2[SEGMENT1, ... SEGMENTN] ... ]
+    #  SE01 element contains how many segments are included in the transaction
     #
     def transaction_segments(self):
         from databricksx12.transaction import Transaction
-        return [Transaction(self.segments_by_position(i - int(x.element(1))+1,i+1), self.format_cls, self.fields, self.funcs) for i,x in self.segments_by_name_index("SE")]
+        return [Transaction(self.segments_by_position(a,b), self.format_cls, self.fields, self.funcs) for a,b in self._transaction_locations()]
+
+    def _transaction_locations(self):
+        return [(i - int(x.element(1))+1,i+1) for i,x in  self.segments_by_name_index("SE")]
+    
+    #
+    # Return all segments associated with each funtional group
+    # [ fg1[SEGMENT1 ... SEGMENTN], fg2[SEGMENT1... SEGMENTN] ... ] 
+    # GE01 element contains how many transactions are included in the group
+    #
+    #  
+    #
+    def functional_segments(self):
+        from databricksx12.functional import FunctionalGroup
+        return [FunctionalGroup(self.segments_by_position(a-1,b+1), self.format_cls) for a,b in self._functional_group_locations()]
+                        
+
+    def _functional_group_locations(self):
+        return list(map(self._functional_segments_trx_list, [(i, int(y.element(1))) for i, y in self.segments_by_name_index("GE")]))
+    
+    #
+    # Fold left, given a
+    #   @param functional_group = tuple (i,x)
+    #   @param where i = start location in file of trailer segment
+    #   @param where x = number of transactions in the functional group
+    #
+    #   @return a tuple of the start/end locations of the transactions
+    #
+    def _functional_segments_trx_list(self, functional_group):
+        l = ()
+        f = lambda trxs, x, fg: x if len(trxs) <= fg[1] and x[1] <= fg[0] else None
+        return functools.reduce(lambda a,b: (min(a[0], b[0]), max(a[1], b[1])),
+                    filter(
+                        lambda y: y is not None, [l := f(l, x, functional_group) for x in self._transaction_locations()]
+                    )
+                )
+
+    
     """
      Convert entire dataset into consumable row/column format
         Preserves the following information:
