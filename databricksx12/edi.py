@@ -126,22 +126,7 @@ class EDI():
     """
     def toJson(self):
         return self.fields
-    
-    #
-    # e.g. 835 -> 221 according to https://www.cgsmedicare.com/pdf/edi/835_compguide.pdf
-    # 
-    def fx_edi_transaction_type(self):
-        if self.segments_by_name("GS")[0].element(8)[7:10] == '222':
-            return '837P'
-        elif self.segments_by_name("GS")[0].element(8)[7:10] == '223':
-            return '837I'
-        elif self.segments_by_name("GS")[0].element(8)[7:10] == '221':
-            return '835'
-        else:
-            return 'not implemented error for segment GS08 ' + self.segments_by_name("GS")[0].element(8)
-        
-    def fx_transaction_datetime(self):
-        return self.segments_by_name("GS")[0].element(4) + ":" + self.segments_by_name("GS")[0].element(5)
+
     
     #
     # @returns - header class object from EDI
