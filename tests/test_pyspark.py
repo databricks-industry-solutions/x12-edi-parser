@@ -11,11 +11,5 @@ class TestPyspark(PysparkBaseTest):
                 .map(lambda x: {"transaction_count": x.num_transactions()})
                 ).toDF()
         assert ( data.count() == 4) #4 rows
-        assert ( data.select(sum(data.transaction_count)) == 8) #8 ST/SE transactions
+        assert ( data.select(data.transaction_count).groupBy().sum().collect()[0]["sum(transaction_count)"] == 8) #8 ST/SE transactions
 
-    def test_tbd(self):
-        data =  (df.rdd
-                .map(lambda x: x.asDict().get("value"))
-                .map(lambda x: EDI(x))
-                 )
-                       
