@@ -17,8 +17,6 @@ class EDI():
         self.raw_data = data
         self.format_cls = delim_cls
         self.data = [Segment(x, self.format_cls) for x in data.split(self.format_cls.SEGMENT_DELIM)[:-1]]
-        self.funcs = [x for x in dir(self) if x.startswith("fx_")] 
-        self.fields = {x[3:]:getattr(self,x)() for x in self.funcs}
         
     #
     # Returns total count of segments
@@ -182,4 +180,9 @@ class Segment():
     def filter(self, value, element, sub_element, dne="na/dne"):
         return self if value == self.get_element(element, sub_element, dne) else None
 
-    
+
+#
+# utility function for extracting values from different parts of EDI 
+# 
+def class_metadata(cls_obj, exclude=['data', 'raw_data']):
+    return [attr for attr in dir(cls_obj) if not callable(getattr(cls_obj, attr)) and not attr.startswith("__") and attr not in exclude]
