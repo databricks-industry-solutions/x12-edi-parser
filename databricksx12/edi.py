@@ -221,9 +221,18 @@ class EDIManager():
             return [EDIManager.flatten(d) for d in data]
         elif type(data) == type({}): 
             return {
-                **{EDIManager.class_metadata(v) for k,v in data.items() if type(v) != type([])},
-                **{'list': [EDIManager.flatten(v) for k,v in data.items() if type(v) == type([])]}
+                **dict(ChainMap(*[EDIManager.class_metadata(v) for k,v in data.items() if type(v) != type([])])),
+                **{'list': EDIManager.flatten(v) for k,v in data.items() if type(v) == type([])}
             }
         else:
             return EDIManager.class_metadata(data)
     
+
+"""
+from databricksx12.edi import *
+x =  EDIManager(EDI(open("sampledata/837/CHPW_Claimdata.txt", "rb").read().decode("utf-8")))
+
+import json
+print(json.dumps(x.flatten(x.data), indent=4))
+
+"""
