@@ -1,4 +1,5 @@
 import re, functools
+from collections import ChainMap
 from databricksx12.format import *
 
 #
@@ -17,6 +18,7 @@ class EDI():
         self.raw_data = data
         self.format_cls = delim_cls
         self.data = [Segment(x, self.format_cls) for x in data.split(self.format_cls.SEGMENT_DELIM)[:-1]]
+        self.sender_tax_id = self.segments_by_name("ISA")[0].element(7)
         
     #
     # Returns total count of segments
@@ -65,7 +67,7 @@ class EDI():
     #
     def transaction_segments(self):
         from databricksx12.transaction import Transaction
-        return [Transaction(self.segments_by_position(a,b), self.format_cls, self.fields, self.funcs) for a,b in self._transaction_locations()]
+        return [Transaction(self.segments_by_position(a,b), self.format_cls) for a,b in self._transaction_locations()]
 
     def _transaction_locations(self):
         return [(i - int(x.element(1))+1,i+1) for i,x in  self.segments_by_name_index("SE")]
@@ -118,14 +120,7 @@ class EDI():
                  ,"row_data": x.data
                  ,"segment_element_delim_char": x.format_cls.ELEMENT_DELIM
                  ,"segment_subelement_delim_char": x.format_cls.SUB_DELIM} for i,x in enumerate(self.data)] 
-    
-    """
-     spark dataframe can be built from json
-    """
-    def toJson(self):
-        return self.fields
 
-    
     #
     # @returns - header class object from EDI
     #
@@ -181,8 +176,54 @@ class Segment():
         return self if value == self.get_element(element, sub_element, dne) else None
 
 
+
+
 #
-# utility function for extracting values from different parts of EDI 
+# Manage relationship heirarchy within EDI
 # 
-def class_metadata(cls_obj, exclude=['data', 'raw_data']):
-    return [attr for attr in dir(cls_obj) if not callable(getattr(cls_obj, attr)) and not attr.startswith("__") and attr not in exclude]
+class EDIManager():
+    
+    def __init__(self, edi):
+        self.data = {"edi": edi,
+                     "functional_groups": [
+                         {"fg": fg,
+                          "transactions": fg.transaction_segments()}  for fg in edi.functional_segments()
+                     ]
+                    }
+
+    #
+    # Summary of all x12 components present
+    #
+    def summary(self):
+        return {
+            "Number of Segments": self.data["edi"].segment_count(),
+            "Number of Functional Groups": self.data["edi"].num_functional_groups(),
+            "Number of Transactions": self.data["edi"].num_transactions(),
+            "Transaction Count by Type": 
+              [{fg["fg"].transaction_type: fg["fg"].num_transactions()} for fg in self.data["functional_groups"]]
+        }
+        
+    #
+    # utility function for extracting values from different parts of EDI
+    #
+    #  @returns a python dictionary representing metadata found in EDI/FunctionalGroup/Transaction classes
+    #
+    @staticmethod
+    def class_metadata(cls_obj, exclude=['data', 'raw_data']):
+        return {str(cls_obj.__class__.__name__ + "." + attr): getattr(cls_obj, attr) for attr in dir(cls_obj) if not callable(getattr(cls_obj, attr)) and not attr.startswith("__") and attr not in exclude}
+
+    #
+    # 
+    #
+    @staticmethod
+    def flatten(data = None):
+        if type(data) == type([]):
+            return [EDIManager.flatten(d) for d in data]
+        elif type(data) == type({}): 
+            return {
+                **{EDIManager.class_metadata(v) for k,v in data.items() if type(v) != type([])},
+                **{'list': [EDIManager.flatten(v) for k,v in data.items() if type(v) == type([])]}
+            }
+        else:
+            return EDIManager.class_metadata(data)
+    

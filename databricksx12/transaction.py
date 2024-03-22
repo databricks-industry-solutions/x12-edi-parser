@@ -19,12 +19,5 @@ class Transaction(EDI):
         self.data = segments
         self.format_cls = delim_cls
 
-#
-# Interface for creating transactions from functional groups
-#
-class TransactionManager():
-
-    def __init__(self, fgs):
-        self.fgs = fgs
 
     
