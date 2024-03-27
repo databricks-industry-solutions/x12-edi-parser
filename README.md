@@ -93,16 +93,15 @@ from pyspark.sql.functions import input_file_name
 
 ```python
 from databricksx12.hls.healthcare import *
-import itertools
 
 hm = HealthcareManager()
 x =  EDI(open("sampledata/837/CHPW_Claimdata.txt", "rb").read().decode("utf-8"))
 
-list(itertools.chain.from_iterable([hm.from_functional_group(y) for y in x.functional_segments()])) 
+hm.from_edi(x) 
 #[<databricksx12.hls.claim.Claim837p object at 0x1027003d0>, <databricksx12.hls.claim.Claim837p object at 0x1027006a0>, <databricksx12.hls.claim.Claim837p object at 0x102700700>, <databricksx12.hls.claim.Claim837p object at 0x102700550>, <databricksx12.hls.claim.Claim837p object at 0x1027002b0>]
 
-one_claim = hm.from_functional_group(x.functional_segments()[0])[0].data
-print("\n".join([y.data for y in one_claim])) #Print one claim to look at the segments of it
+one_claim = hm.from_edi(x)[0]
+print("\n".join([y.data for y in one_claim.data])) #Print one claim to look at the segments of it
 """
 BHT*0019*00*7349063984*20180508*0833*CH
 NM1*41*2*CLEARINGHOUSE LLC*****46*987654321
