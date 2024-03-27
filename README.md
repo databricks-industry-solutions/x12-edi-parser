@@ -146,6 +146,42 @@ REF*6R*142671
 > Sections below this are under construction
 
 ```python
+from databricksx12.edi import *
+x =  EDIManager(EDI(open("sampledata/837/CHPW_Claimdata.txt", "rb").read().decode("utf-8")))
+
+import json
+print(json.dumps(x.flatten(x.data), indent=4))
+{
+    "EDI.sender_tax_id": "ZZ",
+    "list": [
+        {
+            "FunctionalGroup.receiver": "123456789",
+            "FunctionalGroup.sender": "CLEARINGHOUSE",
+            "FunctionalGroup.transaction_datetime": "20180508:0833",
+            "FunctionalGroup.transaction_type": "222",
+            "list": [
+                {
+                    "Transaction.transaction_type": "222"
+                },
+                {
+                    "Transaction.transaction_type": "222"
+                },
+                {
+                    "Transaction.transaction_type": "222"
+                },
+                {
+                    "Transaction.transaction_type": "222"
+                },
+                {
+                    "Transaction.transaction_type": "222"
+                }
+            ]
+        }
+    ]
+}
+```
+
+```python
 
 """
 # (2) Individual Transactions (Functional header) / ST & SE segments
