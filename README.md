@@ -89,6 +89,57 @@ from pyspark.sql.functions import input_file_name
 |NM1*40*2*12345678...|         6|                         *|            10|         NM1|                            :|file:///|
 ```
 
+#### Parsing Healthcare Transactions
+
+```python
+from databricksx12.hls.healthcare import *
+import itertools
+
+hm = HealthcareManager()
+x =  EDI(open("sampledata/837/CHPW_Claimdata.txt", "rb").read().decode("utf-8"))
+
+list(itertools.chain.from_iterable([hm.from_functional_group(y) for y in x.functional_segments()])) 
+#[<databricksx12.hls.claim.Claim837p object at 0x1027003d0>, <databricksx12.hls.claim.Claim837p object at 0x1027006a0>, <databricksx12.hls.claim.Claim837p object at 0x102700700>, <databricksx12.hls.claim.Claim837p object at 0x102700550>, <databricksx12.hls.claim.Claim837p object at 0x1027002b0>]
+
+one_claim = hm.from_functional_group(x.functional_segments()[0])[0].data
+print("\n".join([y.data for y in one_claim])) #Print one claim to look at the segments of it
+"""
+BHT*0019*00*7349063984*20180508*0833*CH
+NM1*41*2*CLEARINGHOUSE LLC*****46*987654321
+PER*IC*CLEARINGHOUSE CLIENT SERVICES*TE*8005551212*FX*8005551212
+NM1*40*2*123456789*****46*CHPWA
+HL*1**20*1
+NM1*85*2*BH CLINIC OF VANCOUVER*****XX*1122334455
+N3*12345 MAIN ST
+N4*VANCOUVER*WA*98662
+REF*EI*720000000
+PER*IC*CONTACT*TE*9185551212
+NM1*87*2
+N3*PO BOX 1234
+N4*VANCOUVER*WA*986681234
+HL*2*1*22*0
+SBR*P*18**COMMUNITY HLTH PLAN OF WASH*****CI
+NM1*IL*1*SUBSCRIBER*JOHN*J***MI*987321
+N3*987 65TH PL
+N4*VANCOUVER*WA*986640001
+DMG*D8*19881225*M
+NM1*PR*2*COMMUNITY HEALTH PLAN OF WASHINGTON*****PI*CHPWA
+CLM*1805080AV3648339*20***57:B:1*Y*A*Y*Y
+REF*D9*7349065509
+HI*ABK:F1120
+NM1*82*1*PROVIDER*JAMES****XX*1112223338
+PRV*PE*PXC*261QR0405X
+NM1*77*2*BH CLINIC OF VANCOUVER*****XX*1122334455
+N3*12345 MAIN ST SUITE A1
+N4*VANCOUVER*WA*98662
+LX*1
+SV1*HC:H0003*20*UN*1***1
+DTP*472*D8*20180428
+REF*6R*142671
+
+"""
+```
+
 #### Further EDI Parsing in Pyspark
 
 
