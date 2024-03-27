@@ -1,8 +1,11 @@
-import re
+import re, functools
+from collections import ChainMap
 from databricksx12.format import *
 
 #
-# Base class for parsing EDI x12 
+# Base class for parsing EDI x12
+#  provides base interface to functional groups and transactions 
+#   https://justransform.com/edi-essentials/edi-structure/
 #
 class EDI():
 
@@ -15,8 +18,7 @@ class EDI():
         self.raw_data = data
         self.format_cls = delim_cls
         self.data = [Segment(x, self.format_cls) for x in data.split(self.format_cls.SEGMENT_DELIM)[:-1]]
-        self.funcs = [x for x in dir(self) if x.startswith("fx_")] 
-        self.fields = {x[3:]:getattr(self,x)() for x in self.funcs}
+        self.sender_tax_id = self.segments_by_name("ISA")[0].element(7)
         
     #
     # Returns total count of segments
@@ -27,14 +29,14 @@ class EDI():
     #
     # Returns all segments matching segment_name
     #
-    def segments_by_name(self, segment_name):
-        return [x for x in self.data if x.segment_name() == segment_name]
+    def segments_by_name(self, segment_name, range_start=-1, range_end=None):
+        return [x for i,x in enumerate(self.data) if x.segment_name() == segment_name and range_start <= i <= (range_end or len(self.data))]
 
     #
     # Returns a tuple of all segments matching segment_name and their index
     #
-    def segments_by_name_index(self, segment_name):
-        return [(i,x) for i,x in enumerate(self.data) if x.segment_name() == segment_name]
+    def segments_by_name_index(self, segment_name, range_start=-1, range_end = None):
+        return [(i,x) for i,x in enumerate(self.data) if x.segment_name() == segment_name and range_start <= i <= (range_end or len(self.data))]
     
     #
     # @param position_start - integer, the first segment to include (inclusive) starting at 0
@@ -51,14 +53,55 @@ class EDI():
     #
     def num_transactions(self):
         return len(self.segments_by_name("SE"))
+
+    #
+    # Functional groups
+    #
+    def num_functional_groups(self):
+        return len(self.segments_by_name("GE"))
+    
     
     #
-    # Return all segments associated with each transaction
-    #  [ trx1[SEGMENT1, ... SEGMENTN], trx2[SEGMENT1, ... SEGMENTN] ... ]
+    # Return all segments associated with each funtional group
+    # [ fg1[SEGMENT1 ... SEGMENTN], fg2[SEGMENT1... SEGMENTN] ... ] 
+    # GE01 element contains how many transactions are included in the group
     #
-    def transaction_segments(self):
-        from databricksx12.transaction import Transaction
-        return [Transaction(self.segments_by_position(i - int(x.element(1))+1,i+1), self.format_cls, self.fields, self.funcs) for i,x in self.segments_by_name_index("SE")]
+    #  
+    #
+    def functional_segments(self):
+        from databricksx12.functional import FunctionalGroup
+        return [FunctionalGroup(self.segments_by_position(a-1,b+1), self.format_cls) for a,b in self._functional_group_locations()]
+                        
+
+    def _functional_group_locations(self):
+        return list(map(self._functional_segments_trx_list, [(i, int(y.element(1))) for i, y in self.segments_by_name_index("GE")]))
+
+    #
+    # Find all locations of a transaction
+    #
+    def _transaction_locations(self):
+        return [(i - int(x.element(1))+1,i+1) for i,x in  self.segments_by_name_index("SE")]
+    
+    #
+    # Fold left, given a
+    #   @param functional_group = tuple (i,x)
+    #   @param where i = start location in file of trailer segment
+    #   @param where x = number of transactions in the functional group
+    #
+    #   @return a tuple of the start/end locations of the transactions
+    #
+    def _functional_segments_trx_list(self, functional_group):
+        l = ()
+        f = lambda trxs, x, fg: x if len(trxs) <= fg[1] and x[1] <= fg[0] else None
+        return functools.reduce(lambda a,b: (min(a[0], b[0]), max(a[1], b[1])),
+                    filter(
+                        lambda y: y is not None, [l := f(l, x, functional_group) for x in self._transaction_locations()]
+                    )
+                )
+
+    def to_json(self, exclude=["data", "raw_data"]):
+        return {str(self.__class__.__name__ + "." + attr): getattr(self, attr) for attr in dir(self) if not callable(getattr(self, attr)) and not attr.startswith("__") and attr not in exclude}
+
     """
      Convert entire dataset into consumable row/column format
         Preserves the following information:
@@ -74,29 +117,7 @@ class EDI():
                  ,"row_data": x.data
                  ,"segment_element_delim_char": x.format_cls.ELEMENT_DELIM
                  ,"segment_subelement_delim_char": x.format_cls.SUB_DELIM} for i,x in enumerate(self.data)] 
-    
-    """
-     spark dataframe can be built from json
-    """
-    def toJson(self):
-        return self.fields
-    
-    #
-    # e.g. 835 -> 221 according to https://www.cgsmedicare.com/pdf/edi/835_compguide.pdf
-    # 
-    def fx_edi_transaction_type(self):
-        if self.segments_by_name("GS")[0].element(8)[7:10] == '222':
-            return '837P'
-        elif self.segments_by_name("GS")[0].element(8)[7:10] == '223':
-            return '837I'
-        elif self.segments_by_name("GS")[0].element(8)[7:10] == '221':
-            return '835'
-        else:
-            return 'not implemented error for segment GS08 ' + self.segments_by_name("GS")[0].element(8)
-        
-    def fx_transaction_datetime(self):
-        return self.segments_by_name("GS")[0].element(4) + ":" + self.segments_by_name("GS")[0].element(5)
-    
+
     #
     # @returns - header class object from EDI
     #
@@ -151,4 +172,64 @@ class Segment():
     def filter(self, value, element, sub_element, dne="na/dne"):
         return self if value == self.get_element(element, sub_element, dne) else None
 
+
+
+
+#
+# Manage relationship heirarchy within EDI
+# 
+class EDIManager():
     
+    def __init__(self, edi):
+        self.data = {"edi": edi,
+                     "functional_groups": [
+                         {"fg": fg,
+                          "transactions": fg.transaction_segments()}  for fg in edi.functional_segments()
+                     ]
+                    }
+
+    #
+    # Summary of all x12 components present
+    #
+    def summary(self):
+        return {
+            "Number of Segments": self.data["edi"].segment_count(),
+            "Number of Functional Groups": self.data["edi"].num_functional_groups(),
+            "Number of Transactions": self.data["edi"].num_transactions(),
+            "Transaction Count by Type": 
+              [{fg["fg"].transaction_type: fg["fg"].num_transactions()} for fg in self.data["functional_groups"]]
+        }
+        
+    #
+    # utility function for extracting values from different parts of EDI
+    #
+    #  @returns a python dictionary representing metadata found in EDI/FunctionalGroup/Transaction classes
+    #
+    @staticmethod
+    def class_metadata(cls_obj, exclude=['data', 'raw_data']):
+        return {str(cls_obj.__class__.__name__ + "." + attr): getattr(cls_obj, attr) for attr in dir(cls_obj) if not callable(getattr(cls_obj, attr)) and not attr.startswith("__") and attr not in exclude}
+
+    #
+    # Flatten data from EDI to represent 
+    #
+    @staticmethod
+    def flatten(data = None):
+        if type(data) == type([]):
+            return [EDIManager.flatten(d) for d in data]
+        elif type(data) == type({}): 
+            return {
+                **dict(ChainMap(*[EDIManager.class_metadata(v) for k,v in data.items() if type(v) != type([])])),
+                **{'list': EDIManager.flatten(v) for k,v in data.items() if type(v) == type([])}
+            }
+        else:
+            return EDIManager.class_metadata(data)
+    
+
+"""
+from databricksx12.edi import *
+x =  EDIManager(EDI(open("sampledata/837/CHPW_Claimdata.txt", "rb").read().decode("utf-8")))
+
+import json
+print(json.dumps(x.flatten(x.data), indent=4))
+
+"""

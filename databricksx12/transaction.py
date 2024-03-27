@@ -13,31 +13,15 @@ from databricksx12.format import *
 class Transaction(EDI):
 
     #
-    # @param is an array of segments starting with GS, ending with SE
+    # @param segments is expected as an array of segments starting with ST, ending with SE
     #
-    def __init__(self, segments, delim_cls = AnsiX12Delim, fields = None, funcs = None):
+    def __init__(self,segments, delim_cls = AnsiX12Delim, transaction_type=None):
         self.data = segments
         self.format_cls = delim_cls
-        self.funcs = [x for x in dir(self) if x.startswith("fx_") and x not in funcs]
-        self.fields = {**fields, **{x[3:]:getattr(self,x)() for x in self.funcs}}
+        self.transaction_type = transaction_type
 
-    #
-    # Returns number of claims in the transaction
-    #
-    def claim_count(self):
-        return len(self.segments_by_name("CLM"))
+    
+class TransactionManager(EDI):
 
-    #
-    # Returns claim level detail 
-    #
-    def to_claims(self):
-        from databricksx12.hls.claim import Claim
-        [(i, x.data) for i,x in x.segments_by_name_index("CLM")]
-        """
-        [(24, 'CLM*ABC11111*1800***22:B:1*Y*A*Y*Y'),
-        (60, 'CLM*ABC111112*984***22:B:1*Y*A*Y*Y'),
-        (94, 'CLM*ABC111113*1353***22:B:1*Y*A*Y*Y'),
-        (118, 'CLM*ABC111114*1968***22:B:1*Y*A*Y*Y')]
-        self.segments_by_name_index("CLM")
-        """
-
+    def __init__(self, transactions, transaction_class_mapping):
+        pass

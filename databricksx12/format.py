@@ -2,9 +2,8 @@
 #
 # 
 #
-class Format():
-    def __init__(self):
-        pass
+class Format(dict):
+    __getattr__, __setattr__ = dict.get, dict.__setitem__
 
 #
 #  https://www.ibm.com/docs/en/sgfmw/5.3.1?topic=gs-edi-delimiters
