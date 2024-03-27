@@ -1,5 +1,6 @@
 from databricksx12.edi import *
 from databricksx12.hls.claim import *
+import itertools
 
 
 class HealthcareManager(EDI):
@@ -10,6 +11,14 @@ class HealthcareManager(EDI):
             "221": "835"
     }):
         self.mapping = mapping
+
+
+    #
+    # Given an EDI message, return a list of healthcare claims
+    #
+    def from_edi(self, edi):
+        return list(itertools.chain.from_iterable([self.from_functional_group(y) for y in edi.functional_segments()])) 
+
 
     def from_functional_group(self, fg):
         return [self.from_transaction(x) for x in fg.transaction_segments()]
