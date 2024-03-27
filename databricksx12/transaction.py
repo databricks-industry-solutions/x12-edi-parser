@@ -15,9 +15,13 @@ class Transaction(EDI):
     #
     # @param segments is expected as an array of segments starting with ST, ending with SE
     #
-    def __init__(self, segments, delim_cls = AnsiX12Delim):
+    def __init__(self,segments, delim_cls = AnsiX12Delim, transaction_type=None):
         self.data = segments
         self.format_cls = delim_cls
-
+        self.transaction_type = transaction_type
 
     
+class TransactionManager(EDI):
+
+    def __init__(self, transactions, transaction_class_mapping):
+        pass

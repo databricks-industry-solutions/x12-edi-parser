@@ -60,17 +60,6 @@ class EDI():
     def num_functional_groups(self):
         return len(self.segments_by_name("GE"))
     
-    #
-    # Return all segments associated with each transaction
-    #  [ trx1[SEGMENT1, ... SEGMENTN], trx2[SEGMENT1, ... SEGMENTN] ... ]
-    #  SE01 element contains how many segments are included in the transaction
-    #
-    def transaction_segments(self):
-        from databricksx12.transaction import Transaction
-        return [Transaction(self.segments_by_position(a,b), self.format_cls) for a,b in self._transaction_locations()]
-
-    def _transaction_locations(self):
-        return [(i - int(x.element(1))+1,i+1) for i,x in  self.segments_by_name_index("SE")]
     
     #
     # Return all segments associated with each funtional group
@@ -86,6 +75,12 @@ class EDI():
 
     def _functional_group_locations(self):
         return list(map(self._functional_segments_trx_list, [(i, int(y.element(1))) for i, y in self.segments_by_name_index("GE")]))
+
+    #
+    # Find all locations of a transaction
+    #
+    def _transaction_locations(self):
+        return [(i - int(x.element(1))+1,i+1) for i,x in  self.segments_by_name_index("SE")]
     
     #
     # Fold left, given a
@@ -104,7 +99,9 @@ class EDI():
                     )
                 )
 
-    
+    def to_json(self, exclude=["data", "raw_data"]):
+        return {str(self.__class__.__name__ + "." + attr): getattr(self, attr) for attr in dir(self) if not callable(getattr(self, attr)) and not attr.startswith("__") and attr not in exclude}
+
     """
      Convert entire dataset into consumable row/column format
         Preserves the following information:
@@ -213,7 +210,7 @@ class EDIManager():
         return {str(cls_obj.__class__.__name__ + "." + attr): getattr(cls_obj, attr) for attr in dir(cls_obj) if not callable(getattr(cls_obj, attr)) and not attr.startswith("__") and attr not in exclude}
 
     #
-    # 
+    # Flatten data from EDI to represent 
     #
     @staticmethod
     def flatten(data = None):
