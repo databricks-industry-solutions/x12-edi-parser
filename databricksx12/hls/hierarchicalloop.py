@@ -18,13 +18,13 @@ class HierarchicalLoop(EDI):
         self.target_element, self.target_segment_name, self.target_element_index = self.loop_mapping.get_identifiers(
             Loop)
 
-        # find all HL segments along with the 3rd element that denotes 2000A or 2000B
+        # find all HL segments along with the 3rd element that denotes 2000A (20) or 2000B (22)
         self.hl_segments = self._hl_identifiers()
 
-        # find all HL segments along with the 3rd element that denotes 2000A or 2000B
+        # find all CLM segments (important for indexing the last HL or SBR within a tx)
         self.clm_segments = self._clm_identifiers()
 
-        # Calculate ranges and then extract 2000A lines based on those ranges
+        # Calculate ranges and then extract 2000A/B lines based on those ranges
         self.ranges = self.select_range_of_interest(
             self.hl_segments, self.clm_segments, self.target_element)
         self.extracted_lines = self.extract_lines_based_on_ranges(
