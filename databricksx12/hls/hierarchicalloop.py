@@ -1,20 +1,38 @@
 from databricksx12.edi import *
 
 class LoopMapping:
+
+    def __init__(self, mappings=None):
+        self.mappings = (mappings if mappings is not None else {
+            '20': {
+                'description': 'Information Source',
+                'loop': '2000A'
+                },
+            '22': {
+                'description': 'Subscriber',
+                'loop': '2000B'
+                }
+            })
+
+
+   
+        
+    """
     def __init__(self):
         self.mappings = {
             '2000A': ('20', 'NM1', '3'),
             '2000B': ('22', 'SBR', '4'),
         }
 
-    def get_identifiers(self, loop_type):
-        return self.mappings.get(loop_type, (None, None))
+
+    ADZ want our key = (lookup value found in data), value = additional info needed 
+    """
 
 
 class HierarchicalLoop(EDI):
-    def __init__(self, data, delim_cls=AnsiX12Delim, Loop='2000B'):
+    def __init__(self, data, delim_cls=AnsiX12Delim, loop_mapping= LoopMapping.mappings):
         super().__init__(data, delim_cls)
-        self.loop_mapping = LoopMapping()
+        self.loop_mapping = loop_mapping
         self.target_element, self.target_segment_name, self.target_element_index = self.loop_mapping.get_identifiers(
             Loop)
 
@@ -32,7 +50,7 @@ class HierarchicalLoop(EDI):
 
     def _hl_identifiers(self):
         # Find the segments where HL loop begins
-        indexed_HL_segments = self.segments_by_name_index("HL")
+        indexed_HL_segments = self.segments_by_nloop_object.extracted_linesame_index("HL")
         return [(i, x.element(3)) for i, x in indexed_HL_segments]
 
     def _clm_identifiers(self):
@@ -77,3 +95,42 @@ class HierarchicalLoop(EDI):
             extracted_elements.extend(desired_elements)
 
         return list(extracted_elements)
+
+
+    def parent_loops(self):
+        pass
+
+    def child_loops(self, parent_loop_num):
+        pass
+
+    """
+       @return
+         -index of each HL segment
+         -index of parent segments
+         -be able to answer "where is loop XYZ?" and "at this location, what looop am i in?"
+    """
+    def _hl_segment_indexes(self):
+        pass
+
+
+    self.hl_parents = {
+        parent:
+        { index_start : value
+          index_end : value
+           children : [
+               hl_child : {
+                   index_start: value
+                   index_end: value
+                   }
+               ]
+        }
+
+
+    self.hl = HL()
+    self.claim_start_index = segment(clm)
+
+    Who is my billing provider?  hl.get_loop(20)
+    Who is my subscriber?
+    Who is my patient? 
+    
+    
