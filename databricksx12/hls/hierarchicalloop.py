@@ -1,46 +1,40 @@
 from databricksx12.edi import *
+import functools
 
 
 class HierarchicalLoop(EDI):
     def __init__(self, data, delim_cls=AnsiX12Delim):
         super().__init__(data, delim_cls)
-
-        # find all HL and SE segments to find start and end of loops + CLM segments
-        self.indexed_HL_segments = self.segments_by_name_index("HL")
-        self.indexed_SE_segments = self.segments_by_name_index("SE")
-
-        # parent and children loops
+        self.parent_start_loops = self._parent_start_tup_loops()  # returns tuple; to check
+        self.parent_end_loops = self._parent_end_loops()
         self.parent_loops = self._parent_loops()
         self.child_loops = self._child_loops(self.parent_loops)
-        self.subchild_loops = self._child_loops(self.child_loops)
+        self.subchild_loops = self._child_loops(self.child_loops) # recursive cases
+
+    def _parent_start_tup_loops(self):
+        # index of parent, counter, and if child
+        # TODO unit test to return tuple
+        return [(i, x.element(1), x.element(-1)) for i, x in self.segments_by_name_index("HL") if x.element(2) == ""]
+
+    def _parent_end_loops(self):
+        return [i for i, x in self.segments_by_name_index("SE")]
 
     def _parent_loops(self):
-        parent_start_loops = []
-        for i, segment in self.indexed_HL_segments:
-            # Check if the second element is empty (and the third element is '20' and the last element is '1')
-            if segment.element(2) == '':
-                # index of parent, counter, and if child
-                parent_start_loops.append(
-                    (i, segment.element(1), segment.element(-1)))
-
-        parent_end_loops = [i for i, x in self.indexed_SE_segments]
-        return [(tup + (j,)) for tup, j in zip(parent_start_loops, parent_end_loops)]
+        return [(tup + (j,)) for tup, j in zip(self.parent_start_loops, self.parent_end_loops)]
 
     def _child_loops(self, parent_loops):
-        child_loops = []
-        for parent_start_index, counter, child_id, parent_stop_index in parent_loops:
-            if child_id == '1':
-                for i, segment in self.indexed_HL_segments:
-                    if segment.element(2) == counter:
-                        # index of child, parent/tx counter, and if sub-child
-                        child_loops.append(
-                            (i, counter, segment.element(-1), parent_stop_index))
+        child_loops = [(i, counter, segment.element(-1), parent_stop_index)
+                       for _, counter, child_id, parent_stop_index in parent_loops if int(child_id) == 1
+                       for i, segment in self.segments_by_name_index("HL") if segment.element(2) == counter]
 
-        # If child_id is greater than 1, recursively call the fn
-            if int(child_id) > 1:
-                child_loops.extend(self._child_loops(
-                    [(parent_start_index, counter, str(int(child_id) - 1), parent_stop_index)]))
-        return child_loops
+        # recursive cases where child_id is greater than 1 == sub_child
+        subchild_cases = filter(lambda x: int(x[2]) > 1, parent_loops)
+        subchild_loops = map(
+            lambda x: self._child_loops(
+                [(x[0], x[1], str(int(x[2]) - 1), x[3])]),
+            subchild_cases
+        )
+        return functools.reduce(lambda acc, lst: acc + lst, subchild_loops, child_loops)
 
 
 class HierarchicalLoopManager:
@@ -50,26 +44,26 @@ class HierarchicalLoopManager:
         self.generate_summary()
 
     def generate_summary(self):
-        for pl in self.hl.parent_loops:
+        def process_parent_loop(parent_loop):
+            # filter/map child loops within a parent loop
+            children = list(map(
+                lambda child_loop: {
+                    'child_index_start': child_loop[0],
+                    'child_index_stop': child_loop[-1]
+                },
+                filter(
+                    lambda child_loop: parent_loop[0] < child_loop[0] < parent_loop[-1], self.hl.child_loops)
+            ))
+            # summary dict for each parent
             parent_summary = {
-                'parent_index_start': pl[0],
-                'parent_index_end': pl[-1],
-                'children': []
+                'parent_index_start': parent_loop[0],
+                'parent_index_end': parent_loop[-1],
+                'children': children
             }
-            # Find children loops for this parent tx
-            children = []
-            for cl in self.hl.child_loops:
-                if pl[0] < cl[0] < pl[-1]:
-                    children.append({
-                        'child_index_start': cl[0],
-                        'child_index_stop': cl[-1]
-                    })
+            return (parent_loop[1], parent_summary)
 
-            # Add children to parent summary
-            parent_summary['children'] = children
-
-            # Add HL 1 counter to the summary as the key
-            self.summary[pl[1]] = parent_summary
+        # summarize all parent loops
+        self.summary = dict(map(process_parent_loop, self.hl.parent_loops))
 
 
 """
