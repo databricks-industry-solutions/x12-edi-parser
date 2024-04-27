@@ -40,30 +40,26 @@ class HierarchicalLoop(EDI):
 class HierarchicalLoopManager:
     def __init__(self, data, delim_cls=AnsiX12Delim):
         self.hl = HierarchicalLoop(data, delim_cls)
-        self.summary = {}
-        self.generate_summary()
+        self.summary = self.generate_summary()
+
+    def get_child_loops(self, parent_loop, loops):
+        return [loop for loop in loops if parent_loop[0] < loop[0] < parent_loop[-1]]
+
+    def process_loop(self, loop, level=0):
+        child_loops = self.get_child_loops(loop, self.hl.child_loops)
+        children = [self.process_loop(child, level + 1) for child in child_loops]
+        
+        loop_summary = {
+            'index_start': loop[0],
+            'index_end': loop[-1],
+            'children': children or None
+        }
+        return loop_summary
 
     def generate_summary(self):
-        def process_parent_loop(parent_loop):
-            # filter/map child loops within a parent loop
-            children = list(map(
-                lambda child_loop: {
-                    'child_index_start': child_loop[0],
-                    'child_index_stop': child_loop[-1]
-                },
-                filter(
-                    lambda child_loop: parent_loop[0] < child_loop[0] < parent_loop[-1], self.hl.child_loops)
-            ))
-            # summary dict for each parent
-            parent_summary = {
-                'parent_index_start': parent_loop[0],
-                'parent_index_end': parent_loop[-1],
-                'children': children
-            }
-            return (parent_loop[1], parent_summary)
-
-        # summarize all parent loops
-        self.summary = dict(map(process_parent_loop, self.hl.parent_loops))
+        """Generate a hierarchical summary for each top-level parent loop."""
+        loop_processing = lambda loop: (str(loop[1]), self.process_loop(loop))
+        return dict(map(loop_processing, self.hl.parent_loops))
 
 
 """
@@ -71,20 +67,23 @@ loop_manager = HierarchicalLoopManager(sample_data_837i_edited)
 summary = loop_manager.summary 
 
 output:
-{'1': {'parent_index_start': 7,
-  'parent_index_end': 35,
-  'children': [{'child_index_start': 16, 'child_index_stop': 35}]},
- '63': {'parent_index_start': 41,
-  'parent_index_end': 69,
-  'children': [{'child_index_start': 50, 'child_index_stop': 69}]},
- '49': {'parent_index_start': 75,
-  'parent_index_end': 103,
-  'children': [{'child_index_start': 84, 'child_index_stop': 103}]},
- '75': {'parent_index_start': 109,
-  'parent_index_end': 138,
-  'children': [{'child_index_start': 118, 'child_index_stop': 138}]},
- '79': {'parent_index_start': 144,
-  'parent_index_end': 179,
-  'children': [{'child_index_start': 153, 'child_index_stop': 179},
-   {'child_index_start': 160, 'child_index_stop': 179}]}}
+{'1': {'index_start': 7,
+  'index_end': 35,
+  'children': [{'index_start': 16, 'index_end': 35, 'children': None}]},
+ '63': {'index_start': 41,
+  'index_end': 69,
+  'children': [{'index_start': 50, 'index_end': 69, 'children': None}]},
+ '49': {'index_start': 75,
+  'index_end': 103,
+  'children': [{'index_start': 84, 'index_end': 103, 'children': None}]},
+ '75': {'index_start': 109,
+  'index_end': 138,
+  'children': [{'index_start': 118, 'index_end': 138, 'children': None}]},
+ '79': {'index_start': 144,
+  'index_end': 179,
+  'children': [{'index_start': 153,
+    'index_end': 179,
+    'children': [{'index_start': 160, 'index_end': 179, 'children': None}]},
+   {'index_start': 160, 'index_end': 179, 'children': None}]}} 
+   # the last 'children' list, there is a repeat that is tricky to remove
 """
