@@ -36,7 +36,6 @@ class LoopMapping:
         }
     
     def get_mapping(self, element, description=None):
-        """ Returns a specific mapping based on element key and description. """
         mappings = self.mappings.get(element, {})
         if description:
             return mappings.get(description, None)
@@ -54,7 +53,7 @@ class Loop(EDI):
     def get_transaction_info(self, tx_summary, clm_index):
         """
         retrieves transaction information for a claim from hierarchical summary
-        Eg., Getting the transaction range for claim index "x"
+        get the transaction range for claim index "x"
         """
         return next((info for _, info in tx_summary.items()
                      if info['index_start'] <= int(clm_index) <= info['index_end']), None)
@@ -62,7 +61,7 @@ class Loop(EDI):
     def get_ranges(self, tx_info, use_children=False):
         """
         extracts numeric ranges for parent and optionally children based on transaction
-        Eg., find ranges for parent and children loops for processing
+        find ranges for parent and children loops for processing
         """
         parent_range = (tx_info['index_start'], tx_info['index_end'])
         if use_children:
@@ -99,7 +98,7 @@ class Loop(EDI):
     def find_reference_elements(self, loop_key, description=None):
         """
         extract reference elements from claims based on loop mapping and hierarchy and handles children separately if specified by loop key.
-        Eg., find billing provider names under loop '20' from an EDI transaction.
+        find billing provider names under loop '20' from an EDI transaction.
         """
 
         loop_info = self.loop_mapping.get_mapping(loop_key, description)
