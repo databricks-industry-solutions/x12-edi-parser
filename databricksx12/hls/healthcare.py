@@ -28,12 +28,6 @@ class HealthcareManager(EDI):
     #  @mapping = mapping the GS08 segment to the type of healthcare transaction
     #
     def from_transaction(self, trnx):
-        type = self.mapping.get(trnx.transaction_type)
-        data = [x for x in trnx.data if x.segment_name() not in ['ST', 'SE']]
-        if type == "837P": 
-            return Claim837p(data, trnx.format_cls)
-        elif type == "837I":
-            return Claim837i(data, trnx.format_cls)
-        else:
-            return None #no mapping available
+        return ClaimBuilder(self.mapping.get(trnx.transaction_type),
+                            [x for x in trnx.data if x.segment_name() not in ['ST', 'SE']], trnx.delim_cls).build()
     
