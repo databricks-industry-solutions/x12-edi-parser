@@ -1,51 +1,16 @@
 from databricksx12.edi import *
 from functools import reduce
-from databricksx12.hls import hierarchicalloop
-
 
 class LoopMapping:
     def __init__(self, mappings=None):
         self.mappings = mappings if mappings is not None else {
             '20': {
-                'Information Source': {
-                    'loop': '2000A',
-                    'reference_ids': ('NM1', '3'),
-                    'secondary_reference': ('85', '1')
-                },
-                'Provider Address Line 1': {
-                    'loop': '2000AA',
-                    'reference_ids': ('N3', '1')
-                }
-
+                'loop name': 'Information Source',
+                'loop': '2000A'
             },
             '22': {
-                'Subscriber': {
-                    'loop': '2000B',
-                    'reference_ids': ('SBR', '4')
-                },
-                'Individual First Name': {
-                    'loop': '2010BA',
-                    'reference_ids': ('NM1', '4'),
-                    'secondary_reference': ('IL', '1')
-                },
-                'Individual Last Name': {
-                    'loop': '2010BA',
-                    'reference_ids': ('NM1', '3'),
-                    'secondary_reference': ('IL', '1')
-                },
-                'Payer Name': {
-                    'loop': '2010BB',
-                    'reference_ids': ('NM1', '3'),
-                    'secondary_reference': ('PR', '1')
-                },
-                'Claim ID': {
-                    'loop': '2300',
-                    'reference_ids': ('CLM', '1')
-                },
-                'Claim Amount': {
-                    'loop': '2300',
-                    'reference_ids': ('CLM', '2')
-                }
+                'loop name': 'Subscriber',
+                'loop': '2000B'
             }
         }
 
@@ -58,82 +23,99 @@ class LoopMapping:
 
 
 class Loop(EDI):
+
+    
     def __init__(self, data, delim_cls=AnsiX12Delim, loop_mapping=LoopMapping()):
         super().__init__(data, delim_cls)
         self.loop_mapping = loop_mapping
-        self.hlmanager = hierarchicalloop.HierarchicalLoopManager(data)
-        self.hl_summary = self.hlmanager.summary
+        self._start_indexes = self._build_hierarchy_start_indexes()
+        self.loop_hierarchy = self.build_hierarchy()
+        """
+        loop_hierarchy = { unique_id : {
+            start_idx : ""
+            end_idx : ""
+            parent_id : ""
+            hl_code : ""
+            child_code: ""
+           }
+        }
+        """
 
-        self.sender = self.segments_by_name("GS")[0].element(2)
-        self.receiver = self.segments_by_name("GS")[0].element(3)
+    #
+    # Build a complete hierarchical view of all HL segments start and end positions 
+    #
+    def build_hierarchy(self):
+        """
+        Return all start indexes         
+        """
+        return {
+            x[0]: {
+                "start_idx": x[1],
+                "end_idx": self._determine_end_index(x[1]),
+                "parent_id": x[2],
+                "hl_code": x[3],
+                "child_code": x[4]
+            }
+            for x in self._start_indexes
+        }
 
-    def claim_segments(self):
-        return [(i, x.element(2)) for i, x in self.segments_by_name_index("CLM")]
+    #
+    # Return a tuple of all HL segments, start index, id, parent id, child code, and hl_code
+    #
+    def _build_hierarchy_start_indexes(self):
+        return [ ( x.element(1), #id
+                   i, # "start_idx"
+                   x.element(2), # "parent_id"
+                   x.element(3), # "hl_code"
+                   x.element(4))  # "child_code"
+         for i,x in self.segments_by_name_index("HL")]
 
-    def claim_count(self):
-        return len(self.segments_by_name_index("CLM"))
+    #
+    # Determine the end index of an HL segment
+    #  @param start_idx - the start index of the existing HL segment
+    #  x[1] = start index from tuple in _build_hierarchy_start_indexes
+    #
+    def _determine_end_index(self, start_idx):
+        return min([x[1] for x in self._start_indexes if x[1] > start_idx] + [len(self.data)])
 
-    def get_transaction_info(self, tx_summary, clm_index):
-        """
-        retrieves transaction information for a claim from hierarchical summary
-        Eg., get the transaction range for claim index "x"
-        """
-        return next((info for _, info in tx_summary.items()
-                     if info['index_start'] <= int(clm_index) <= info['index_end']), None)
+    #
+    # Primary search function within HL
+    #   @param pos_idx - the reference point
+    #   @param hl_code - the hl code being searched for
+    #
+    #   @return - a tuple of the start and end position of the hl segment containing hl_code, otherwise None if not found
+    #
+    def find_hl_codes(self, pos_idx, hl_code):
+        return (self._filter_on_position(pos_idx, hl_code)[0] if self._filter_on_position(pos_idx, hl_code) else self.traverse_loops(pos_idx, hl_code))
 
-    def get_ranges(self, tx_info, clm_index, use_children=False):
-        """
-        extracts numeric ranges for parent and optionally children based on transaction but if children add an index to filter to the right one
-        Eg., find ranges for parent and children loops for processing
-        """
-        if use_children and 'children' in tx_info:
-            return [(child['index_start'], child['index_end']) for child in tx_info['children']
-                    if child['index_start'] <= int(clm_index) <= child['index_end']]
-        else:
-            return [(tx_info['index_start'], tx_info['index_end'])]
-
-    def find_elements_based_on_ranges(self, ranges, target_segment_name, target_element_index, secondary_reference=None):
-        """
-        filters and maps EDI segments to extract required elements based on their position and type
-        """
-        def process_range(range_tuple): return [
-            segment.element(int(target_element_index))
-            for segment in self.segments_by_position(range_tuple[0], range_tuple[1])
-            if segment.segment_name() == target_segment_name and
-            segment.segment_len() > int(target_element_index) and
-            (secondary_reference is None or segment.element(
-                int(secondary_reference[1])) == secondary_reference[0])
-        ]
-        return reduce(lambda acc, lst: acc + lst, map(process_range, ranges), [])
-
-    def extract_elements_from_claim(self, clm_segment, target_segment_name, target_element_index, use_children=False, secondary_reference=None):
-        """
-        a higher-level function that ties together the previous functions to get tx info, the ranges of interest, and elements from every range
-        """
-        clm_index = clm_segment[0]
-        tx_info = self.get_transaction_info(self.hl_summary, clm_index)
-        if not tx_info:
+    def traverse_loops(self, pos_idx, hl_code, parent_idx = None):
+        if parent_idx == "":
             return None
-
-        ranges = self.get_ranges(tx_info, clm_index, use_children)
-        return self.find_elements_based_on_ranges(ranges, target_segment_name, target_element_index, secondary_reference)
-
-    def find_reference_element(self, clm_segment, loop_key, description=None):
-        loop_info = self.loop_mapping.get_mapping(loop_key, description)
-        if not loop_info:
-            return []
-
-        target_segment_name, target_element_index = loop_info['reference_ids']
-        secondary_reference = loop_info.get('secondary_reference', None)
-        use_children = loop_key == '22'
-
-        return self.extract_elements_from_claim(clm_segment,
-                                                target_segment_name,
-                                                target_element_index,
-                                                use_children,
-                                                secondary_reference)
+        elif parent_idx == None:
+            return traverse_loops(pos_idx, hl_code, parent_idx = self._filter_hl_on_position(pos_idx))
+        else:
+            return (temp[0] if (temp := self._filter_hl_on_parent(hl_code, parent_idx)) else traverse_loops(pos_idx, hl_code, ...???
+    
 
 
+    def _filter_hl_on_position(self, pos_idx):
+        return (temp[0] if (temp := filter(lambda k,v: v if v['start_idx'] <= pos_idx <= v['end_idx'] ,self.loop_hierarchy)) else "")
+
+        
+    #
+    # Will only ever return one element or None
+    #
+    def _fitler_hl_on_position_and_code(self, pos_idx, hl_code):
+        return filter(lambda k,v: v if v['hl_code'] == hl_code and v['start_idx'] <= pos_idx <= v['end_idx'] ,self.loop_hierarchy)
+
+    #
+    # Will only ever return one element or None
+    #                
+    def _filter_hl_on_parent(self, hl_code, parent_id):
+        return filter(lambda k,v: v if v['hl_code'] == hl_code and v['id'] == parent_id, self.loop_hierarchy)
+
+
+                
 """
 sample_data_837i_edited = open("/sampledata/837/CHPW_Claimdata_edited.txt", "rb").read().decode("utf-8")
 claims = Loop(sample_data_837i_edited)
