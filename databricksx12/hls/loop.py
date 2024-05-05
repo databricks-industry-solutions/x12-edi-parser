@@ -83,37 +83,35 @@ class Loop(EDI):
     #   @param pos_idx - the reference point
     #   @param hl_code - the hl code being searched for
     #
-    #   @return - a tuple of the start and end position of the hl segment containing hl_code, otherwise None if not found
-    #
+    #   @returns None if not found, otherwise the value from loop_hierarchy
     def find_hl_codes(self, pos_idx, hl_code):
-        return (self._filter_on_position(pos_idx, hl_code)[0] if self._filter_on_position(pos_idx, hl_code) else self.traverse_loops(pos_idx, hl_code))
+        init_hl = self._filter_hl_on_position(pos_idx)
+        return (None if init_hl is None else self.traverse_loops(hl_code, init_hl))
 
-    def traverse_loops(self, pos_idx, hl_code, parent_idx = None):
-        if parent_idx == "":
+
+    #
+    # Go from child to parent searching for the specified hl_code
+    #
+    def traverse_loops(self, hl_code, loop):
+        if loop['hl_code'] == hl_code:
+            return loop 
+        elif loop['parent_id'] == "":
             return None
-        elif parent_idx == None:
-            return traverse_loops(pos_idx, hl_code, parent_idx = self._filter_hl_on_position(pos_idx))
         else:
-            return (temp[0] if (temp := self._filter_hl_on_parent(hl_code, parent_idx)) else traverse_loops(pos_idx, hl_code, ...???
-    
+            return self.traverse_loops(hl_code, self.loop_hierarchy.get(loop['parent_id']))
 
-
+    #
+    # 
+    #
     def _filter_hl_on_position(self, pos_idx):
-        return (temp[0] if (temp := filter(lambda k,v: v if v['start_idx'] <= pos_idx <= v['end_idx'] ,self.loop_hierarchy)) else "")
+        return (list(temp)[0] if (temp := filter(lambda v: v['start_idx'] <= pos_idx <= v['end_idx'], self.loop_hierarchy.values())) else None)
 
         
     #
     # Will only ever return one element or None
     #
     def _fitler_hl_on_position_and_code(self, pos_idx, hl_code):
-        return filter(lambda k,v: v if v['hl_code'] == hl_code and v['start_idx'] <= pos_idx <= v['end_idx'] ,self.loop_hierarchy)
-
-    #
-    # Will only ever return one element or None
-    #                
-    def _filter_hl_on_parent(self, hl_code, parent_id):
-        return filter(lambda k,v: v if v['hl_code'] == hl_code and v['id'] == parent_id, self.loop_hierarchy)
-
+        return (list(temp)[0] if (temp := filter(lambda v: v['hl_code'] == hl_code and v['start_idx'] <= pos_idx <= v['end_idx'] ,self.loop_hierarchy.values())) else None) 
 
                 
 """

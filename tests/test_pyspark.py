@@ -10,6 +10,9 @@ class TestPyspark(PysparkBaseTest):
                 .map(lambda x: EDI(x))
                 .map(lambda x: {"transaction_count": x.num_transactions()})
                 ).toDF()
-        assert ( data.count() == 4) #4 rows
-        assert ( data.select(data.transaction_count).groupBy().sum().collect()[0]["sum(transaction_count)"] == 8) #8 ST/SE transactions
+        assert ( data.count() == 5) #5 rows
+        assert ( data.select(data.transaction_count).groupBy().sum().collect()[0]["sum(transaction_count)"] == 9) #8 ST/SE transactions
 
+
+if __name__ == '__main__':
+    unittest.main()
