@@ -2,6 +2,10 @@ from databricksx12.edi import *
 from functools import reduce
 
 class LoopMapping:
+
+    #
+    # class to hold k,v of hl_code, loop
+    #
     def __init__(self, mappings=None):
         self.mappings = mappings if mappings is not None else {
             '20': {
@@ -13,6 +17,12 @@ class LoopMapping:
                 'loop': '2000B'
             }
         }
+
+    #
+    # Get hl_code associated with the loop
+    #
+    def get_hl_code(self, loop):
+        return None if (temp := [hl_code for hl_code, v in self.mappings.items() if v['loop'] == loop]) == [] else temp[0]
 
     def get_mapping(self, element, description=None):
         """ Returns a specific mapping based on element key and description. """
@@ -27,7 +37,7 @@ class Loop(EDI):
     
     def __init__(self, data, delim_cls=AnsiX12Delim, loop_mapping=LoopMapping()):
         super().__init__(data, delim_cls)
-        self.loop_mapping = loop_mapping
+        self.mapping = loop_mapping
         self._start_indexes = self._build_hierarchy_start_indexes()
         self.loop_hierarchy = self.build_hierarchy()
         """
@@ -42,6 +52,16 @@ class Loop(EDI):
         """
 
     #
+    # Get the specified loop based upon a position, else return None if does not exist
+    #  @param pos - the position of the data point
+    #  @param loop - the loop from the mapping that is being searched for
+    #
+    #  @return None if not found, otherwise value from loop_hierarchy
+    #
+    def get_loop(self, pos, loop):
+        return None if (temp := self.mapping.get_hl_code(loop)) is None else self.find_hl_codes(pos, temp)
+
+    #
     # Build a complete hierarchical view of all HL segments start and end positions 
     #
     def build_hierarchy(self):
@@ -54,7 +74,8 @@ class Loop(EDI):
                 "end_idx": self._determine_end_index(x[1]),
                 "parent_id": x[2],
                 "hl_code": x[3],
-                "child_code": x[4]
+                "child_code": x[4],
+                "subordinate_ind": self.subordinate_child_indicator(x[1]) #true if previous HL04=1 
             }
             for x in self._start_indexes
         }
@@ -98,21 +119,38 @@ class Loop(EDI):
         elif loop['parent_id'] == "":
             return None
         else:
-            return self.traverse_loops(hl_code, self.loop_hierarchy.get(loop['parent_id']))
+            return self.traverse_loops(hl_code, self.determine_parent(loop))
 
     #
-    # 
+    # parent is either the parent_id or the previous HL segment if there was a child indicator section
+    #
+    def determine_parent(self, loop):
+        return loop['parent_id'] if loop['subordinate_ind'] == 0 else self.loop_hierarchy.get(self.determine_previous_hl(loop['start_idx'])[0])
+        
+    #
+    #  returns the HL segment 
     #
     def _filter_hl_on_position(self, pos_idx):
         return (list(temp)[0] if (temp := filter(lambda v: v['start_idx'] <= pos_idx <= v['end_idx'], self.loop_hierarchy.values())) else None)
 
-        
-    #
-    # Will only ever return one element or None
-    #
-    def _fitler_hl_on_position_and_code(self, pos_idx, hl_code):
-        return (list(temp)[0] if (temp := filter(lambda v: v['hl_code'] == hl_code and v['start_idx'] <= pos_idx <= v['end_idx'] ,self.loop_hierarchy.values())) else None) 
 
+    #
+    # determine if the HL segment at pos is a subordinate child of a parent
+    #  i.e. (parent has child code =1) and parent is previous HL segment 
+    #
+    #
+    def subordinate_child_indicator(self, pos):
+        return 0 if self.determine_previous_hl(pos) is None else self.determine_previous_hl(pos)[4]
+
+    #
+    # Determine the previous HL segment based upon a position
+    #
+    def determine_previous_hl(self, pos):
+        try:
+            return reduce(lambda a,b: a if a[1] > b[1] else b,
+                          filter(lambda x: x[1] < pos, self._start_indexes))
+        except: 
+            return None #when there is no preceding hl segment
                 
 """
 sample_data_837i_edited = open("/sampledata/837/CHPW_Claimdata_edited.txt", "rb").read().decode("utf-8")
