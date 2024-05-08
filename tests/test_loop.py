@@ -37,6 +37,17 @@ class TestLoop(PysparkBaseTest):
         assert  (TestLoop.loop.find_hl_codes(22, '20')['start_idx'] == 7)
         assert  (TestLoop.loop.find_hl_codes(22, '22')['start_idx'] == 12)
         assert  (TestLoop.loop.find_hl_codes(37, '22')['start_idx'] == 27)
+
+    def test_loop_hierarchy_child_codes(self):
+        data = open("./sampledata/837/CHPW_Claimdata_edited.txt.tmp", "rb").read().decode("utf-8")
+        loop = Loop(data)
+        assert(loop.find_hl_codes(174, '22')['start_idx'] == 160)
+
+    def test_loop_search_by_name(self):
+        assert(TestLoop.loop.get_loop(22, "2000A")['start_idx'] == 7)
+        assert(TestLoop.loop.get_loop(22, "2000B")['start_idx'] == 12)
+        assert(TestLoop.loop.get_loop(37, "2000A")['start_idx'] == 7)
+        assert(TestLoop.loop.get_loop(37, "2000B")['start_idx'] == 27)
         
 if __name__ == '__main__':
     unittest.main()        

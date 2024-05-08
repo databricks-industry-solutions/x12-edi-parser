@@ -15,6 +15,10 @@ class LoopMapping:
             '22': {
                 'loop name': 'Subscriber',
                 'loop': '2000B'
+            },
+            '23': {
+                'loop name': 'Patient',
+                'loop': '2000C'
             }
         }
 
