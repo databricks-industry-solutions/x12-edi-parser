@@ -38,16 +38,35 @@ class TestLoop(PysparkBaseTest):
         assert  (TestLoop.loop.find_hl_codes(22, '22')['start_idx'] == 12)
         assert  (TestLoop.loop.find_hl_codes(37, '22')['start_idx'] == 27)
 
+    #
+    # Test traversing heirarchy to find correct loops
+    #
     def test_loop_hierarchy_child_codes(self):
         data = open("./sampledata/837/CHPW_Claimdata_edited.txt.tmp", "rb").read().decode("utf-8")
         loop = Loop(data)
         assert(loop.find_hl_codes(174, '22')['start_idx'] == 160)
 
+    #
+    # Test getting all segments within a loop
+    #
+    def test_get_segments(self):
+        data = open("./sampledata/837/CHPW_Claimdata_edited.txt.tmp", "rb").read().decode("utf-8")
+        loop = Loop(data)
+        assert(loop.get_loop(174, '2000A')['start_idx'] ==  144 and loop.get_loop(174, '2000A')['end_idx'] == 153)
+        assert( len(loop.get_loop_segments(174, '2000A')) == 153 - 144)
+        assert(loop.get_loop_segments(174, '2000A')[0].element(0) == "HL")
+        assert( len([x.element(0) for x in loop.get_loop_segments(174, '2000A') if x.element(0) == "HL"]) == 1)
+
+    #
+    # Test loop start places by position using loop name search
+    #
     def test_loop_search_by_name(self):
         assert(TestLoop.loop.get_loop(22, "2000A")['start_idx'] == 7)
         assert(TestLoop.loop.get_loop(22, "2000B")['start_idx'] == 12)
         assert(TestLoop.loop.get_loop(37, "2000A")['start_idx'] == 7)
         assert(TestLoop.loop.get_loop(37, "2000B")['start_idx'] == 27)
+
+
         
 if __name__ == '__main__':
     unittest.main()        

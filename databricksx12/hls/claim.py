@@ -1,30 +1,87 @@
 from databricksx12.edi import *
-from databricksx12.hls import loop
+from databricksx12.hls.loop import *
+import itertools
+
+
 #
 # Base claim class
 #
 
 
-class Claim():
+class MedicalClaim(EDI):
 
-    def __init__(self):
-        pass
+    def __init__(self,
+                 sender_loop = [],
+                 receiver_loop = [],
+                 billing_loop = [],
+                 subscriber_loop = [],
+                 patient_loop = [],
+                 claim_loop =  [],
+                 sl_loop = [] #service line loop
+                 ):
+        self.sender_loop = sender_loop
+        self.receiver_loop = receiver_loop
+        self.billing_loop = billing_loop
+        self.subscriber_loop = subscriber_loop
+        self.patient_loop = patient_loop
+        self.claim_loop = claim_loop
+        self.sl_loop = sl_loop
+        
+        self.build()
 
-    @staticmethod
-    def from_dictionary(d):
-        pass
+    def billing_loop(self):
+        return {
+            "billing_prvdr_name": "TODO",
+            "billing_npi": "TODO",
+            "billing_street_address": "TODO",
+            "billing_zip_cd": "TODO",
+            "billing_state_cd": "TODO"
+            }
+    
+    def subscriber_loop(self):
+        return {
+            "TODO": "TODO"
+            }
+
+    #
+    #
+    #
+    def patient_loop(self):
+        #Note - if this doesn't exist then its the same as subscriber loop
+        return {
+            "TODO": "TODO"
+            }
+    
+    def toJson(self):
+        {
+            **self.patient_loop(),
+            **self.subscriber_loop(),
+            **self.billing_loop()
+         }
 
 
-class Claim837i(Claim):
+    #not sure if this should be here or not, but you get the idea
+    def build():
+        self.billing_info = self.billing_loop()
+        self.subscriber_info = self.subscriber_loop()
+        self.patient_info = self.subscriber_loop() if self.patient_loop = [] else self.patient_loop()
+        
+
+
+class Claim837i(MedicalClaim):
 
     NAME = "837I"
 
+
 # Format of 837P https://www.dhs.wisconsin.gov/publications/p0/p00265.pdf
 
-
-class Claim837p(Claim):
+class Claim837p(MedicalClaim):
 
     NAME = "837P"
+
+class Claim835(MedicalClaim):
+    
+    NAME = "835"
 
 
 #
@@ -35,59 +92,38 @@ class ClaimBuilder(EDI):
     #
     # Given claim type (837i, 837p, etc), segments, and delim class, build claim level classes
     #
-    def __init__(self, trnx_type, trnx_data, delim_cls):
-        self.trnx_type = trnx_type
+    def __init__(self, trnx_type_cls, trnx_data, delim_cls=AnsiX12Delim):
         self.data = trnx_data
-        self.delim_cls = delim_cls
-
-        self.loop_summary = loop.Loop(trnx_data)
+        self.format_cls = delim_cls
+        self.trnx_cls = trnx_type_cls
+        self.loop = Loop(trnx_data)
+        
 
     #
-    # Returns a dictionary of "loop name" : "loop data"
+    # Builds a claim object from
     #
-
-    def build_claim(self, clm_segment):
-        return {
-            "1000A": {
-                "desc": "Submitter Name",
-                "segments": self.loop_summary.sender
-            },
-            "1000B": {
-                "desc": "Receiver Name",
-                "segments": self.loop_summary.receiver
-            },
-            "2000A": {
-                "desc": "Billing Provider",
-                "segments": self.loop_summary.find_reference_element(clm_segment, '20', 'Information Source')
-            },
-            "2000B": {
-                "desc": "Subscriber",
-                "segments": self.loop_summary.find_reference_element(clm_segment, '22', 'Subscriber')
-            },
-            "2010BA": {
-                "desc": "Patient",
-                "segments": (self.loop_summary.find_reference_element(clm_segment, '22', 'Individual First Name'),
-                             self.loop_summary.find_reference_element(clm_segment, '22', 'Individual Last Name'))
-
-            },
-            "2010BB": {
-                "desc": "Payer",
-                "segments": self.loop_summary.find_reference_element(clm_segment, '22', 'Payer Name'),
-            },
-            "2300": {
-                "desc": "Claim",
-                "segments": (self.loop_summary.find_reference_element(clm_segment, '22', 'Claim ID'),
-                             self.loop_summary.find_reference_element(clm_segment, '22', 'Claim Amount'))
-            }
-        }
+    # @param clm_segment - the claim segment of claim to build
+    # @param idx - the index of the claim segment in the data
+    #
+    #  @return the clas containing the relevent claim information
+    #
+    def build_claim(self, clm_segment, idx):
+        return self.trnx_cls(
+            sender_loop = [],
+            receiver_loop = [],
+            billing_loop = self.loop.get_loop_segments(idx, "2000A"),
+            subscriber_loop = self.loop.get_loop_segments(idx, "2000B"),
+            patient_loop = self.loop.get_loop_segments(idx, "2000C"),
+            claim_loop =  [],
+            sl_loop = [] #service line loop
+        )
 
     #
     # Given transaction type, transaction segments, and delim info, build out claims in the transaction
     #  @return a list of Claim for each "clm" segment
     #
     def build(self):
-        return [self.build_claim(seg) for seg in self.loop_summary.claim_segments()]
-
+        return [self.build_claim(seg, i) for i, seg in self.segments_by_name_index("CLM")]
 
 """
 sample_data_837i_edited = open("/sampledata/837/CHPW_Claimdata_edited.txt", "rb").read().decode("utf-8")

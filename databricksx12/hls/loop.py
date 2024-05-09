@@ -40,7 +40,8 @@ class Loop(EDI):
 
     
     def __init__(self, data, delim_cls=AnsiX12Delim, loop_mapping=LoopMapping()):
-        super().__init__(data, delim_cls)
+        self.data = data
+        self.format_cls = delim_cls
         self.mapping = loop_mapping
         self._start_indexes = self._build_hierarchy_start_indexes()
         self.loop_hierarchy = self.build_hierarchy()
@@ -64,6 +65,12 @@ class Loop(EDI):
     #
     def get_loop(self, pos, loop):
         return None if (temp := self.mapping.get_hl_code(loop)) is None else self.find_hl_codes(pos, temp)
+
+    #
+    # same as above, but only returns segment list
+    #
+    def get_loop_segments(self, pos, loop):
+        return [] if (temp := self.get_loop(pos, loop)) is None else self.data[temp['start_idx']:temp['end_idx']]
 
     #
     # Build a complete hierarchical view of all HL segments start and end positions 
