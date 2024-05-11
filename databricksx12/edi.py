@@ -124,6 +124,8 @@ class EDI():
     def header(self):
         return self.data[0]
 
+
+
 class Segment():
 
     #

@@ -10,7 +10,8 @@ with open(path.join(this_directory, "README.md"), encoding="utf-8") as f:
 setup(
     name="databricksx12",
     version="0.0.1",
-    python_requires='>=3.9.*',
+    # python_requires='>=3.9.*',
+    python_requires='>=3.9',
     author="",
     author_email="aaron.zavora@databricks.com",
     description= "Parser for handling x12 EDI transactions in Spark",

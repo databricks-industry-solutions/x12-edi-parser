@@ -1,6 +1,7 @@
-from databricksx12.edi import *
-from databricksx12.hls.loop import *
-import itertools
+from databricksx12.edi import EDI, AnsiX12Delim
+from databricksx12.hls.loop import Loop
+from databricksx12.hls.support_classes.identities import BillingIdentity, SubscriberIdentity, PatientIdentity
+from typing import List, Dict
 
 
 #
@@ -10,83 +11,75 @@ import itertools
 
 class MedicalClaim(EDI):
 
-    def __init__(self,
-                 sender_loop = [],
-                 receiver_loop = [],
-                 billing_loop = [],
-                 subscriber_loop = [],
-                 patient_loop = [],
-                 claim_loop =  [],
-                 sl_loop = [] #service line loop
-                 ):
-        self.sender_loop = sender_loop
+    def __init__(
+        self,
+        sender_loop: List = [],
+        receiver_loop: List = [],
+        billing_loop: List = [],
+        subscriber_loop: List = [],
+        patient_loop: List = [],
+        claim_loop: List = [],
+        sl_loop: List = [],  # service line loop
+    ):
+        self.sender_loop = sender_loop # is this a loop or does it only occur once in a document?
         self.receiver_loop = receiver_loop
         self.billing_loop = billing_loop
         self.subscriber_loop = subscriber_loop
         self.patient_loop = patient_loop
         self.claim_loop = claim_loop
         self.sl_loop = sl_loop
-        
+
         self.build()
 
-    def billing_loop(self):
-        return {
-            "billing_prvdr_name": "TODO",
-            "billing_npi": "TODO",
-            "billing_street_address": "TODO",
-            "billing_zip_cd": "TODO",
-            "billing_state_cd": "TODO"
-            }
-    
-    def subscriber_loop(self):
-        return {
-            "TODO": "TODO"
-            }
+    def _populate_billing_loop(self) -> Dict[str, str]:
+        return BillingIdentity(self.billing_loop)
+
+    def _populate_subscriber_loop(self) -> Dict[str, str]:
+        return SubscriberIdentity(self.subscriber_loop)
 
     #
     #
     #
-    def patient_loop(self):
-        #Note - if this doesn't exist then its the same as subscriber loop
-        return {
-            "TODO": "TODO"
-            }
-    
+    def _populate_patient_loop(self) -> Dict[str, str]:
+        # Note - if this doesn't exist then its the same as subscriber loop
+        # Note to include in loop: information about subscriber/dependent relationship is marked by Element 2
+        # 01 = Spouse; 18 = Self; 19 = Child; G8 = Other
+        return PatientIdentity(self.patient_loop)
+
     def toJson(self):
-        {
-            **self.patient_loop(),
-            **self.subscriber_loop(),
-            **self.billing_loop()
-         }
+        {**self.patient_loop(), **self.subscriber_loop(), **self.billing_loop()}
 
-
-    #not sure if this should be here or not, but you get the idea
-    def build():
-        self.billing_info = self.billing_loop()
-        self.subscriber_info = self.subscriber_loop()
-        self.patient_info = self.subscriber_loop() if self.patient_loop = [] else self.patient_loop()
-        
+    # not sure if this should be here or not, but you get the idea
+    def build(self) -> None:
+        self.billing_info = self._populate_billing_loop()
+        self.subscriber_info = self._populate_subscriber_loop()
+        self.patient_info = (
+            self._populate_subscriber_loop() if self.patient_loop == [] else self._populate_patient_loop()
+        )
 
 
 class Claim837i(MedicalClaim):
 
     NAME = "837I"
-
+    # sender / receiver ?
 
 # Format of 837P https://www.dhs.wisconsin.gov/publications/p0/p00265.pdf
+
 
 class Claim837p(MedicalClaim):
 
     NAME = "837P"
 
+
 class Claim835(MedicalClaim):
-    
+
     NAME = "835"
 
 
 #
 # Base claim builder (transaction -> 1 or more claims)
 #
+
 
 class ClaimBuilder(EDI):
     #
@@ -97,7 +90,6 @@ class ClaimBuilder(EDI):
         self.format_cls = delim_cls
         self.trnx_cls = trnx_type_cls
         self.loop = Loop(trnx_data)
-        
 
     #
     # Builds a claim object from
@@ -109,13 +101,13 @@ class ClaimBuilder(EDI):
     #
     def build_claim(self, clm_segment, idx):
         return self.trnx_cls(
-            sender_loop = [],
-            receiver_loop = [],
-            billing_loop = self.loop.get_loop_segments(idx, "2000A"),
-            subscriber_loop = self.loop.get_loop_segments(idx, "2000B"),
-            patient_loop = self.loop.get_loop_segments(idx, "2000C"),
-            claim_loop =  [],
-            sl_loop = [] #service line loop
+            sender_loop=[],
+            receiver_loop=[], # assuming this is true of all claim types check!
+            billing_loop=self.loop.get_loop_segments(idx, "2000A"),
+            subscriber_loop=self.loop.get_loop_segments(idx, "2000B"),
+            patient_loop=self.loop.get_loop_segments(idx, "2000C"),
+            claim_loop=[],
+            sl_loop=[],  # service line loop
         )
 
     #
@@ -123,7 +115,10 @@ class ClaimBuilder(EDI):
     #  @return a list of Claim for each "clm" segment
     #
     def build(self):
-        return [self.build_claim(seg, i) for i, seg in self.segments_by_name_index("CLM")]
+        return [
+            self.build_claim(seg, i) for i, seg in self.segments_by_name_index("CLM")
+        ]
+
 
 """
 sample_data_837i_edited = open("/sampledata/837/CHPW_Claimdata_edited.txt", "rb").read().decode("utf-8")
