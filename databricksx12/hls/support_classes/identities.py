@@ -85,5 +85,5 @@ class ClaimIdentity(Identity):
                 self.id_code = segment.element(1) # submitter's identifier
                 self.claim_amount = segment.element(2)
                 if segment.element(5).split(':')[1] == 'B':
-                    self.facility_code = 'Outpatient Hospital' if segment.element(3).split(':')[0]== 22 else 'Other'
+                    self.facility_code = 'Outpatient Hospital' if segment.element(5).split(':')[0]== 22 else 'Other'
                 
