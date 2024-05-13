@@ -101,13 +101,13 @@ class ClaimBuilder(EDI):
     #
     def build_claim(self, clm_segment, idx):
         return self.trnx_cls(
-            sender_loop=[],
-            receiver_loop=[], # assuming this is true of all claim types check!
+            sender_loop=self.loop.get_sender(),
+            receiver_loop=self.loop.get_receiver(), # assuming this is true of all claim types check!
             billing_loop=self.loop.get_loop_segments(idx, "2000A"),
             subscriber_loop=self.loop.get_loop_segments(idx, "2000B"),
             patient_loop=self.loop.get_loop_segments(idx, "2000C"),
-            claim_loop=[],
-            sl_loop=[],  # service line loop
+            claim_loop=self.loop.get_claim_loop(idx),
+            sl_loop=self.loop.get_service_line_loop(idx),  # service line loop
         )
 
     #
