@@ -12,8 +12,8 @@ class Identity:
         self.zip: str = None
         self.build(segments)
 
-    def build(self, billing_loop: List[Segment]):
-        for segment in billing_loop:
+    def build(self, loop: List[Segment]):
+        for segment in loop:
             if segment.element(0) == 'N3':
                 self.street = segment.element(1)
             elif segment.element(0) == 'N4':
@@ -61,7 +61,6 @@ class SubscriberIdentity(Identity):
 class PatientIdentity(Identity):
     def __init__(self, patient_segments: List[Segment]):
         super().__init__(patient_segments)
-        self.id_code = None
         self.build_patient(patient_segments)
 
     def build_patient(self, patient_loop: List[Segment]):
@@ -71,3 +70,20 @@ class PatientIdentity(Identity):
                     self.type = 'Patient'
                     self.name = ' '.join([segment.element(3), segment.element(4), segment.element(5)])
 
+
+class ClaimIdentity(Identity):
+    def __init__(self, claim_segments: List[Segment]):
+        super().__init__(claim_segments)
+        self.id_code = None
+        self.facility_code = None
+        self.claim_amount = None
+        self.build_claim_lines(claim_segments)
+
+    def build_claim_lines(self, claim_loop: List[Segment]):
+        for segment in claim_loop:
+            if segment.element(0) == 'CLM':
+                self.id_code = segment.element(1) # submitter's identifier
+                self.claim_amount = segment.element(2)
+                if segment.element(5).split(':')[1] == 'B':
+                    self.facility_code = 'Outpatient Hospital' if segment.element(3).split(':')[0]== 22 else 'Other'
+                

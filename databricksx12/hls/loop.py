@@ -45,6 +45,7 @@ class Loop(EDI):
         self.mapping = loop_mapping
         self._start_indexes = self._build_hierarchy_start_indexes()
         self.loop_hierarchy = self.build_hierarchy()
+
         """
         loop_hierarchy = { unique_id : {
             start_idx : ""
@@ -190,14 +191,8 @@ class Loop(EDI):
             sl_end_idx = min(tx_end_indexes + [len(self.data)])
             return self.data[min(sl_start_indexes):sl_end_idx]
         return []
-    
-    def get_sender(self):
-        return [x.element(2) for i, x in self.segments_by_name_index("GS")] # same as ISA06
-    
-    def get_receiver(self):
-        return [x.element(3) for i, x in self.segments_by_name_index("GS")] 
 
-
+    
 
                 
 """

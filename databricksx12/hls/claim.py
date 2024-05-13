@@ -1,13 +1,12 @@
 from databricksx12.edi import EDI, AnsiX12Delim
 from databricksx12.hls.loop import Loop
-from databricksx12.hls.support_classes.identities import BillingIdentity, SubscriberIdentity, PatientIdentity
+from databricksx12.hls.support_classes.identities import BillingIdentity, SubscriberIdentity, PatientIdentity, ClaimIdentity
 from typing import List, Dict
 
 
 #
 # Base claim class
 #
-
 
 class MedicalClaim(EDI):
 
@@ -21,7 +20,7 @@ class MedicalClaim(EDI):
         claim_loop: List = [],
         sl_loop: List = [],  # service line loop
     ):
-        self.sender_loop = sender_loop # is this a loop or does it only occur once in a document?
+        self.sender_loop = sender_loop
         self.receiver_loop = receiver_loop
         self.billing_loop = billing_loop
         self.subscriber_loop = subscriber_loop
@@ -30,6 +29,7 @@ class MedicalClaim(EDI):
         self.sl_loop = sl_loop
 
         self.build()
+
 
     def _populate_billing_loop(self) -> Dict[str, str]:
         return BillingIdentity(self.billing_loop)
@@ -45,9 +45,12 @@ class MedicalClaim(EDI):
         # Note to include in loop: information about subscriber/dependent relationship is marked by Element 2
         # 01 = Spouse; 18 = Self; 19 = Child; G8 = Other
         return PatientIdentity(self.patient_loop)
+    
+    def _populate_claim_loop(self) -> Dict[str, str]:
+        return ClaimIdentity(self.claim_loop)
 
     def toJson(self):
-        {**self.patient_loop(), **self.subscriber_loop(), **self.billing_loop()}
+        {**self.claim_loop(), **self.patient_loop(), **self.subscriber_loop(), **self.billing_loop()}
 
     # not sure if this should be here or not, but you get the idea
     def build(self) -> None:
@@ -56,6 +59,7 @@ class MedicalClaim(EDI):
         self.patient_info = (
             self._populate_subscriber_loop() if self.patient_loop == [] else self._populate_patient_loop()
         )
+        self.claim_info = self._populate_claim_loop()
 
 
 class Claim837i(MedicalClaim):
@@ -101,8 +105,8 @@ class ClaimBuilder(EDI):
     #
     def build_claim(self, clm_segment, idx):
         return self.trnx_cls(
-            sender_loop=self.loop.get_sender(),
-            receiver_loop=self.loop.get_receiver(), # assuming this is true of all claim types check!
+            sender_loop=[],
+            receiver_loop=[], # assuming this is true of all claim types check!
             billing_loop=self.loop.get_loop_segments(idx, "2000A"),
             subscriber_loop=self.loop.get_loop_segments(idx, "2000B"),
             patient_loop=self.loop.get_loop_segments(idx, "2000C"),
