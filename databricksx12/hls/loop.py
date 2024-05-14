@@ -186,13 +186,21 @@ class Loop(EDI):
     def get_service_line_loop(self, clm_idx):
         sl_start_indexes = list(map(lambda x: x[0], filter(lambda x: x[0] > clm_idx, self.segments_by_name_index("LX"))))
         tx_end_indexes = list(map(lambda x: x[0], filter(lambda x: x[0] > clm_idx, self.segments_by_name_index("SE"))))
-        # Determine the end of the service line loop
         if sl_start_indexes:
             sl_end_idx = min(tx_end_indexes + [len(self.data)])
             return self.data[min(sl_start_indexes):sl_end_idx]
         return []
 
-    
+    def get_submitter_receiver_loop(self, clm_idx):
+        bht_start_indexes = list(map(lambda x: x[0], filter(lambda x: x[0] < clm_idx, self.segments_by_name_index("BHT"))))
+        bht_end_indexes = list(map(lambda x: x[0], filter(lambda x: x[0] < clm_idx and x[1].element(3) == '20', self.segments_by_name_index("HL"))))
+        if bht_start_indexes:
+            sub_rec_start_idx = max(bht_start_indexes)
+            sub_rec_end_idx = max(bht_end_indexes)
+
+            return self.data[sub_rec_start_idx:sub_rec_end_idx]
+        return []
+
 
                 
 """

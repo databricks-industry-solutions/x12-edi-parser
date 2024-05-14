@@ -51,7 +51,7 @@ class SubscriberIdentity(Identity):
         for segment in subscriber_loop:
             if segment.element(0) == 'NM1':
                 if segment.element(1) == 'IL':      # Hardcoded to IL for Insured
-                    self.type = 'Entity' if segment.element(2) == '2' else 'Individual'
+                    self.type = 'Organization' if segment.element(2) == '2' else 'Individual'
                     self.name = segment.element(3) if self.type == 'Organization' else ' '.join([segment.element(3), segment.element(4), segment.element(5)])
                     self.id_code = segment.element(9)
             elif segment.element(0) == 'SBR':
@@ -86,4 +86,53 @@ class ClaimIdentity(Identity):
                 self.claim_amount = segment.element(2)
                 if segment.element(5).split(':')[1] == 'B':
                     self.facility_code = 'Outpatient Hospital' if segment.element(5).split(':')[0]== 22 else 'Other'
+
+class SubmitterIdentity(Identity):
+    def __init__(self, submitter_segments: List[Segment]):
+        super().__init__(submitter_segments)
+        self.tax_id = None
+        self.contact_name = None
+        self.contacts = []
+        self.build_submitter_lines(submitter_segments)
+
+    def build_submitter_lines(self, submitter_loop: List[Segment]):
+        contact_methods = {
+            'EM': 'Email',
+            'TE': 'Telephone',
+            'FX': 'Fax'
+        }
+        for segment in submitter_loop:
+            if segment.element(0) == 'NM1' and segment.element(1) == '41':
+                self.type = 'Organization' if segment.element(2) == '2' else 'Individual'
+                self.name = segment.element(3) if self.type == 'Organization' else ' '.join([segment.element(3), segment.element(4), segment.element(5)])
+                self.tax_id = segment.element(9) # id
+            elif segment.element(0) == 'PER':
+                self.contact_name = segment.element(2)
+                contact = {
+                    'contact_method': contact_methods.get(segment.element(3), 'Unknown method'),
+                    'contact_number': segment.element(4)
+                    }
+                # Add additional contact details if present
+                if segment.element(5) in contact_methods:
+                    contact['second_contact_method'] = contact_methods.get(segment.element(5), 'Unknown method')
+                    contact['second_contact_number'] = segment.element(6)
                 
+                if segment.element(7) in contact_methods:
+                    contact['other_contact_method'] = contact_methods.get(segment.element(7), 'Unknown method')
+                    contact['other_contact_number'] = segment.element(8)
+                
+                self.contacts.append(contact)
+
+
+class ReceiverIdentity(Identity):
+    def __init__(self, receiver_segments: List[Segment]):
+        super().__init__(receiver_segments)
+        self.id_code = None
+        self.build_receiver_lines(receiver_segments)
+
+    def build_receiver_lines(self, receiver_loop: List[Segment]):
+        for segment in receiver_loop:
+            if segment.element(0) == 'NM1' and segment.element(1) == '40':
+                self.type = 'Organization' if segment.element(2) == '2' else 'Individual'
+                self.name = segment.element(3) if self.type == 'Organization' else ' '.join([segment.element(3), segment.element(4), segment.element(5)])
+                self.id_code = segment.element(9) # id
