@@ -1,6 +1,6 @@
 from databricksx12.edi import EDI, AnsiX12Delim
 from databricksx12.hls.loop import Loop
-from databricksx12.hls.support_classes.identities import BillingIdentity, SubscriberIdentity, PatientIdentity, ClaimIdentity, SubmitterIdentity, ReceiverIdentity
+from databricksx12.hls.support_classes.identities import BillingIdentity, SubscriberIdentity, PatientIdentity, ClaimIdentity, SubmitterIdentity, ReceiverIdentity, ServiceIdentity
 from typing import List, Dict
 
 
@@ -51,6 +51,9 @@ class MedicalClaim(EDI):
     
     def _populate_claim_loop(self) -> Dict[str, str]:
         return ClaimIdentity(self.claim_loop)
+
+    def _populate_sl_loop(self) -> Dict[str, str]:
+        return ServiceIdentity(self.sl_loop)
     
 
     def toJson(self):
@@ -66,6 +69,7 @@ class MedicalClaim(EDI):
             self._populate_subscriber_loop() if self.patient_loop == [] else self._populate_patient_loop()
         )
         self.claim_info = self._populate_claim_loop()
+        self.sl_info = self._populate_sl_loop()
 
 
 
