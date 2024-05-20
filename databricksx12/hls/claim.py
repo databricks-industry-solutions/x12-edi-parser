@@ -53,7 +53,7 @@ class MedicalClaim(EDI):
         return ClaimIdentity(self.claim_loop)
 
     def _populate_sl_loop(self) -> Dict[str, str]:
-        return ServiceIdentity(self.sl_loop)
+        return ServiceIdentity(self.sl_loop) 
     
 
     """

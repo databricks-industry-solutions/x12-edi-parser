@@ -6,7 +6,7 @@ from functools import reduce
 
 class Identity:
 
-    # provider name identities associated with every NM1 line
+    # provider name identities associated with every NM1 line. a combination may occur within loops
     nm1_identifiers = {
         '85': 'Billing Provider',  # entity that is billing for the services provided
         '87': 'Pay-to Provider',   # entity to which payments are to be sent
@@ -135,7 +135,7 @@ class ClaimIdentity(Identity):
         self.build_claim_lines(claim_segments)
 
     def build_claim_lines(self, claim_loop: List[Segment]):
-        def process_segment(segment: Segment):
+        def process_claim_segment(segment: Segment):
             if segment.element(0) == 'CLM':
                 self.patient_id = segment.element(1)  # submitter's identifier
                 self.claim_amount = segment.element(2)
@@ -146,20 +146,21 @@ class ClaimIdentity(Identity):
             if segment.element(0) == 'DTP':
                 self.date = segment.element(3)  # format D8:CCYYMMDD
 
-            if segment.element(0) == 'NM1':
-                provider_type = self.nm1_identifiers.get(segment.element(1))
-                if provider_type:
-                    identity = Identity([segment])
-                    self.providers[provider_type].append(identity.to_dict())
+        # process claim-specific segments
+        list(map(process_claim_segment, claim_loop))
 
-        return list(map(process_segment, claim_loop))
+        # process NM1 segments for providers
+        nm1_segments = filter(lambda segment: segment.element(0) == 'NM1', claim_loop)
+
+        # append instead of extend for single items
+        list(map(lambda segment: self.providers[self.nm1_identifiers.get(segment.element(1))].append(Identity([segment]).to_dict()), nm1_segments))
 
 
 
 class SubmitterIdentity(Identity):
     def __init__(self, submitter_segments: List[Segment]):
         self.contact_name = None
-        self.contacts = []
+        self.contacts = defaultdict(list)
         super().__init__(submitter_segments)
         self.build_submitter_lines(submitter_segments)
     
@@ -190,7 +191,7 @@ class SubmitterIdentity(Identity):
             contact['contact_method_3'] = contact_methods.get(segment.element(7), 'Unknown method')
             contact['contact_number_3'] = segment.element(8)
         
-        self.contacts.append(contact)
+        self.contacts['primary'].append(contact)
 
 
 
@@ -204,44 +205,33 @@ class ReceiverIdentity(Identity):
         return list(map(self.process_nm1_segment, nm1_segments))
 
 
+                
 class ServiceIdentity(Identity):
     def __init__(self, sl_segments: List[Segment]):
-        self.services = {
-            'Professional': [],
-            'Institutional': []
-        }
+        self.services = defaultdict(list)
         super().__init__(sl_segments)
         self.build_sl_lines(sl_segments)
 
     def build_sl_lines(self, sl_loop: List[Segment]):
         sv1_segments = filter(lambda segment: segment.element(0) == 'SV1', sl_loop)
         sv2_segments = filter(lambda segment: segment.element(0) == 'SV2', sl_loop)
+        self.services['Professional'] = [self.parse_professional_service(segment) for segment in sv1_segments]
+        self.services['Institutional'] = [self.parse_institutional_service(segment) for segment in sv2_segments]
 
-        professional_services = map(self.parse_professional_service, sv1_segments)
-        institutional_services = map(self.parse_institutional_service, sv2_segments)
-
-        self.services['Professional'] = list(professional_services)
-        self.services['Institutional'] = list(institutional_services)
 
     def parse_professional_service(self, segment: Segment):
         service_type, procedure_code = segment.element(1).split(':')[0:2]  # assuming 7 elements but choosing first two
         return {
-            'Type of service/claim': 'Professional',
             'Type': service_type,
             'Procedure Code': procedure_code,
             'Procedure Amount': segment.element(2)
         }
 
     def parse_institutional_service(self, segment: Segment):
-        revenue_code = segment.element(1)
         service_type, procedure_code = segment.element(2).split(':')[0:2]  # assuming 7 elements but choosing first two
         return {
-            'Type of service/claim': 'Institutional',
-            'Revenue Code': revenue_code,
             'Type': service_type,
+            'Revenue Code': segment.element(1),
             'Procedure Code': procedure_code,
             'Procedure Amount': segment.element(3)
         }
-
-                
-
