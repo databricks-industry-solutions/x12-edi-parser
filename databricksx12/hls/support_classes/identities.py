@@ -5,6 +5,8 @@ from collections import defaultdict
 from functools import reduce
 
 class Identity:
+
+    # provider name identities associated with every NM1 line
     nm1_identifiers = {
         '85': 'Billing Provider',  # entity that is billing for the services provided
         '87': 'Pay-to Provider',   # entity to which payments are to be sent
@@ -31,6 +33,7 @@ class Identity:
         self.npi: str = None
         self.build(segments)
 
+    # build name and address for any identity
     def build(self, loop: List[Segment]):
         nm1_segments = filter(lambda segment: segment.element(0) == 'NM1' and segment.segment_len() >= 10, loop)
         n3_segments = filter(lambda segment: segment.element(0) == 'N3', loop)
@@ -39,7 +42,6 @@ class Identity:
         list(map(self.process_nm1_segment, nm1_segments))
         list(map(self.process_n3_segment, n3_segments))
         list(map(self.process_n4_segment, n4_segments))
-        return self.to_dict()
     
     def process_nm1_segment(self, segment: Segment):
         self.type = 'Organization' if segment.element(2) == '2' else 'Individual'
@@ -88,15 +90,9 @@ class BillingIdentity(Identity):
             provider_type: [Identity(segments).to_dict() for segments in group]
             for provider_type, group in grouped_segments.items()
         })
-        return self.to_dict()
-
-    def to_dict(self):
-        base_dict = super().to_dict()
-        base_dict.update({
-            'providers': dict(self.providers)
-        })
-        return base_dict
     
+
+    #TODO class pay_to()
 
 class SubscriberIdentity(Identity):
     def __init__(self, subscriber_segments: List[Segment]):
@@ -108,25 +104,11 @@ class SubscriberIdentity(Identity):
     def build_subscriber(self, subscriber_loop: List[Segment]):
         grouped_segments = self.group_segments_by_provider(subscriber_loop, self.nm1_identifiers)
         self.subscribers = defaultdict(list, {
-            subscriber_type: [self.process_segments_with_relationship(segments).to_dict() for segments in group]
+            subscriber_type: [Identity(segments).to_dict() for segments in group]
             for subscriber_type, group in grouped_segments.items()
         })
-        return self.to_dict()
     
-    def process_segments_with_relationship(self, segments: List[Segment]) -> Identity:
-        identity = Identity(segments)
-        sbr_segment = next(filter(lambda s: s.element(0) == 'SBR', segments), None)
-        if sbr_segment:
-            identity.relationship_to_insured = 'Self' if sbr_segment.element(2) == '18' else 'Dependent'
-        return identity
 
-    def to_dict(self):
-        base_dict = super().to_dict()
-        base_dict.update({
-            'subscribers': dict(self.subscribers),
-            'relationship_to_insured': self.relationship_to_insured
-        })
-        return base_dict
 
 class PatientIdentity(Identity):
     def __init__(self, patient_segments: List[Segment]):
@@ -170,19 +152,7 @@ class ClaimIdentity(Identity):
                     identity = Identity([segment])
                     self.providers[provider_type].append(identity.to_dict())
 
-        list(map(process_segment, claim_loop))
-
-    def to_dict(self):
-        base_dict = super().to_dict()
-        base_dict.update({
-            'patient_id': self.patient_id,
-            'claim_amount': self.claim_amount,
-            'facility_type_code': self.facility_type_code,
-            'claim_code_freq': self.claim_code_freq,
-            'date': self.date,
-            'providers': dict(self.providers)
-        })
-        return base_dict
+        return list(map(process_segment, claim_loop))
 
 
 
@@ -199,7 +169,6 @@ class SubmitterIdentity(Identity):
 
         list(map(self.process_nm1_segment, nm1_segments))
         list(map(self.process_per_segment, per_segments))
-        return self.to_dict()
 
     def process_per_segment(self, segment):
         self.contact_name = segment.element(2)
@@ -222,14 +191,7 @@ class SubmitterIdentity(Identity):
             contact['contact_number_3'] = segment.element(8)
         
         self.contacts.append(contact)
-    
-    def to_dict(self):
-        base_dict = super().to_dict()
-        base_dict.update({
-            'contact_name': self.contact_name,
-            'contacts': self.contacts
-        })
-        return base_dict
+
 
 
 class ReceiverIdentity(Identity):
@@ -239,8 +201,7 @@ class ReceiverIdentity(Identity):
 
     def build_receiver_lines(self, receiver_loop: List[Segment]):
         nm1_segments = filter(lambda segment: segment.element(0) == 'NM1' and segment.element(1) == '40', receiver_loop)
-        list(map(self.process_nm1_segment, nm1_segments))
-        return self.to_dict()
+        return list(map(self.process_nm1_segment, nm1_segments))
 
 
 class ServiceIdentity(Identity):
@@ -262,8 +223,6 @@ class ServiceIdentity(Identity):
         self.services['Professional'] = list(professional_services)
         self.services['Institutional'] = list(institutional_services)
 
-        return self.to_dict()
-
     def parse_professional_service(self, segment: Segment):
         service_type, procedure_code = segment.element(1).split(':')[0:2]  # assuming 7 elements but choosing first two
         return {
@@ -283,13 +242,6 @@ class ServiceIdentity(Identity):
             'Procedure Code': procedure_code,
             'Procedure Amount': segment.element(3)
         }
-
-    def to_dict(self):
-        base_dict = super().to_dict()
-        base_dict.update({
-            'services': self.services
-        })
-        return base_dict
 
                 
 
