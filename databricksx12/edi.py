@@ -175,8 +175,6 @@ class Segment():
         return self if value == self.get_element(element, sub_element, dne) else None
 
 
-
-
 #
 # Manage relationship heirarchy within EDI
 # 
@@ -225,7 +223,8 @@ class EDIManager():
             }
         else:
             return EDIManager.class_metadata(data)
-    
+
+
 
 """
 from databricksx12.edi import *

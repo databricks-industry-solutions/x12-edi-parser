@@ -32,4 +32,22 @@ class HealthcareManager(EDI):
     def from_transaction(self, trnx):
         return ClaimBuilder(self.mapping.get(trnx.transaction_type),
                             [x for x in trnx.data if x.segment_name() not in ['ST', 'SE']], trnx.format_cls).build()
+
+    #
+    # Convert all data to json data
+    #
+    def to_json(self, edi):
+        return {
+            **EDIManager.class_metadata(edi),
+            'FuncitonalGroup': [
+                {
+                    **EDIManager.class_metadata(fg),
+                    'Transactions': [
+                        {
+                            **EDIManager.class_metadata(trnx),
+                            'Claims': [clm.to_json() for clm in self.from_transaction(trnx)]
+                        } for trnx in fg.transaction_segments()]
+                } for fg in edi.functional_segments()] 
+        }
     
+

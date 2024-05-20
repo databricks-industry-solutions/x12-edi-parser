@@ -56,8 +56,36 @@ class MedicalClaim(EDI):
         return ServiceIdentity(self.sl_loop)
     
 
-    def toJson(self):
-        {**self.sender_receiver_loop(), **self.claim_loop(), **self.patient_loop(), **self.subscriber_loop(), **self.billing_loop()}
+    """
+    Overall Asks
+    - Coordination of Benefits flag
+    - Patient / Subscriber same person flag
+
+    Claim needs
+    - principal ICD10 diagnosis code
+    - other ICD10 diagnosis codes as an array
+    - hcfa place of service
+    - claim id?
+    - admission type code
+    - facility type code
+    - claim frequency code
+
+    Claim line needs
+    - This should return an array 
+    
+    Servicing provider needs
+    - TBD
+    """
+    def to_json(self):
+        return {
+            **{'submitter': self.submitter_info.to_dict()},
+            **{'reciever': self.receiver_info.to_dict()},
+            **{'subscriber': self.subscriber_info.to_dict()},
+            **{'patient': self.patient_info.to_dict()},
+            **{'billing_provider': self.billing_info.to_dict()},
+            **{'claim_header': self.claim_info.to_dict()},
+            **{'claim_lines': self.sl_info.to_dict()}
+        }
 
     # not sure if this should be here or not, but you get the idea
     def build(self) -> None:
@@ -76,7 +104,6 @@ class MedicalClaim(EDI):
 class Claim837i(MedicalClaim):
 
     NAME = "837I"
-    # sender / receiver ?
 
 # Format of 837P https://www.dhs.wisconsin.gov/publications/p0/p00265.pdf
 
@@ -116,13 +143,51 @@ class ClaimBuilder(EDI):
     #
     def build_claim(self, clm_segment, idx):
         return self.trnx_cls(
-            sender_receiver_loop=self.loop.get_submitter_receiver_loop(idx),
+            sender_receiver_loop=self.get_submitter_receiver_loop(idx),
             billing_loop=self.loop.get_loop_segments(idx, "2000A"),
             subscriber_loop=self.loop.get_loop_segments(idx, "2000B"),
             patient_loop=self.loop.get_loop_segments(idx, "2000C"),
-            claim_loop=self.loop.get_claim_loop(idx),
-            sl_loop=self.loop.get_service_line_loop(idx),  # service line loop
+            claim_loop=self.get_claim_loop(idx),
+            sl_loop=self.get_service_line_loop(idx),  # service line loop
         )
+
+    #
+    # Determine claim loop: starts at the clm index and ends at LX segment, or CLM segment, or end of data
+    #
+    def get_claim_loop(self, clm_idx):
+        sl_start_indexes = list(map(lambda x: x[0], filter(lambda x: x[0] > clm_idx, self.segments_by_name_index("LX"))))
+        clm_indexes = list(map(lambda x: x[0], filter(lambda x: x[0] > clm_idx, self.segments_by_name_index("CLM"))))
+
+        if sl_start_indexes:
+            clm_end_idx = min(sl_start_indexes)
+        elif clm_indexes:
+            clm_end_idx = min(clm_indexes + [len(self.data)])
+        else:
+            clm_end_idx = len(self.data)
+        
+        return self.data[clm_idx:clm_end_idx]
+
+    #
+    # fetch the indices of LX and CLM segments that are beyond the current clm index
+    #
+    def get_service_line_loop(self, clm_idx):
+        sl_start_indexes = list(map(lambda x: x[0], filter(lambda x: x[0] > clm_idx, self.segments_by_name_index("LX"))))
+        tx_end_indexes = list(map(lambda x: x[0], filter(lambda x: x[0] > clm_idx, self.segments_by_name_index("SE"))))
+        if sl_start_indexes:
+            sl_end_idx = min(tx_end_indexes + [len(self.data)])
+            return self.data[min(sl_start_indexes):sl_end_idx]
+        return []
+
+    def get_submitter_receiver_loop(self, clm_idx):
+        bht_start_indexes = list(map(lambda x: x[0], filter(lambda x: x[0] < clm_idx, self.segments_by_name_index("BHT"))))
+        bht_end_indexes = list(map(lambda x: x[0], filter(lambda x: x[0] < clm_idx and x[1].element(3) == '20', self.segments_by_name_index("HL"))))
+        if bht_start_indexes:
+            sub_rec_start_idx = max(bht_start_indexes)
+            sub_rec_end_idx = max(bht_end_indexes)
+
+            return self.data[sub_rec_start_idx:sub_rec_end_idx]
+        return []
+
 
     #
     # Given transaction type, transaction segments, and delim info, build out claims in the transaction
