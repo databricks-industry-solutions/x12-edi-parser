@@ -94,18 +94,26 @@ from pyspark.sql.functions import input_file_name
 ```python
 from databricksx12 import *
 from databricksx12.hls import *
+import json
 
 hm = HealthcareManager()
-x =  EDI(open("sampledata/837/CHPW_Claimdata.txt", "rb").read().decode("utf-8"))
+edi =  EDI(open("sampledata/837/CHPW_Claimdata.txt", "rb").read().decode("utf-8"))
 
-hm.from_edi(x) 
+hm.from_edi(edi) 
 #[<databricksx12.hls.claim.Claim837p object at 0x1027003d0>, <databricksx12.hls.claim.Claim837p object at 0x1027006a0>, <databricksx12.hls.claim.Claim837p object at 0x102700700>, <databricksx12.hls.claim.Claim837p object at 0x102700550>, <databricksx12.hls.claim.Claim837p object at 0x1027002b0>]
+
+#TODO replace this with Spark tomorrow
+print(json.dumps(hm.to_json(edi), indent=4)) 
+
+
+"""
+TODO update tomorrow below
+"""
 
 one_claim = hm.from_edi(x)[0]
 
 #print a json representation of a claim
-import json
-print(json.dumps(one_claim.toJson(), indent=4))
+print(json.dumps(one_claim.to_json(), indent=4))
 """
 {
     "submitter": {
