@@ -164,44 +164,6 @@ class Loop(EDI):
         except: 
             return None #when there is no preceding hl segment
         
-    #
-    # Determine claim loop: starts at the clm index and ends at LX segment, or CLM segment, or end of data
-    #
-    def get_claim_loop(self, clm_idx):
-        sl_start_indexes = list(map(lambda x: x[0], filter(lambda x: x[0] > clm_idx, self.segments_by_name_index("LX"))))
-        clm_indexes = list(map(lambda x: x[0], filter(lambda x: x[0] > clm_idx, self.segments_by_name_index("CLM"))))
-
-        if sl_start_indexes:
-            clm_end_idx = min(sl_start_indexes)
-        elif clm_indexes:
-            clm_end_idx = min(clm_indexes + [len(self.data)])
-        else:
-            clm_end_idx = len(self.data)
-        
-        return self.data[clm_idx:clm_end_idx]
-    
-    #
-    # fetch the indices of LX and CLM segments that are beyond the current clm index
-    #
-    def get_service_line_loop(self, clm_idx):
-        sl_start_indexes = list(map(lambda x: x[0], filter(lambda x: x[0] > clm_idx, self.segments_by_name_index("LX"))))
-        tx_end_indexes = list(map(lambda x: x[0], filter(lambda x: x[0] > clm_idx, self.segments_by_name_index("SE"))))
-        if sl_start_indexes:
-            sl_end_idx = min(tx_end_indexes + [len(self.data)])
-            return self.data[min(sl_start_indexes):sl_end_idx]
-        return []
-
-    def get_submitter_receiver_loop(self, clm_idx):
-        bht_start_indexes = list(map(lambda x: x[0], filter(lambda x: x[0] < clm_idx, self.segments_by_name_index("BHT"))))
-        bht_end_indexes = list(map(lambda x: x[0], filter(lambda x: x[0] < clm_idx and x[1].element(3) == '20', self.segments_by_name_index("HL"))))
-        if bht_start_indexes:
-            sub_rec_start_idx = max(bht_start_indexes)
-            sub_rec_end_idx = max(bht_end_indexes)
-
-            return self.data[sub_rec_start_idx:sub_rec_end_idx]
-        return []
-
-
                 
 """
 sample_data_837i_edited = open("/sampledata/837/CHPW_Claimdata_edited.txt", "rb").read().decode("utf-8")
