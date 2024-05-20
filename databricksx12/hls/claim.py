@@ -59,7 +59,7 @@ class MedicalClaim(EDI):
     """
     Overall Asks
     - Coordination of Benefits flag
-    - Patient / Subscriber same person flag
+    - Patient / Subscriber same person flag --> self.relationship_to_insured in Suscriber
 
     Claim needs
     - principal ICD10 diagnosis code

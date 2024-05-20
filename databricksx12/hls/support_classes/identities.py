@@ -92,8 +92,6 @@ class BillingIdentity(Identity):
         })
     
 
-    #TODO class pay_to()
-
 class SubscriberIdentity(Identity):
     def __init__(self, subscriber_segments: List[Segment]):
         self.subscribers = defaultdict(list)
@@ -102,6 +100,10 @@ class SubscriberIdentity(Identity):
         self.build_subscriber(subscriber_segments)
 
     def build_subscriber(self, subscriber_loop: List[Segment]):
+        sbr_segment = next(filter(lambda s: s.element(0) == 'SBR', subscriber_loop), None)
+        if sbr_segment:
+            self.relationship_to_insured = 'Self' if sbr_segment.element(2) == '18' else 'Dependent'
+
         grouped_segments = self.group_segments_by_provider(subscriber_loop, self.nm1_identifiers)
         self.subscribers = defaultdict(list, {
             subscriber_type: [Identity(segments).to_dict() for segments in group]
