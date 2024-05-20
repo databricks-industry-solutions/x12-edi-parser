@@ -76,7 +76,7 @@ class MedicalClaim(EDI):
     Servicing provider needs
     - TBD
     """
-    def toJson(self):
+    def to_json(self):
         return {
             **{'submitter': self.submitter_info.to_dict()},
             **{'reciever': self.receiver_info.to_dict()},
@@ -104,7 +104,6 @@ class MedicalClaim(EDI):
 class Claim837i(MedicalClaim):
 
     NAME = "837I"
-    # sender / receiver ?
 
 # Format of 837P https://www.dhs.wisconsin.gov/publications/p0/p00265.pdf
 

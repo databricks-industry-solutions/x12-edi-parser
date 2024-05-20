@@ -151,11 +151,7 @@ class ReceiverIdentity(Identity):
 class ServiceIdentity(Identity):
     def __init__(self, sl_segments: List[Segment]):
             super().__init__(sl_segments)
-            self.services = {
-                'Professional': [],
-                'Institutional': []
-            }
-            self.build_sl_lines(sl_segments)
+            #self.claim_lines = build_sl_lines(sl_segments)
 
     def build_sl_lines(self, sl_loop: List[Segment]):
         for segment in sl_loop:
