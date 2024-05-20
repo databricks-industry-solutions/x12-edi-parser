@@ -20,8 +20,8 @@ pip install git+https://github.com/databricks-industry-solutions/x12-edi-parser
 Default format used is AnsiX12 (* as a delim and ~ as segment separator)
 
 ```python
-from databricksx12.format import *
-from databricksx12.edi import *
+from databricksx12 import *
+
 ediFormat = AnsiX12Delim #specifying formats of data, ansi is also the default if nothing is specified 
 df = spark.read.text("sampledata/837/*", wholetext = True)
 
@@ -92,7 +92,8 @@ from pyspark.sql.functions import input_file_name
 #### Parsing Healthcare Transactions
 
 ```python
-from databricksx12.hls.healthcare import *
+from databricksx12 import *
+from databricksx12.hls import *
 
 hm = HealthcareManager()
 x =  EDI(open("sampledata/837/CHPW_Claimdata.txt", "rb").read().decode("utf-8"))
@@ -101,6 +102,34 @@ hm.from_edi(x)
 #[<databricksx12.hls.claim.Claim837p object at 0x1027003d0>, <databricksx12.hls.claim.Claim837p object at 0x1027006a0>, <databricksx12.hls.claim.Claim837p object at 0x102700700>, <databricksx12.hls.claim.Claim837p object at 0x102700550>, <databricksx12.hls.claim.Claim837p object at 0x1027002b0>]
 
 one_claim = hm.from_edi(x)[0]
+
+#print a json representation of a claim
+import json
+print(json.dumps(one_claim.toJson(), indent=4))
+"""
+{
+    "submitter": {
+        "name": "CLEARINGHOUSE LLC",
+        "type": "Organization",
+        "tax_id": "987654321",
+        "contact_name": "CLEARINGHOUSE CLIENT SERVICES",
+        "contacts": [
+            {
+                "contact_method": "Telephone",
+                "contact_number": "8005551212",
+                "contact_method_2": "Fax",
+                "contact_number_2": "8005551212"
+            }
+        ]
+    },
+    "reciever": {
+        "name": "123456789",
+        "type": "Organization",
+        "id_code": "CHPWA"
+    },
+    "subscriber": {...
+"""
+#print raw EDI Segments
 print("\n".join([y.data for y in one_claim.data])) #Print one claim to look at the segments of it
 """
 BHT*0019*00*7349063984*20180508*0833*CH
