@@ -1,8 +1,25 @@
 from databricksx12.edi import Segment
-from typing import List
+from typing import List, Dict
 
+from collections import defaultdict
+from functools import reduce
 
 class Identity:
+    nm1_identifiers = {
+        '85': 'Billing Provider',  # entity that is billing for the services provided
+        '87': 'Pay-to Provider',   # entity to which payments are to be sent
+        'PR': 'Payer',             # insurance company or payer
+        'IL': 'Insured',           # insured individual
+        'QC': 'Patient',           # patient
+        '82': 'Rendering Provider',# individual or group that performed the service
+        'DN': 'Referring Provider',# doctor who referred the patient to another doctor
+        '77': 'Service Facility',  # location where the service was performed
+        'DQ': 'Supervising Provider', # provider who oversees the patient's care
+        '71': 'Attending Provider',# provider with primary responsibility for the patient at the time of service
+        'DK': 'Ordering Provider', # provider who ordered the service or item
+        'PE': 'Payee',             # entity receiving the payment
+    }
+        
     def __init__(self, segments: List[Segment]):
         self.name: str = None
         self.street: str = None
@@ -10,53 +27,106 @@ class Identity:
         self.city: str = None
         self.state: str = None
         self.zip: str = None
+        self.id: str = None
+        self.npi: str = None
         self.build(segments)
 
     def build(self, loop: List[Segment]):
-        for segment in loop:
-            if segment.element(0) == 'N3':
-                self.street = segment.element(1)
-            elif segment.element(0) == 'N4':
-                self.city = segment.element(1)
-                self.state = segment.element(2)
-                self.zip = segment.element(3)
+        nm1_segments = filter(lambda segment: segment.element(0) == 'NM1' and segment.segment_len() >= 10, loop)
+        n3_segments = filter(lambda segment: segment.element(0) == 'N3', loop)
+        n4_segments = filter(lambda segment: segment.element(0) == 'N4', loop)
+
+        list(map(self.process_nm1_segment, nm1_segments))
+        list(map(self.process_n3_segment, n3_segments))
+        list(map(self.process_n4_segment, n4_segments))
+        return self.to_dict()
+    
+    def process_nm1_segment(self, segment: Segment):
+        self.type = 'Organization' if segment.element(2) == '2' else 'Individual'
+        self.name = segment.element(3) if self.type == 'Organization' else ' '.join([segment.element(3), segment.element(4), segment.element(5)])
+        self.npi = segment.element(9) if len(segment.element(9)) == 10 else None
+        self.id = segment.element(9) if len(segment.element(9)) != 10 else None
+
+    def process_n3_segment(self, segment: Segment):
+        self.street = segment.element(1)
+
+    def process_n4_segment(self, segment: Segment):
+        self.city = segment.element(1)
+        self.state = segment.element(2)
+        self.zip = segment.element(3)
+
 
     def to_dict(self):
         return {k: v for k, v in self.__dict__.items() if v is not None}
+    
+    
+    @staticmethod
+    def group_segments_by_provider(loop: List[Segment], nm1_identifiers: dict) -> Dict[str, List[List[Segment]]]:
+        def reducer(acc, segment):
+            provider_type, grouped = acc
+            if segment.element(0) == 'NM1':
+                provider_type = nm1_identifiers.get(segment.element(1))
+                if provider_type:
+                    grouped[provider_type].append([segment])
+            elif provider_type:
+                grouped[provider_type][-1].append(segment)
+            return provider_type, grouped
+        
+        _, grouped = reduce(reducer, loop, (None, defaultdict(list)))
+        return grouped
 
 
 class BillingIdentity(Identity):
     def __init__(self, billing_segments: List[Segment]):
+        self.providers = defaultdict(list)
         super().__init__(billing_segments)
-        self.npi = None
         self.build_billing(billing_segments)
 
     def build_billing(self, billing_loop: List[Segment]):
-        for segment in billing_loop:
-            if segment.element(0) == 'NM1':
-                if segment.element(1) == '85':      # Hardcoded to 85 for Billing Providers
-                    self.type = 'Organization' if segment.element(2) == '2' else 'Individual'
-                    self.name = segment.element(3) if self.type == 'Organization' else ' '.join([segment.element(3), segment.element(4), segment.element(5)])
-                    self.npi = segment.element(9)
+        grouped_segments = self.group_segments_by_provider(billing_loop, self.nm1_identifiers)
+        self.providers = defaultdict(list, {
+            provider_type: [Identity(segments).to_dict() for segments in group]
+            for provider_type, group in grouped_segments.items()
+        })
+        return self.to_dict()
 
+    def to_dict(self):
+        base_dict = super().to_dict()
+        base_dict.update({
+            'providers': dict(self.providers)
+        })
+        return base_dict
+    
 
 class SubscriberIdentity(Identity):
     def __init__(self, subscriber_segments: List[Segment]):
-        super().__init__(subscriber_segments)
-        self.id_code = None
+        self.subscribers = defaultdict(list)
         self.relationship_to_insured = None
+        super().__init__(subscriber_segments)
         self.build_subscriber(subscriber_segments)
 
     def build_subscriber(self, subscriber_loop: List[Segment]):
-        for segment in subscriber_loop:
-            if segment.element(0) == 'NM1':
-                if segment.element(1) == 'IL':      # Hardcoded to IL for Insured
-                    self.type = 'Organization' if segment.element(2) == '2' else 'Individual'
-                    self.name = segment.element(3) if self.type == 'Organization' else ' '.join([segment.element(3), segment.element(4), segment.element(5)])
-                    self.id_code = segment.element(9)
-            elif segment.element(0) == 'SBR':
-                self.relationship_to_insured = 'Self' if segment.element(2) == '18' else 'Dependent'     # information about subscriber/dependent 01 = Spouse; 18 = Self; 19 = Child; G8 = Other
+        grouped_segments = self.group_segments_by_provider(subscriber_loop, self.nm1_identifiers)
+        self.subscribers = defaultdict(list, {
+            subscriber_type: [self.process_segments_with_relationship(segments).to_dict() for segments in group]
+            for subscriber_type, group in grouped_segments.items()
+        })
+        return self.to_dict()
+    
+    def process_segments_with_relationship(self, segments: List[Segment]) -> Identity:
+        identity = Identity(segments)
+        sbr_segment = next(filter(lambda s: s.element(0) == 'SBR', segments), None)
+        if sbr_segment:
+            identity.relationship_to_insured = 'Self' if sbr_segment.element(2) == '18' else 'Dependent'
+        return identity
 
+    def to_dict(self):
+        base_dict = super().to_dict()
+        base_dict.update({
+            'subscribers': dict(self.subscribers),
+            'relationship_to_insured': self.relationship_to_insured
+        })
+        return base_dict
 
 class PatientIdentity(Identity):
     def __init__(self, patient_segments: List[Segment]):
@@ -64,52 +134,72 @@ class PatientIdentity(Identity):
         self.build_patient(patient_segments)
 
     def build_patient(self, patient_loop: List[Segment]):
-        for segment in patient_loop:
-            if segment.element(0) == 'NM1':
-                if segment.element(1) == 'QC':      # Hardcoded to QC for Patient
-                    self.type = 'Patient'
-                    self.name = ' '.join([segment.element(3), segment.element(4), segment.element(5)])
+        def process_patient_segment(segment: Segment):
+            self.type = 'Patient'
+            self.name = ' '.join([segment.element(3), segment.element(4), segment.element(5)])
+        return list(map(process_patient_segment, filter(lambda s: s.element(0) == 'NM1' and s.element(1) == 'QC', patient_loop)))
+
 
 
 class ClaimIdentity(Identity):
     def __init__(self, claim_segments: List[Segment]):
-        super().__init__(claim_segments)
-        self.id_code = None
-        self.facility_code = None
+        self.patient_id = None
         self.claim_amount = None
+        self.facility_type_code = None
+        self.claim_code_freq = None
+        self.date = None
+        self.providers = defaultdict(list)
+        super().__init__(claim_segments)
         self.build_claim_lines(claim_segments)
 
     def build_claim_lines(self, claim_loop: List[Segment]):
-        for segment in claim_loop:
+        def process_segment(segment: Segment):
             if segment.element(0) == 'CLM':
-                # TODO Inst/Prof
-                self.id_code = segment.element(1) # submitter's identifier
+                self.patient_id = segment.element(1)  # submitter's identifier
                 self.claim_amount = segment.element(2)
-                if segment.element(5).split(':')[1] == 'B': # professional claims
-                    self.facility_code = 'Outpatient Hospital' if segment.element(5).split(':')[0]== 22 else 'Other'
-            # TODO: additional provider lines?
+                codes = segment.element(5).split(':') # codes[1] == A for institutional and B for professional
+                self.facility_type_code = codes[0]
+                self.claim_code_freq = codes[2]
+
+            if segment.element(0) == 'DTP':
+                self.date = segment.element(3)  # format D8:CCYYMMDD
+
+            if segment.element(0) == 'NM1':
+                provider_type = self.nm1_identifiers.get(segment.element(1))
+                if provider_type:
+                    identity = Identity([segment])
+                    self.providers[provider_type].append(identity.to_dict())
+
+        list(map(process_segment, claim_loop))
+
+    def to_dict(self):
+        base_dict = super().to_dict()
+        base_dict.update({
+            'patient_id': self.patient_id,
+            'claim_amount': self.claim_amount,
+            'facility_type_code': self.facility_type_code,
+            'claim_code_freq': self.claim_code_freq,
+            'date': self.date,
+            'providers': dict(self.providers)
+        })
+        return base_dict
 
 
 
 class SubmitterIdentity(Identity):
     def __init__(self, submitter_segments: List[Segment]):
-        super().__init__(submitter_segments)
-        self.tax_id = None
         self.contact_name = None
         self.contacts = []
+        super().__init__(submitter_segments)
         self.build_submitter_lines(submitter_segments)
-
-    def build_submitter_lines(self, submitter_loop: List[Segment]):
-        for segment in submitter_loop:
-            if segment.element(0) == 'NM1'and segment.element(1) == '41':
-                self.process_nm1_segment(segment)
-            elif segment.element(0) == 'PER':
-                self.process_per_segment(segment)
     
-    def process_nm1_segment(self, segment):
-        self.type = 'Organization' if segment.element(2) == '2' else 'Individual'
-        self.name = segment.element(3) if self.type == 'Organization' else ' '.join([segment.element(3), segment.element(4), segment.element(5)])
-        self.tax_id = segment.element(9) # id
+    def build_submitter_lines(self, submitter_loop: List[Segment]):
+        nm1_segments = filter(lambda segment: segment.element(0) == 'NM1' and segment.element(1) == '41', submitter_loop)
+        per_segments = filter(lambda segment: segment.element(0) == 'PER', submitter_loop)
+
+        list(map(self.process_nm1_segment, nm1_segments))
+        list(map(self.process_per_segment, per_segments))
+        return self.to_dict()
 
     def process_per_segment(self, segment):
         self.contact_name = segment.element(2)
@@ -132,42 +222,50 @@ class SubmitterIdentity(Identity):
             contact['contact_number_3'] = segment.element(8)
         
         self.contacts.append(contact)
+    
+    def to_dict(self):
+        base_dict = super().to_dict()
+        base_dict.update({
+            'contact_name': self.contact_name,
+            'contacts': self.contacts
+        })
+        return base_dict
 
 
 class ReceiverIdentity(Identity):
     def __init__(self, receiver_segments: List[Segment]):
         super().__init__(receiver_segments)
-        self.id_code = None
         self.build_receiver_lines(receiver_segments)
 
     def build_receiver_lines(self, receiver_loop: List[Segment]):
-        for segment in receiver_loop:
-            if segment.element(0) == 'NM1' and segment.element(1) == '40':
-                self.type = 'Organization' if segment.element(2) == '2' else 'Individual'
-                self.name = segment.element(3) if self.type == 'Organization' else ' '.join([segment.element(3), segment.element(4), segment.element(5)])
-                self.id_code = segment.element(9) # id
+        nm1_segments = filter(lambda segment: segment.element(0) == 'NM1' and segment.element(1) == '40', receiver_loop)
+        list(map(self.process_nm1_segment, nm1_segments))
+        return self.to_dict()
 
 
 class ServiceIdentity(Identity):
     def __init__(self, sl_segments: List[Segment]):
-            super().__init__(sl_segments)
-            self.services = {
-                'Professional': [],
-                'Institutional': []
-            }
-            self.build_sl_lines(sl_segments)
+        self.services = {
+            'Professional': [],
+            'Institutional': []
+        }
+        super().__init__(sl_segments)
+        self.build_sl_lines(sl_segments)
 
     def build_sl_lines(self, sl_loop: List[Segment]):
-        for segment in sl_loop:
-            if segment.element(0) == 'SV1':  # Professional service
-                service = self.parse_professional_service(segment)
-                self.services['Professional'].append(service)
-            elif segment.element(0) == 'SV2':  # Institutional service
-                service = self.parse_institutional_service(segment)
-                self.services['Institutional'].append(service)
+        sv1_segments = filter(lambda segment: segment.element(0) == 'SV1', sl_loop)
+        sv2_segments = filter(lambda segment: segment.element(0) == 'SV2', sl_loop)
+
+        professional_services = map(self.parse_professional_service, sv1_segments)
+        institutional_services = map(self.parse_institutional_service, sv2_segments)
+
+        self.services['Professional'] = list(professional_services)
+        self.services['Institutional'] = list(institutional_services)
+
+        return self.to_dict()
 
     def parse_professional_service(self, segment: Segment):
-        service_type, procedure_code = segment.element(1).split(':')[0:2] #assuming 7 elements but choosing first two
+        service_type, procedure_code = segment.element(1).split(':')[0:2]  # assuming 7 elements but choosing first two
         return {
             'Type of service/claim': 'Professional',
             'Type': service_type,
@@ -177,7 +275,7 @@ class ServiceIdentity(Identity):
 
     def parse_institutional_service(self, segment: Segment):
         revenue_code = segment.element(1)
-        service_type, procedure_code = segment.element(2).split(':')[0:2] #assuming 7 elements but choosing first two
+        service_type, procedure_code = segment.element(2).split(':')[0:2]  # assuming 7 elements but choosing first two
         return {
             'Type of service/claim': 'Institutional',
             'Revenue Code': revenue_code,
@@ -186,6 +284,12 @@ class ServiceIdentity(Identity):
             'Procedure Amount': segment.element(3)
         }
 
+    def to_dict(self):
+        base_dict = super().to_dict()
+        base_dict.update({
+            'services': self.services
+        })
+        return base_dict
 
                 
 
