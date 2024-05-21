@@ -34,6 +34,7 @@ df = spark.read.text("sampledata/837/*txt", wholetext = True)
   .map(lambda x: EDI(x, delim_cls = ediFormat))
   .map(lambda x: {"transaction_count": x.num_transactions()})
 ).toDF().show()
+"""
 +-----------------+
 |transaction_count|
 +-----------------+
@@ -43,7 +44,7 @@ df = spark.read.text("sampledata/837/*txt", wholetext = True)
 |                1|
 |                1|
 +-----------------+
-
+"""
 ```
 
 ## Parsing Healthcare Transactions
@@ -56,8 +57,18 @@ Currently supports 837s. Records in each format type should be saved separately,
 from databricksx12 import *
 from databricksx12.hls import *
 import json
+from pyspark.sql.functions import input_file_name
 
-df = spark.read.text("sampledata/837/*", wholetext = True)
+hm = HealthcareManager()
+df = spark.read.text("sampledata/837/*txt", wholetext = True)
+
+
+rdd = (
+ df.withColumn("filename", input_file_name()).rdd
+  .map(lambda x: (x.asDict().get("filename"),x.asDict().get("value")))
+  .map(lambda x: (x[0], EDI(x[1])))
+  .map(lambda x: { **{'filename': x[0]}, **hm.to_json(x[1])} )
+)
 
 ```
 
@@ -74,7 +85,7 @@ edi =  EDI(open("sampledata/837/CHPW_Claimdata.txt", "rb").read().decode("utf-8"
 
 #Returns parsed claim data
 hm.from_edi(edi) 
-#[<databricksx12.hls.claim.Claim837i object at 0x1056309a0>, <databricksx12.hls.claim.Claim837i object at 0x105630580>, <databricksx12.hls.claim.Claim837i object at 0x1056973d0>, <databricksx12.hls.claim.Claim837i object at 0x105697100>, <databricksx12.hls.claim.Claim837i object at 0x1056972b0>]
+#[<databricksx12.hls.claim.Claim837p object at 0x106e57b50>, <databricksx12.hls.claim.Claim837p object at 0x106e57c40>, <databricksx12.hls.claim.Claim837p object at 0x106e57eb0>, <databricksx12.hls.claim.Claim837p object at 0x106e57b20>, <databricksx12.hls.claim.Claim837p object at 0x106e721f0>]
 
 #Print in json format
 print(json.dumps(hm.to_json(edi), indent=4)) 
@@ -157,11 +168,7 @@ from pyspark.sql.functions import input_file_name
 |NM1*40*2*12345678...|         6|                         *|            10|         NM1|                            :|file:///|
 ```
 
-#### Other types of EDI Parsing in Pyspark
-
-
->  **Warning** 
-> Sections below this are under construction
+#### Other EDI Parsing in Pyspark
 
 ```python
 
@@ -229,8 +236,6 @@ ediDF.show()
 |                1|
 +-----------------+
 """
-
-
 
 
 #show first line of each transaction
