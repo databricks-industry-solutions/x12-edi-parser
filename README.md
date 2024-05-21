@@ -68,7 +68,13 @@ rdd = (
   .map(lambda x: (x.asDict().get("filename"),x.asDict().get("value")))
   .map(lambda x: (x[0], EDI(x[1])))
   .map(lambda x: { **{'filename': x[0]}, **hm.to_json(x[1])} )
+  .map(lambda x: json.dumps(x))
 )
+claims = spark.read.json(rdd)
+
+#Claim header table TODO 
+
+#Claim line table TODO 
 
 ```
 
