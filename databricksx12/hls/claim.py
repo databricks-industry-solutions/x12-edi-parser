@@ -84,7 +84,7 @@ class MedicalClaim(EDI):
             **{'patient': self.patient_info.to_dict()},
             **{'billing_provider': self.billing_info.to_dict()},
             **{'claim_header': self.claim_info.to_dict()},
-            **{'claim_lines': self.sl_info.to_dict()}
+            **{'claim_lines': 'TODO'}
         }
 
     # not sure if this should be here or not, but you get the idea
@@ -97,7 +97,7 @@ class MedicalClaim(EDI):
             self._populate_subscriber_loop() if self.patient_loop == [] else self._populate_patient_loop()
         )
         self.claim_info = self._populate_claim_loop()
-        self.sl_info = self._populate_sl_loop()
+        self.sl_info =  self._populate_sl_loop()
 
 
 
