@@ -1,7 +1,18 @@
-from databricksx12.edi import EDI, AnsiX12Delim
+from databricksx12.edi import EDI, AnsiX12Delim, Segment
 from databricksx12.hls.loop import Loop
-from databricksx12.hls.support_classes.identities import BillingIdentity, SubscriberIdentity, PatientIdentity, ClaimIdentity, SubmitterIdentity, ReceiverIdentity, ServiceIdentity
+from databricksx12.hls.support_classes.identities import (
+    Identity,
+    BillingIdentity, 
+    SubscriberIdentity, 
+    PatientIdentity, 
+    ClaimIdentity, 
+    SubmitterIdentity, 
+    ReceiverIdentity, 
+    ServiceIdentity,
+)
 from typing import List, Dict
+from collections import defaultdict
+from functools import reduce
 
 
 #
@@ -35,12 +46,11 @@ class MedicalClaim(EDI):
         return ReceiverIdentity(self.sender_receiver_loop)
     
     def _populate_billing_loop(self) -> Dict[str, str]:
-        return BillingIdentity(self.billing_loop)
+        return BillingIdentity(self.sender_receiver_loop)
 
     def _populate_subscriber_loop(self) -> Dict[str, str]:
         return SubscriberIdentity(self.subscriber_loop)
-
-    #
+    
     #
     #
     def _populate_patient_loop(self) -> Dict[str, str]:
@@ -55,20 +65,41 @@ class MedicalClaim(EDI):
     def _populate_sl_loop(self) -> Dict[str, str]:
         return ServiceIdentity(self.sl_loop) 
     
+    def _populate_grouped_entities(self, loop: List[Segment]) -> Dict[str, List[Dict[str, str]]]:
+        # if we want a list of NM1 entities belonging within a loop 
+        def group_segments_by_provider(loop, nm1_identifiers: dict = Identity.nm1_identifiers) -> Dict[str, List[List[Segment]]]:
+            def reducer(acc, segment):
+                provider_type, grouped = acc
+                if segment.element(0) == 'NM1':
+                    provider_type = nm1_identifiers.get(segment.element(1))
+                    if provider_type:
+                        grouped[provider_type].append([segment])
+                elif provider_type:
+                    grouped[provider_type][-1].append(segment)
+                return provider_type, grouped
+            
+            _, grouped = reduce(reducer, loop, (None, defaultdict(list)))
+            return grouped
+        
+        return defaultdict(list, {
+            provider_type: [Identity(segments).to_dict() for segments in group]
+            for provider_type, group in group_segments_by_provider(loop).items()
+        })
+    
 
     """
     Overall Asks
-    - Coordination of Benefits flag
-    - Patient / Subscriber same person flag --> self.relationship_to_insured in Suscriber
+    - Coordination of Benefits flag -- > self.benefits_assign_flag in Claim Identity
+    - Patient / Subscriber same person flag --> self.relationship_to_insured in Suscriber in Claim Identity
 
     Claim needs
     - principal ICD10 diagnosis code
-    - other ICD10 diagnosis codes as an array
-    - hcfa place of service
-    - claim id?
-    - admission type code
-    - facility type code
-    - claim frequency code
+    - other ICD10 diagnosis codes as an array 
+    - hcfa place of service -- segment.element(5).split(':')?
+    - claim id? - done
+    - admission type code - only in 837i?
+    - facility type code - done
+    - claim frequency code - done
 
     Claim line needs
     - This should return an array 
@@ -84,7 +115,8 @@ class MedicalClaim(EDI):
             **{'patient': self.patient_info.to_dict()},
             **{'billing_provider': self.billing_info.to_dict()},
             **{'claim_header': self.claim_info.to_dict()},
-            **{'claim_lines': 'TODO'}
+            **{'claim_lines': 'TODO'},
+            **{'grouped_subscriber_entities': self.subscriber_entities_info.to_dict()}, # call for all entities in a loop[]
         }
 
     # not sure if this should be here or not, but you get the idea
@@ -99,6 +131,9 @@ class MedicalClaim(EDI):
         self.claim_info = self._populate_claim_loop()
         self.sl_info =  self._populate_sl_loop()
 
+        self.claim_entities_info = self._populate_grouped_entities(self.claim_loop)
+        self.subscriber_entities_info = self._populate_grouped_entities(self.subscriber_loop)
+
 
 
 class Claim837i(MedicalClaim):
@@ -112,6 +147,7 @@ class Claim837p(MedicalClaim):
 
     NAME = "837P"
 
+    
 
 class Claim835(MedicalClaim):
 
