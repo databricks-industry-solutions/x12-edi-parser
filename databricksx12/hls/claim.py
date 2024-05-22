@@ -144,7 +144,7 @@ class Claim837i(MedicalClaim):
     def _populate_sl_loop(self, missing=""):
         return list(
             map(lambda s:
-                ServiceLine(
+                ServiceLine.from_sv2(
                     sv2=[x for x in s if x.segment_name()=="SV2"][0],
                     lx=[x for x in s if x.segment_name()=="LX"][0],
                     dtp=[x for x in s if x.segment_name()=="DTP"][0]
@@ -157,7 +157,7 @@ class Claim837p(MedicalClaim):
     def _populate_sl_loop(self, missing=""):
         return list(
             map(lambda s:
-                ServiceLine(
+                ServiceLine.from_sv1(
                     sv1=[x for x in s if x.segment_name()=="SV1"][0],
                     lx=[x for x in s if x.segment_name()=="LX"][0],
                     dtp=[x for x in s if x.segment_name()=="DTP"][0]

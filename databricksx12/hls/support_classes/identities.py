@@ -220,37 +220,53 @@ class ReceiverIdentity(Identity):
                 
 class ServiceLine(Identity):
 
-    def common(self, sv, lx, dtp):
-        self.claim_line_number = lx.element(1)
-        self.service_date = dtp.element(3)
-        self.service_time = dtp.element(1)
-        self.service_date_format = dtp.element(2)
+    def __init__(self, d):
+        for k,v in d.items():
+            setattr(self,k,v)
+
+    @staticmethod
+    def common(sv, lx, dtp):
+        return {
+            "claim_line_number": lx.element(1),
+            "service_date": dtp.element(3),
+            "service_time": dtp.element(1),
+            "service_date_format": dtp.element(2)
+        }
 
     #
     # Institutional Claims
-    # 
-    def __init__(self, sv2, lx, dtp):
-        self.common(sv2, lx, dtp)
-        self.units = sv2.element(6)
-        self.units_measurement = sv1.element(5)
-        self.line_chrg_amt = sv2.element(4)
-        self.prcdr_cd = sv2.element(2, 1)
-        self.prcdr_cd_type = sv2.element(2, 0)
-        self.modifier_cds = ','.join(filter(lambda x: x!="", [sv1.element(2, 2, ""), sv1.element(2, 3, ""), sv1.element(2, 4, ""), sv1.element(2, 5, "")]))
-        self.revenue_cd = sv2.element(1)
+    #
+    @classmethod
+    def from_sv2(cls, sv2, lx, dtp):
+        return cls({**cls.common(sv2, lx, dtp),
+                    **{
+                        "units": sv2.element(5),
+                        "units_measurement": sv2.element(4),
+                        "line_chrg_amt": sv2.element(3),
+                        "prcdr_cd": sv2.element(2, 1, ""),
+                        "prcdr_cd_type": sv2.element(2, 0, ""),
+                        "modifier_cds": ','.join(filter(lambda x: x!="", [sv2.element(2, 2, ""), sv2.element(2, 3, ""), sv2.element(2, 4,""), sv2.element(2, 5, "")])),
+                        "revenue_cd": sv2.element(1)
+                    }
+                })
 
     #
     # Professional Claims
     #
-    def __init__(self, sv1, lx, dtp):
-        self.common(sv1, lx, dtp)
-        self.units = sv1.element(4)
-        self.units_measurement = sv1.element(3)
-        self.line_chrg_amt = sv1.element(2)
-        self.prcdr_cd = sv1.element(1, 1)
-        self.prcdr_cd_type = sv1.element(1, 0)
-        self.modifier_cds = ','.join(filter(lambda x: x!="", [sv1.element(1, 2, ""), sv1.element(1, 3, ""), sv1.element(1, 4, ""), sv1.element(1, 5, "")]))
-        self.place_of_service = sv1.element(5)
-        self.dg_cd_pntr = sv1.element(7)
+    @classmethod
+    def from_sv1(cls, sv1, lx, dtp):
+        return cls({**cls.common(sv1, lx, dtp),
+                    **{
+                        "units": sv1.element(4),
+                        "units_measurement": sv1.element(3),
+                        "line_chrg_amt": sv1.element(2),
+                        "prcdr_cd": sv1.element(1, 1),
+                        "prcdr_cd_type": sv1.element(1, 0),
+                        "modifier_cds": ','.join(filter(lambda x: x!="", [sv1.element(1, 2, ""), sv1.element(1, 3, ""), sv1.element(1, 4,""), sv1.element(1, 5, "")])),
+                        "place_of_service": sv1.element(5),
+                        "dg_cd_pntr": sv1.element(7)
+                    }
+                })
+        
 
         
