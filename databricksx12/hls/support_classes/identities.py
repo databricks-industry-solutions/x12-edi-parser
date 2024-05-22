@@ -36,11 +36,11 @@ class Identity:
 
     # build entity and address for any identity
     def build(self, loop: List[Segment]):
-        nm1_segments = filter(lambda segment: segment.element(0) == 'NM1' and segment.segment_len() >= 10, loop)
+        nm1_segment = next(filter(lambda segment: segment.element(0) == 'NM1' and segment.segment_len() >= 10, loop), None)
         n3_segment = next(filter(lambda segment: segment.element(0) == 'N3', loop), None) # taking only the first address lines
         n4_segment = next(filter(lambda segment: segment.element(0) == 'N4', loop), None)
 
-        list(map(self.process_nm1_segment, nm1_segments))
+        list(map(self.process_nm1_segment, [nm1_segment] if nm1_segment else []))
         list(map(self.process_n3_segment, [n3_segment] if n3_segment else []))
         list(map(self.process_n4_segment, [n4_segment] if n4_segment else []))
     
@@ -93,7 +93,7 @@ class PatientIdentity(Identity):
                 self.name = ' '.join([segment.element(3), segment.element(4), segment.element(5)])
             return list(map(process_patient_segment, filter(lambda s: s.element(0) == 'NM1' and s.element(1) == 'QC', patient_loop)))
         
-        
+
 class ClaimIdentity(Identity):
     def __init__(self, claim_segments: List[Segment]):
         self.patient_id = None

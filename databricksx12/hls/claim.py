@@ -46,7 +46,7 @@ class MedicalClaim(EDI):
         return ReceiverIdentity(self.sender_receiver_loop)
     
     def _populate_billing_loop(self) -> Dict[str, str]:
-        return BillingIdentity(self.sender_receiver_loop)
+        return BillingIdentity(self.billing_loop)
 
     def _populate_subscriber_loop(self) -> Dict[str, str]:
         return SubscriberIdentity(self.subscriber_loop)
@@ -65,6 +65,9 @@ class MedicalClaim(EDI):
     def _populate_sl_loop(self) -> Dict[str, str]:
         return ServiceIdentity(self.sl_loop) 
     
+    #
+    #
+    #
     def _populate_grouped_entities(self, loop: List[Segment]) -> Dict[str, List[Dict[str, str]]]:
         # if we want a list of NM1 entities belonging within a loop 
         def group_segments_by_provider(loop, nm1_identifiers: dict = Identity.nm1_identifiers) -> Dict[str, List[List[Segment]]]:
@@ -73,11 +76,11 @@ class MedicalClaim(EDI):
                 if segment.element(0) == 'NM1':
                     provider_type = nm1_identifiers.get(segment.element(1))
                     if provider_type:
-                        grouped[provider_type].append([segment])
+                        grouped[provider_type] = grouped.get(provider_type, []) + [[segment]]
                 elif provider_type:
-                    grouped[provider_type][-1].append(segment)
+                    grouped[provider_type][-1] += [segment]
                 return provider_type, grouped
-            
+        
             _, grouped = reduce(reducer, loop, (None, defaultdict(list)))
             return grouped
         
