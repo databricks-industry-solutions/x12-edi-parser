@@ -90,6 +90,8 @@ class MedicalClaim(EDI):
         })
     
 
+   
+
     """
     Overall Asks
     - Coordination of Benefits flag -- > self.benefits_assign_flag in Claim Identity

@@ -234,7 +234,9 @@ class ServiceIdentity(Identity):
         return {
             'Type': service_type,
             'Procedure Code': procedure_code,
-            'Procedure Amount': segment.element(2)
+            'Procedure Amount': segment.element(2),
+            'Measurement Code': segment.element(3), #UN or if anesthesia, MJ
+            'Service unit': segment.element(4),
         }
 
     def parse_institutional_service(self, segment: Segment):
@@ -243,5 +245,7 @@ class ServiceIdentity(Identity):
             'Type': service_type,
             'Revenue Code': segment.element(1),
             'Procedure Code': procedure_code,
-            'Procedure Amount': segment.element(3)
+            'Procedure Amount': segment.element(3),
+            'Measurement Code': segment.element(4), #UN or if anesthesia, MJ
+            'Service unit': segment.element(5),
         }
