@@ -59,7 +59,12 @@ class EDI():
     #
     def num_functional_groups(self):
         return len(self.segments_by_name("GE"))
-    
+
+    #
+    # Maps a list of indexes [0,4,7] to a series of ranges -> [(0,4), (4,7)]
+    #
+    def _index_to_tuples(self, indexes):
+        return list((zip(indexes, indexes[1:])))
     
     #
     # Return all segments associated with each funtional group
@@ -124,6 +129,8 @@ class EDI():
     def header(self):
         return self.data[0]
 
+
+
 class Segment():
 
     #
@@ -171,8 +178,6 @@ class Segment():
     #
     def filter(self, value, element, sub_element, dne="na/dne"):
         return self if value == self.get_element(element, sub_element, dne) else None
-
-
 
 
 #
@@ -223,7 +228,8 @@ class EDIManager():
             }
         else:
             return EDIManager.class_metadata(data)
-    
+
+
 
 """
 from databricksx12.edi import *

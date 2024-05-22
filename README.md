@@ -3,33 +3,38 @@
 [![CLOUD](https://img.shields.io/badge/CLOUD-ALL-blue?logo=googlecloud&style=for-the-badge)](https://cloud.google.com/databricks)
 [![POC](https://img.shields.io/badge/POC-10_days-green?style=for-the-badge)](https://databricks.com/try-databricks)
 
-## Business Problem (Under Construction / Not Stable)
+# Business Problem 
 
-Addressing the issue of working with various parts of an x12 EDI transaction in Spark on Databricks.
+Working with various x12 EDI transactions in Spark on Databricks.
 
-## Install
+# Install
 
 ```python
 pip install git+https://github.com/databricks-industry-solutions/x12-edi-parser
 ```
 
-## Run 
+# Run 
 
-### Reading in EDI Data
+## Reading in EDI Data
 
 Default format used is AnsiX12 (* as a delim and ~ as segment separator)
 
 ```python
-from databricksx12.format import *
-from databricksx12.edi import *
-ediFormat = AnsiX12Delim #specifying formats of data, ansi is also the default if nothing is specified 
-df = spark.read.text("sampledata/837/*", wholetext = True)
+from databricksx12 import *
+
+#EDI format type
+ediFormat = AnsiX12Delim #specifying formats of data, ansi is also the default if nothing is specified
+#can also specify customer formats (below is the same as AnsiX12Delim)
+ediFormat = type("", (), dict({'SEGMENT_DELIM': '~', 'ELEMENT_DELIM': '*', 'SUB_DELIM': ':'}))
+
+df = spark.read.text("sampledata/837/*txt", wholetext = True)
 
 (df.rdd
   .map(lambda x: x.asDict().get("value"))
   .map(lambda x: EDI(x, delim_cls = ediFormat))
   .map(lambda x: {"transaction_count": x.num_transactions()})
 ).toDF().show()
+"""
 +-----------------+
 |transaction_count|
 +-----------------+
@@ -37,30 +42,110 @@ df = spark.read.text("sampledata/837/*", wholetext = True)
 |                1|
 |                1|
 |                1|
-+-----------------+
-
-
-
-#Building a dynamic/custom format
-customFormat = type("", (), dict({'SEGMENT_DELIM': '~', 'ELEMENT_DELIM': '*', 'SUB_DELIM': ':'}))
-(df.rdd
-  .map(lambda x: x.asDict().get("value"))
-  .map(lambda x: EDI(x, delim_cls = customFormat))
-  .map(lambda x: {"transaction_count": x.num_transactions()})
-).toDF().show()
-+-----------------+
-|transaction_count|
-+-----------------+
-|                5|
-|                1|
-|                1|
 |                1|
 +-----------------+
+"""
+```
 
+## Parsing Healthcare Transactions
+
+Currently supports 837s. Records in each format type should be saved separately, e.g. do not mix 835s & 837s in the df.save() command.
+
+### 837i and 837p sample data in Spark
+
+```python
+from databricksx12 import *
+from databricksx12.hls import *
+import json
+from pyspark.sql.functions import input_file_name
+
+hm = HealthcareManager()
+df = spark.read.text("sampledata/837/*txt", wholetext = True)
+
+
+rdd = (
+ df.withColumn("filename", input_file_name()).rdd
+  .map(lambda x: (x.asDict().get("filename"),x.asDict().get("value")))
+  .map(lambda x: (x[0], EDI(x[1])))
+  .map(lambda x: { **{'filename': x[0]}, **hm.to_json(x[1])} )
+  .map(lambda x: json.dumps(x))
+)
+claims = spark.read.json(rdd)
+
+#Claim header table TODO 
+
+#Claim line table TODO 
 
 ```
 
-#### EDI as a Table for SQL
+### Sample data outside of Spark
+
+
+```python
+from databricksx12 import *
+from databricksx12.hls import *
+import json
+
+hm = HealthcareManager()
+edi =  EDI(open("sampledata/837/CHPW_Claimdata.txt", "rb").read().decode("utf-8"))
+
+#Returns parsed claim data
+hm.from_edi(edi) 
+#[<databricksx12.hls.claim.Claim837p object at 0x106e57b50>, <databricksx12.hls.claim.Claim837p object at 0x106e57c40>, <databricksx12.hls.claim.Claim837p object at 0x106e57eb0>, <databricksx12.hls.claim.Claim837p object at 0x106e57b20>, <databricksx12.hls.claim.Claim837p object at 0x106e721f0>]
+
+#Print in json format
+print(json.dumps(hm.to_json(edi), indent=4)) 
+
+"""
+{
+    "EDI.sender_tax_id": "ZZ",
+    "FuncitonalGroup": [
+        {
+            "FunctionalGroup.receiver": "123456789",
+            "FunctionalGroup.sender": "CLEARINGHOUSE",
+            "FunctionalGroup.transaction_datetime": "20180508:0833",
+            "FunctionalGroup.transaction_type": "222",
+            "Transactions": [
+                {
+                    "Transaction.transaction_type": "222",
+                    "Claims": [
+                        {
+                            "submitter": {
+                                "contact_name": "CLEARINGHOUSE CLIENT SERVICES",
+                                "contacts": {
+                                    "primary": [
+                                        {
+                                            "contact_method": "Telephone",
+                                            "contact_number": "8005551212",
+...
+"""
+
+#print the raw EDI Segments of one claim
+one_claim = hm.from_edi(edi)[0]
+print("\n".join([y.data for y in one_claim.data])) #Print one claim to look at the segments of it
+"""
+BHT*0019*00*7349063984*20180508*0833*CH
+NM1*41*2*CLEARINGHOUSE LLC*****46*987654321
+PER*IC*CLEARINGHOUSE CLIENT SERVICES*TE*8005551212*FX*8005551212
+NM1*40*2*123456789*****46*CHPWA
+HL*1**20*1
+NM1*85*2*BH CLINIC OF VANCOUVER*****XX*1122334455
+N3*12345 MAIN ST
+N4*VANCOUVER*WA*98662
+REF*EI*720000000
+PER*IC*CONTACT*TE*9185551212
+NM1*87*2
+N3*PO BOX 1234
+N4*VANCOUVER*WA*986681234
+HL*2*1*22*0
+SBR*P*18**COMMUNITY HLTH PLAN OF WASH*****CI
+NM1*IL*1*SUBSCRIBER*JOHN*J***MI*987321
+N3*987 65TH PL
+...
+"""
+```
+
+## EDI as a Table for SQL
 
 ```python
 """"
@@ -89,97 +174,7 @@ from pyspark.sql.functions import input_file_name
 |NM1*40*2*12345678...|         6|                         *|            10|         NM1|                            :|file:///|
 ```
 
-#### Parsing Healthcare Transactions
-
-```python
-from databricksx12.hls.healthcare import *
-
-hm = HealthcareManager()
-x =  EDI(open("sampledata/837/CHPW_Claimdata.txt", "rb").read().decode("utf-8"))
-
-hm.from_edi(x) 
-#[<databricksx12.hls.claim.Claim837p object at 0x1027003d0>, <databricksx12.hls.claim.Claim837p object at 0x1027006a0>, <databricksx12.hls.claim.Claim837p object at 0x102700700>, <databricksx12.hls.claim.Claim837p object at 0x102700550>, <databricksx12.hls.claim.Claim837p object at 0x1027002b0>]
-
-one_claim = hm.from_edi(x)[0]
-print("\n".join([y.data for y in one_claim.data])) #Print one claim to look at the segments of it
-"""
-BHT*0019*00*7349063984*20180508*0833*CH
-NM1*41*2*CLEARINGHOUSE LLC*****46*987654321
-PER*IC*CLEARINGHOUSE CLIENT SERVICES*TE*8005551212*FX*8005551212
-NM1*40*2*123456789*****46*CHPWA
-HL*1**20*1
-NM1*85*2*BH CLINIC OF VANCOUVER*****XX*1122334455
-N3*12345 MAIN ST
-N4*VANCOUVER*WA*98662
-REF*EI*720000000
-PER*IC*CONTACT*TE*9185551212
-NM1*87*2
-N3*PO BOX 1234
-N4*VANCOUVER*WA*986681234
-HL*2*1*22*0
-SBR*P*18**COMMUNITY HLTH PLAN OF WASH*****CI
-NM1*IL*1*SUBSCRIBER*JOHN*J***MI*987321
-N3*987 65TH PL
-N4*VANCOUVER*WA*986640001
-DMG*D8*19881225*M
-NM1*PR*2*COMMUNITY HEALTH PLAN OF WASHINGTON*****PI*CHPWA
-CLM*1805080AV3648339*20***57:B:1*Y*A*Y*Y
-REF*D9*7349065509
-HI*ABK:F1120
-NM1*82*1*PROVIDER*JAMES****XX*1112223338
-PRV*PE*PXC*261QR0405X
-NM1*77*2*BH CLINIC OF VANCOUVER*****XX*1122334455
-N3*12345 MAIN ST SUITE A1
-N4*VANCOUVER*WA*98662
-LX*1
-SV1*HC:H0003*20*UN*1***1
-DTP*472*D8*20180428
-REF*6R*142671
-
-"""
-```
-
-#### Further EDI Parsing in Pyspark
-
-
->  **Warning** 
-> Sections below this are under construction
-
-```python
-from databricksx12.edi import *
-x =  EDIManager(EDI(open("sampledata/837/CHPW_Claimdata.txt", "rb").read().decode("utf-8")))
-
-import json
-print(json.dumps(x.flatten(x.data), indent=4))
-{
-    "EDI.sender_tax_id": "ZZ",
-    "list": [
-        {
-            "FunctionalGroup.receiver": "123456789",
-            "FunctionalGroup.sender": "CLEARINGHOUSE",
-            "FunctionalGroup.transaction_datetime": "20180508:0833",
-            "FunctionalGroup.transaction_type": "222",
-            "list": [
-                {
-                    "Transaction.transaction_type": "222"
-                },
-                {
-                    "Transaction.transaction_type": "222"
-                },
-                {
-                    "Transaction.transaction_type": "222"
-                },
-                {
-                    "Transaction.transaction_type": "222"
-                },
-                {
-                    "Transaction.transaction_type": "222"
-                }
-            ]
-        }
-    ]
-}
-```
+#### Other EDI Parsing in Pyspark
 
 ```python
 
@@ -247,8 +242,6 @@ ediDF.show()
 |                1|
 +-----------------+
 """
-
-
 
 
 #show first line of each transaction
