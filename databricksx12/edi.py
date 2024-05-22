@@ -59,7 +59,12 @@ class EDI():
     #
     def num_functional_groups(self):
         return len(self.segments_by_name("GE"))
-    
+
+    #
+    # Maps a list of indexes [0,4,7] to a series of ranges -> [(0,4), (4,7)]
+    #
+    def _index_to_tuples(self, indexes):
+        return list((zip(indexes, indexes[1:])))
     
     #
     # Return all segments associated with each funtional group
