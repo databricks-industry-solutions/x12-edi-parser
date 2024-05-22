@@ -1,15 +1,6 @@
 from databricksx12.edi import EDI, AnsiX12Delim, Segment
 from databricksx12.hls.loop import Loop
-from databricksx12.hls.support_classes.identities import (
-    Identity,
-    BillingIdentity, 
-    SubscriberIdentity, 
-    PatientIdentity, 
-    ClaimIdentity, 
-    SubmitterIdentity, 
-    ReceiverIdentity, 
-    ServiceIdentity,
-)
+from databricksx12.hls.support_classes.identities import *
 from typing import List, Dict
 from collections import defaultdict
 from functools import reduce
@@ -36,8 +27,8 @@ class MedicalClaim(EDI):
         self.patient_loop = patient_loop
         self.claim_loop = claim_loop
         self.sl_loop = sl_loop
-
         self.build()
+        
 
     def _populate_submitter_loop(self) -> Dict[str, str]:
         return SubmitterIdentity(self.sender_receiver_loop)
@@ -62,9 +53,6 @@ class MedicalClaim(EDI):
     def _populate_claim_loop(self) -> Dict[str, str]:
         return ClaimIdentity(self.claim_loop)
 
-    def _populate_sl_loop(self) -> Dict[str, str]:
-        return ServiceIdentity(self.sl_loop) 
-    
     #
     #
     #
@@ -118,11 +106,18 @@ class MedicalClaim(EDI):
             **{'reciever': self.receiver_info.to_dict()},
             **{'subscriber': self.subscriber_info.to_dict()},
             **{'patient': self.patient_info.to_dict()},
-            **{'billing_provider': self.billing_info.to_dict()},
+            **{'providers': [{"TODO":"TODO"}]},
             **{'claim_header': self.claim_info.to_dict()},
-            **{'claim_lines': 'TODO'},
+            **{'claim_lines': [x.to_dict() for x in self.sl_info]}, #List 
             **{'grouped_subscriber_entities': self.subscriber_entities_info}, # call for all entities in a loop[]
         }
+
+    #
+    # Returns each claim line as an array of segments that make up the claim line
+    #
+    def claim_lines(self):
+        return list(map(lambda i: self.sl_loop[i[0]:i[1]],
+                self._index_to_tuples([(i) for i,y in enumerate(self.sl_loop) if y.segment_name()=="LX"]+[len(self.sl_loop)])))
 
     # not sure if this should be here or not, but you get the idea
     def build(self) -> None:
@@ -140,23 +135,33 @@ class MedicalClaim(EDI):
         self.subscriber_entities_info = self._populate_grouped_entities(self.subscriber_loop)
 
 
-
 class Claim837i(MedicalClaim):
 
     NAME = "837I"
 
-# Format of 837P https://www.dhs.wisconsin.gov/publications/p0/p00265.pdf
+    # Format of 837P https://www.dhs.wisconsin.gov/publications/p0/p00265.pdf
 
+    def _populate_sl_loop(self, missing=""):
+        return list(
+            map(lambda s:
+                ServiceLine(
+                    sv2=[x for x in s if x.segment_name()=="SV2"][0],
+                    lx=[x for x in s if x.segment_name()=="LX"][0],
+                    dtp=[x for x in s if x.segment_name()=="DTP"][0]
+                ),self.claim_lines()))
 
 class Claim837p(MedicalClaim):
 
     NAME = "837P"
-
     
-
-class Claim835(MedicalClaim):
-
-    NAME = "835"
+    def _populate_sl_loop(self, missing=""):
+        return list(
+            map(lambda s:
+                ServiceLine(
+                    sv1=[x for x in s if x.segment_name()=="SV1"][0],
+                    lx=[x for x in s if x.segment_name()=="LX"][0],
+                    dtp=[x for x in s if x.segment_name()=="DTP"][0]
+                ), self.claim_lines()))
 
 
 #

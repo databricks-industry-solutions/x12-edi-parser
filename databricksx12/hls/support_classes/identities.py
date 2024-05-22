@@ -218,36 +218,39 @@ class ReceiverIdentity(Identity):
 
 
                 
-class ServiceIdentity(Identity):
-    def __init__(self, sl_segments: List[Segment]):
-        self.services = defaultdict(list)
-        super().__init__(sl_segments)
-        self.build_sl_lines(sl_segments)
+class ServiceLine(Identity):
 
-    def build_sl_lines(self, sl_loop: List[Segment]):
-        sv1_segments = filter(lambda segment: segment.element(0) == 'SV1', sl_loop)
-        sv2_segments = filter(lambda segment: segment.element(0) == 'SV2', sl_loop)
-        self.services['Professional'] = [self.parse_professional_service(segment) for segment in sv1_segments]
-        self.services['Institutional'] = [self.parse_institutional_service(segment) for segment in sv2_segments]
+    def common(self, sv, lx, dtp):
+        self.claim_line_number = lx.element(1)
+        self.service_date = dtp.element(3)
+        self.service_time = dtp.element(1)
+        self.service_date_format = dtp.element(2)
 
+    #
+    # Institutional Claims
+    # 
+    def __init__(self, sv2, lx, dtp):
+        self.common(sv2, lx, dtp)
+        self.units = sv2.element(6)
+        self.units_measurement = sv1.element(5)
+        self.line_chrg_amt = sv2.element(4)
+        self.prcdr_cd = sv2.element(2, 1)
+        self.prcdr_cd_type = sv2.element(2, 0)
+        self.modifier_cds = ','.join(filter(lambda x: x!="", [sv1.element(2, 2, ""), sv1.element(2, 3, ""), sv1.element(2, 4, ""), sv1.element(2, 5, "")]))
+        self.revenue_cd = sv2.element(1)
 
-    def parse_professional_service(self, segment: Segment):
-        service_type, procedure_code = segment.element(1).split(':')[0:2]  # assuming 7 elements but choosing first two
-        return {
-            'Type': service_type,
-            'Procedure Code': procedure_code,
-            'Procedure Amount': segment.element(2),
-            'Measurement Code': segment.element(3), #UN or if anesthesia, MJ
-            'Service unit': segment.element(4),
-        }
+    #
+    # Professional Claims
+    #
+    def __init__(self, sv1, lx, dtp):
+        self.common(sv1, lx, dtp)
+        self.units = sv1.element(4)
+        self.units_measurement = sv1.element(3)
+        self.line_chrg_amt = sv1.element(2)
+        self.prcdr_cd = sv1.element(1, 1)
+        self.prcdr_cd_type = sv1.element(1, 0)
+        self.modifier_cds = ','.join(filter(lambda x: x!="", [sv1.element(1, 2, ""), sv1.element(1, 3, ""), sv1.element(1, 4, ""), sv1.element(1, 5, "")]))
+        self.place_of_service = sv1.element(5)
+        self.dg_cd_pntr = sv1.element(7)
 
-    def parse_institutional_service(self, segment: Segment):
-        service_type, procedure_code = segment.element(2).split(':')[0:2]  # assuming 7 elements but choosing first two
-        return {
-            'Type': service_type,
-            'Revenue Code': segment.element(1),
-            'Procedure Code': procedure_code,
-            'Procedure Amount': segment.element(3),
-            'Measurement Code': segment.element(4), #UN or if anesthesia, MJ
-            'Service unit': segment.element(5),
-        }
+        

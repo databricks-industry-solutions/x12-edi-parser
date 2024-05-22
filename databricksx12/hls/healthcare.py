@@ -6,9 +6,11 @@ import itertools
 class HealthcareManager(EDI):
 
     def __init__(self, mapping = {
-            "222": Claim837i,
-            "223": Claim837p,
-            "221": None # "835"
+            "221": None, # Remittance "835"
+            "222": Claim837p,
+            "223": Claim837i,
+            "224": None #Dental 
+
     }):
         self.mapping = mapping
 
