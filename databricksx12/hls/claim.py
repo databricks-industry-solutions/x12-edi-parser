@@ -81,13 +81,13 @@ class MedicalClaim(EDI):
                     grouped[provider_type][-1] += [segment]
                 return provider_type, grouped
         
-            _, grouped = reduce(reducer, loop, (None, defaultdict(list)))
+            _, grouped = reduce(reducer, loop, (None, {}))
             return grouped
         
-        return defaultdict(list, {
+        return {
             provider_type: [Identity(segments).to_dict() for segments in group]
             for provider_type, group in group_segments_by_provider(loop).items()
-        })
+        }
     
 
    
@@ -121,7 +121,7 @@ class MedicalClaim(EDI):
             **{'billing_provider': self.billing_info.to_dict()},
             **{'claim_header': self.claim_info.to_dict()},
             **{'claim_lines': 'TODO'},
-            **{'grouped_subscriber_entities': self.subscriber_entities_info.to_dict()}, # call for all entities in a loop[]
+            **{'grouped_subscriber_entities': self.subscriber_entities_info}, # call for all entities in a loop[]
         }
 
     # not sure if this should be here or not, but you get the idea

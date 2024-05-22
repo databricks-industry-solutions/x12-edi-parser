@@ -82,6 +82,8 @@ class SubscriberIdentity(Identity):
             self.relationship_to_insured = 'Self' if sbr_segment.element(2) == '18' else 'Dependent'
 
 
+
+
 class PatientIdentity(Identity):
         def __init__(self, patient_segments: List[Segment]):
             super().__init__(patient_segments)
