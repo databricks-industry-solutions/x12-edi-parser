@@ -103,10 +103,10 @@ class MedicalClaim(EDI):
     def to_json(self):
         return {
             **{'submitter': self.submitter_info.to_dict()},
-            **{'reciever': self.receiver_info.to_dict()},
+            **{'receiver': self.receiver_info.to_dict()},
             **{'subscriber': self.subscriber_info.to_dict()},
             **{'patient': self.patient_info.to_dict()},
-            **{'providers': [{"TODO":"TODO"}]},
+            **{'providers': [{"TODO":"TODO"}]}, # this is the grouped nm1 entities function prominent in subscribers and claims
             **{'claim_header': self.claim_info.to_dict()},
             **{'claim_lines': [x.to_dict() for x in self.sl_info]}, #List 
             **{'grouped_subscriber_entities': self.subscriber_entities_info}, # call for all entities in a loop[]
@@ -150,11 +150,17 @@ class Claim837i(MedicalClaim):
                     dtp=[x for x in s if x.segment_name()=="DTP"][0]
                 ),self.claim_lines()))
 
+    def __populate_patient_loop(self):
+        # Note - if this doesn't exist then its the same as subscriber loop
+        # Note to include in loop: information about subscriber/dependent relationship is marked by Element 2
+        # 01 = Spouse; 18 = Self; 19 = Child; G8 = Other
+        pass
+    
 class Claim837p(MedicalClaim):
 
     NAME = "837P"
     
-    def _populate_sl_loop(self, missing=""):
+    def __populate_sl_loop(self, missing=""):
         return list(
             map(lambda s:
                 ServiceLine.from_sv1(
@@ -163,7 +169,11 @@ class Claim837p(MedicalClaim):
                     dtp=[x for x in s if x.segment_name()=="DTP"][0]
                 ), self.claim_lines()))
 
-
+    def _populate_patient_loop(self):
+        # Note - if this doesn't exist then its the same as subscriber loop
+        # Note to include in loop: information about subscriber/dependent relationship is marked by Element 2
+        # 01 = Spouse; 18 = Self; 19 = Child; G8 = Other
+        pass
 #
 # Base claim builder (transaction -> 1 or more claims)
 #
