@@ -78,8 +78,11 @@ claims = spark.read.json(rdd)
 
 ```
 
-### Sample data outside of Spark
+### Output Data Model & Dictionary
 
+TODO 
+
+## Sample data outside of Spark
 
 ```python
 from databricksx12 import *
@@ -145,7 +148,7 @@ N3*987 65TH PL
 """
 ```
 
-## EDI as a Table for SQL
+## Raw EDI as a Table 
 
 ```python
 """"
@@ -173,97 +176,6 @@ from pyspark.sql.functions import input_file_name
 |PER*IC*CLEARINGHO...|         5|                         *|             7|         PER|                            :|file:///|
 |NM1*40*2*12345678...|         6|                         *|            10|         NM1|                            :|file:///|
 ```
-
-#### Other EDI Parsing in Pyspark
-
-```python
-
-"""
-# (2) Individual Transactions (Functional header) / ST & SE segments
-"""
-trxDF = ( df.withColumn("filename", input_file_name()).rdd
-  .map(lambda x: (x.asDict().get("filename"),x.asDict().get("value")))
-  .map(lambda x: (x[0], EDI(x[1])))
-  .map(lambda x: [(x[0], y) for y in x[1].transaction_segments()])
-  .flatMap(lambda x: x)
-  .map(lambda x: [{**{"filename": x[0]}, **y} for y in x[1].toRows()])
-  .flatMap(lambda x: x)
-  .toDF())
-
-trxDF.show()
-"""
-Includes filename column but not shown below
-+--------------------+----------+--------------------------+--------------+------------+-----------------------------+
-|            row_data|row_number|segment_element_delim_char|segment_length|segment_name|segment_subelement_delim_char|
-+--------------------+----------+--------------------------+--------------+------------+-----------------------------+
-|ST*837*000000001*...|         0|                         *|             4|          ST|                            :|
-|BHT*0019*00*73490...|         1|                         *|             7|         BHT|                            :|
-|NM1*41*2*CLEARING...|         2|                         *|            10|         NM1|                            :|
-|PER*IC*CLEARINGHO...|         3|                         *|             7|         PER|                            :|
-|NM1*40*2*12345678...|         4|                         *|            10|         NM1|                            :|
-|          HL*1**20*1|         5|                         *|             5|          HL|                            :|
-"""
-
-#read EDI and save predefined fields to DF (WIP) 
-df = spark.read.text("sampledata/837/*", wholetext = True)
-ediDF = (
-  df.rdd
-    .map(lambda x: x.asDict().get("value"))
-    .map(lambda x: EDI(x))
-    .map(lambda x: x.toJson())
-).toDF()
-
-
-ediDF.show()
-"""
-+--------------------+--------------------+
-|edi_transaction_type|transaction_datetime|
-+--------------------+--------------------+
-|                837P|       20180508:0833|
-|                837P|     20180710:214339|
-|                837I|   20180807:12022761|
-|                837P|   20180807:12022605|
-+--------------------+--------------------+
-"""
-
-#Count number of transactions
-(df.rdd
-  .map(lambda x: x.asDict().get("value"))
-  .map(lambda x: EDI(x))
-  .map(lambda x: {"transaction_count": x.num_transactions()})
-).toDF().show()
-"""
-+-----------------+
-|transaction_count|
-+-----------------+
-|                5|
-|                1|
-|                1|
-|                1|
-+-----------------+
-"""
-
-
-#show first line of each transaction
-trxDF.filter(x.row_number == 0).show()
-"""
-+--------------------+----------+--------------------------+--------------+------------+-----------------------------+
-|            row_data|row_number|segment_element_delim_char|segment_length|segment_name|segment_subelement_delim_char|
-+--------------------+----------+--------------------------+--------------+------------+-----------------------------+
-|ST*837*000000001*...|         0|                         *|             4|          ST|                            :|
-|ST*837*000000002*...|         0|                         *|             4|          ST|                            :|
-|ST*837*000000003*...|         0|                         *|             4|          ST|                            :|
-|ST*837*000000004*...|         0|                         *|             4|          ST|                            :|
-|ST*837*000000005*...|         0|                         *|             4|          ST|                            :|
-|ST*837*000000001*...|         0|                         *|             4|          ST|                            :|
-|ST*837*0001*00501...|         0|                         *|             4|          ST|                            :|
-|ST*837*0001*00501...|         0|                         *|             4|          ST|                            :|
-|ST*837*0001*00501...|         0|                         *|             4|          ST|                            :|
-+--------------------+----------+--------------------------+--------------+------------+-----------------------------+
-"""
-``` 
-
-### 
 
 ## Project support 
 
