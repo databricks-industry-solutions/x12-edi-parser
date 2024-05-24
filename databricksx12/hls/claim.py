@@ -80,12 +80,11 @@ class MedicalClaim(EDI):
                              dtp = self._first(self.claim_loop, "DTP"))
 
     def _populate_payer_info(self):
-        return PayerIdentity([x for x in self.subscriber_loop if x.segment_name() == "NM1" and x.element(1) == "PR"][0])
-
+        return PayerIdentity(self.first([x for x in self.subscriber_loop if x.element(1) == "PR"], "NM1"))
+    
     """
     Overall Asks
     - Coordination of Benefits flag -- > self.benefits_assign_flag in Claim Identity
-    - Patient / Subscriber same person flag --> self.relationship_to_insured in Suscriber in Claim Identity
     """
     def to_json(self):
         return {
@@ -172,8 +171,8 @@ class Claim837p(MedicalClaim):
     NAME = "837P"
 
     def _rendering_provider(self):
-        return ProviderIdentity(nm1=[x for x in self.claim_loop if x.segment_name()=="NM1" and x.element(1) == "82"][0],
-                                prv=[x for x in self.claim_loop if x.segment_name()=="PRV" and x.element(1) == "PE"][0])
+        return ProviderIdentity(nm1=self._first([x for x in self.claim_loop if x.element(1) == "82"],"NM1"),
+                                prv=self._first([x for x in self.claim_loop if x.element(1) == "PE"],"PRV"))
 
     def _populate_providers(self):
         return {"billing": self._billing_provider(),
