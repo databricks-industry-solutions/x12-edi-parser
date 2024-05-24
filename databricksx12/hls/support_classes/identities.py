@@ -42,20 +42,26 @@ class SubscriberIdentity(Identity):
         if sbr_segment:
             self.relationship_to_insured = 'Self' if sbr_segment.element(2) == '18' else 'Dependent'
 
-
-
+class PayerIdentity(Identity):
+    def __init__(self, nm1):
+        self.payer_name = nm1.element(3)
+        self.payer_identifier = nm1.element(9)
+        self.payer_identifier_cd = nm1.element(8)
+        self.business_entity_type = nm1.element(2)
 
 class PatientIdentity(Identity):
-        def __init__(self, patient_segments: List[Segment]):
-            pass
-            #self.build_patient(patient_segments)
-
-        def build_patient(self, patient_loop: List[Segment]):
-            def process_patient_segment(segment: Segment):
-                self.type = 'Patient'
-                self.name = ' '.join([segment.element(3), segment.element(4), segment.element(5)])
-            return list(map(process_patient_segment, filter(lambda s: s.element(0) == 'NM1' and s.element(1) == 'QC', patient_loop)))
-
+        def __init__(self, nm1, n3, n4, dmg, pat, sbr):
+            self.name = ' '.join([nm1.element(3), nm1.element(4), nm1.element(5)])
+            self.patient_relationship_cd = pat.element(1)
+            self.subscriber_relationship_cd = sbr.element(1)
+            self.street = n3.element(1)
+            self.city = n4.element(1)
+            self.state = n4.element(2)
+            self.zip = n4.element(3)
+            self.dob = dmg.element(2)
+            self.dob_format = dmg.element(1)
+            self.gender_cd = dmg.element(3)
+            
 class ClaimIdentity(Identity):
     def __init__(self, clm, dtp, cl1 = Segment.empty()):
         self.claim_id = clm.element(1)
@@ -77,54 +83,10 @@ class DiagnosisIdentity(Identity):
         self.external_injury_dx_cd = "" if [s.element(1,1) for s in hi_segments if s.element(1, 0) == "ABN"] == [] else [s.element(1,1) for s in hi_segments if s.element(1, 0) == "ABN"][0]
         self.other_dx_cds = ",".join([s.element(1,1) for s in hi_segments if s.element(1, 0) == "ABF"])
     
-class ClaimIdentity2(Identity):
-
-    def build_claim_lines(self, claim_loop: List[Segment]):
-        # Process claim-specific segments
-        clm_segments = filter(lambda segment: segment.element(0) == 'CLM', claim_loop)
-        dtp_segments = filter(lambda segment: segment.element(0) == 'DTP', claim_loop)
-        cli_segments = filter(lambda segment: segment.element(0) == 'CLI', claim_loop)
-        ref_segments = filter(lambda segment: segment.element(0) == 'REF' and segment.element(1) == 'D9', claim_loop)
-        
-        # get only the first HI segment for the pricipal diagnosis code
-        principle_diagnosis_segment = filter(lambda segment: segment.element(0) == 'HI' and segment.element(1).split(':')[0] in ['ABK', 'BK'], claim_loop)
-        # get all other HI segments for other diagnosis codes
-        other_diagnosis_segments = filter(lambda segment: segment.element(0) == 'HI' and segment.element(1).split(':')[0] in ['ABF', 'BF'], claim_loop)
-
-
-        list(map(self.process_clm_segment, clm_segments))
-        list(map(self.process_dtp_segment, dtp_segments))
-        list(map(self.process_cli_segment, cli_segments))
-        list(map(self.process_ref_segment, ref_segments))
-
-    def process_clm_segment(self, segment: Segment):
-        self.patient_id = segment.element(1)  # submitter's identifier
-        self.claim_amount = segment.element(2)
-        self.benefits_assign_flag = 'Yes' if segment.element(8) == 'Y' else 'No'  # Benefits flag
-
-        place_of_service = segment.element(5).split(':')  # codes[1] == A for institutional and B for professional
-        self.facility_type_code = place_of_service[0]
-        self.claim_code_freq = place_of_service[2]
-
-    def process_dtp_segment(self, segment: Segment):
-        self.date = segment.element(3)  # format D8:CCYYMMDD
-
-    def process_cli_segment(self, segment: Segment):
-        self.admission_date = segment.element(1)  # Only in 837I
-
-    def process_ref_segment(self, segment: Segment):
-        self.claim_id = segment.element(2)
-
-    # def process_principal_diagnosis_segment(self, segment: Segment):
-    #     self.principal_diagnosis_code = segment.element(2)  # assuming HI segment's first element is the principal diagnosis code
-
-
-
-
 class SubmitterIdentity(Identity):
     def __init__(self, submitter_segments: List[Segment]):
         self.contact_name = None
-        self.contacts = defaultdict(list)
+        self.contacts = None
         #super().__init__(submitter_segments)
         #self.build_submitter_lines(submitter_segments)
     

@@ -37,7 +37,17 @@ class EDI():
     #
     def segments_by_name_index(self, segment_name, range_start=-1, range_end = None):
         return [(i,x) for i,x in enumerate(self.data) if x.segment_name() == segment_name and range_start <= i <= (range_end or len(self.data))]
-    
+
+    #
+    # Return the first occurence of the specified index 
+    #
+    def index_of_segment(self, segments, segment_name):
+        try:
+            return min([(i) for i,x in enumerate(segments) if x.segment_name() == segment_name])
+        except:
+            return -1 #not found
+
+        
     #
     # @param position_start - integer, the first segment to include (inclusive) starting at 0
     # @param position_end - integer, the last segment to include (exclusive) starting at 0

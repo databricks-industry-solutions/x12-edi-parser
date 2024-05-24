@@ -53,22 +53,34 @@ class MedicalClaim(EDI):
     
     def _populate_receiver_loop(self) -> Dict[str, str]:
         return ReceiverIdentity(self.sender_receiver_loop)
+
+    def _populate_subscriber_loop(self):
+        l = self.subscriber_loop[0:min(filter(lambda x: x!= -1, [self.index_of_segment(self.subscriber_loop, "CLM"), len(self.subscriber_loop)]))] #subset the subscriber loop before the CLM segment
+        return PatientIdentity(
+            nm1 = self._first(l, "NM1"),
+            n3 = self._first(l, "N3"),
+            n4 = self._first(l, "N4"),
+            dmg = self._first(l, "DMG"),            
+            pat = self._first(l, "PAT"),
+            sbr = self._first(l, "SBR")
+        )
     
-    def _populate_subscriber_loop(self) -> Dict[str, str]:
-        return SubscriberIdentity(self.subscriber_loop)
-    
-    #
-    #
     def _populate_patient_loop(self) -> Dict[str, str]:
         # Note - if this doesn't exist then its the same as subscriber loop
-        # Note to include in loop: information about subscriber/dependent relationship is marked by Element 2
         # 01 = Spouse; 18 = Self; 19 = Child; G8 = Other
-        return PatientIdentity(self.patient_loop)
+        return self._populate_subscriber_loop() if self._first(self.subscriber_loop, "SBR").element(1) == "18" else PatientIdentity(
+            nm1 = self._first(self.patient_loop, "NM1"),
+            n3 = self._first(self.patient_loop, "N3"),
+            n4 = self._first(self.patient_loop, "N4"),
+            pat = self._first(self.patient_loop, "PAT")
+                                                                                                                                    )
     
     def _populate_claim_loop(self):
         return ClaimIdentity(clm = self._first(self.claim_loop, "CLM"),
                              dtp = self._first(self.claim_loop, "DTP"))
 
+    def _populate_payer_info(self):
+        return PayerIdentity([x for x in self.subscriber_loop if x.segment_name() == "NM1" and x.element(1) == "PR"][0])
 
     """
     Overall Asks
@@ -80,7 +92,8 @@ class MedicalClaim(EDI):
             **{'submitter': self.submitter_info.to_dict()},
             **{'receiver': self.receiver_info.to_dict()},
             **{'subscriber': self.subscriber_info.to_dict()},
-            **{'patient': self.patient_info.to_dict()},            
+            **{'patient': self.patient_info.to_dict()},
+            **{'payer': self.payer_info.to_dict()},
             **{'providers': {k:v.to_dict() for k,v in self.provider_info.items()}}, #returns a dictionary of k=provider type
             **{'claim_header': self.claim_info.to_dict()},
             **{'claim_lines': [x.to_dict() for x in self.sl_info]}, #List
@@ -106,6 +119,7 @@ class MedicalClaim(EDI):
         self.claim_info = self._populate_claim_loop()
         self.provider_info = self._populate_providers()
         self.diagnosis_info = self._populate_diagnosis()
+        self.payer_info = self._populate_payer_info()
 
 class Claim837i(MedicalClaim):
 
