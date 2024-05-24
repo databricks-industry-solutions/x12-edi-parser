@@ -1,10 +1,8 @@
 from databricksx12.edi import EDI, AnsiX12Delim, Segment
 from databricksx12.hls.loop import Loop
-from databricksx12.hls.support_classes.identities import *
+from databricksx12.hls.identities import *
 from typing import List, Dict
 from collections import defaultdict
-from functools import reduce
-
 
 #
 # Base claim class
@@ -80,7 +78,7 @@ class MedicalClaim(EDI):
                              dtp = self._first(self.claim_loop, "DTP"))
 
     def _populate_payer_info(self):
-        return PayerIdentity(self.first([x for x in self.subscriber_loop if x.element(1) == "PR"], "NM1"))
+        return PayerIdentity(self._first([x for x in self.subscriber_loop if x.element(1) == "PR"], "NM1"))
     
     """
     Overall Asks
@@ -127,16 +125,16 @@ class Claim837i(MedicalClaim):
     # Format of 837P https://www.dhs.wisconsin.gov/publications/p0/p00265.pdf
 
     def _attending_provider(self):
-        return {} #TODO
+        return ProviderIdentity(Segment.empty(), Segment.empty())  #TODO
 
     def _operating_provider(self):
-        return {} #TODO
+        return ProviderIdentity(Segment.empty(), Segment.empty()) #TODO
 
     def _other_provider(self):
-        return {} #TODO
+        return ProviderIdentity(Segment.empty(), Segment.empty()) #TODO
 
     def _facility_provider(self):
-        return {} #TODO 
+        return ProviderIdentity(Segment.empty(), Segment.empty()) #TODO 
         
     def _populate_providers(self):
         return {"billing": self._billing_provider(),
