@@ -1,10 +1,8 @@
 from databricksx12.edi import EDI, AnsiX12Delim, Segment
 from databricksx12.hls.loop import Loop
-from databricksx12.hls.support_classes.identities import *
+from databricksx12.hls.identities import *
 from typing import List, Dict
 from collections import defaultdict
-from functools import reduce
-
 
 #
 # Base claim class
@@ -28,88 +26,75 @@ class MedicalClaim(EDI):
         self.claim_loop = claim_loop
         self.sl_loop = sl_loop
         self.build()
-        
 
+    #
+    # Return first segment found of name == name otherwise Segment.empty()
+    #
+    def _first(self, segments, name):
+        return ([x for x in segments if x.segment_name() == name][0]  if len([x for x in segments if x.segment_name() == name]) > 0 else Segment.empty())
+        
+    def _populate_providers(self):
+        return {"billing": self._billing_provider()}
+    
+    def _billing_provider(self):
+        return ProviderIdentity(nm1=self._first(self.billing_loop, "NM1"),
+                                n3=self._first(self.billing_loop, "N3"),
+                                n4=self._first(self.billing_loop, "N4"),
+                                ref=self._first(self.billing_loop, "REF"))
+
+
+    def _populate_diagnosis(self):
+        return DiagnosisIdentity([x for x in self.claim_loop if x.segment_name() == "HI"])
+    
     def _populate_submitter_loop(self) -> Dict[str, str]:
         return SubmitterIdentity(self.sender_receiver_loop)
     
     def _populate_receiver_loop(self) -> Dict[str, str]:
         return ReceiverIdentity(self.sender_receiver_loop)
-    
-    def _populate_billing_loop(self) -> Dict[str, str]:
-        return BillingIdentity(self.billing_loop)
 
-    def _populate_subscriber_loop(self) -> Dict[str, str]:
-        return SubscriberIdentity(self.subscriber_loop)
+    def _populate_subscriber_loop(self):
+        l = self.subscriber_loop[0:min(filter(lambda x: x!= -1, [self.index_of_segment(self.subscriber_loop, "CLM"), len(self.subscriber_loop)]))] #subset the subscriber loop before the CLM segment
+        return PatientIdentity(
+            nm1 = self._first(l, "NM1"),
+            n3 = self._first(l, "N3"),
+            n4 = self._first(l, "N4"),
+            dmg = self._first(l, "DMG"),            
+            pat = self._first(l, "PAT"),
+            sbr = self._first(l, "SBR")
+        )
     
-    #
-    #
     def _populate_patient_loop(self) -> Dict[str, str]:
         # Note - if this doesn't exist then its the same as subscriber loop
-        # Note to include in loop: information about subscriber/dependent relationship is marked by Element 2
         # 01 = Spouse; 18 = Self; 19 = Child; G8 = Other
-        return PatientIdentity(self.patient_loop)
+        return self._populate_subscriber_loop() if self._first(self.subscriber_loop, "SBR").element(1) == "18" else PatientIdentity(
+            nm1 = self._first(self.patient_loop, "NM1"),
+            n3 = self._first(self.patient_loop, "N3"),
+            n4 = self._first(self.patient_loop, "N4"),
+            pat = self._first(self.patient_loop, "PAT")
+                                                                                                                                    )
     
-    def _populate_claim_loop(self) -> Dict[str, str]:
-        return ClaimIdentity(self.claim_loop)
+    def _populate_claim_loop(self):
+        return ClaimIdentity(clm = self._first(self.claim_loop, "CLM"),
+                             dtp = self._first(self.claim_loop, "DTP"))
 
-    #
-    #
-    #
-    def _populate_grouped_entities(self, loop: List[Segment]) -> Dict[str, List[Dict[str, str]]]:
-        # if we want a list of NM1 entities belonging within a loop 
-        def group_segments_by_provider(loop, nm1_identifiers: dict = Identity.nm1_identifiers) -> Dict[str, List[List[Segment]]]:
-            def reducer(acc, segment):
-                provider_type, grouped = acc
-                if segment.element(0) == 'NM1':
-                    provider_type = nm1_identifiers.get(segment.element(1))
-                    if provider_type:
-                        grouped[provider_type] = grouped.get(provider_type, []) + [[segment]]
-                elif provider_type:
-                    grouped[provider_type][-1] += [segment]
-                return provider_type, grouped
-        
-            _, grouped = reduce(reducer, loop, (None, {}))
-            return grouped
-        
-        return {
-            provider_type: [Identity(segments).to_dict() for segments in group]
-            for provider_type, group in group_segments_by_provider(loop).items()
-        }
+    def _populate_payer_info(self):
+        return PayerIdentity(self._first([x for x in self.subscriber_loop if x.element(1) == "PR"], "NM1"))
     
-
-   
-
     """
     Overall Asks
     - Coordination of Benefits flag -- > self.benefits_assign_flag in Claim Identity
-    - Patient / Subscriber same person flag --> self.relationship_to_insured in Suscriber in Claim Identity
-
-    Claim needs
-    - principal ICD10 diagnosis code
-    - other ICD10 diagnosis codes as an array 
-    - hcfa place of service -- segment.element(5).split(':')?
-    - claim id? - done
-    - admission type code - only in 837i?
-    - facility type code - done
-    - claim frequency code - done
-
-    Claim line needs
-    - This should return an array 
-    
-    Servicing provider needs
-    - TBD
     """
     def to_json(self):
         return {
             **{'submitter': self.submitter_info.to_dict()},
-            **{'reciever': self.receiver_info.to_dict()},
+            **{'receiver': self.receiver_info.to_dict()},
             **{'subscriber': self.subscriber_info.to_dict()},
             **{'patient': self.patient_info.to_dict()},
-            **{'providers': [{"TODO":"TODO"}]},
+            **{'payer': self.payer_info.to_dict()},
+            **{'providers': {k:v.to_dict() for k,v in self.provider_info.items()}}, #returns a dictionary of k=provider type
             **{'claim_header': self.claim_info.to_dict()},
-            **{'claim_lines': [x.to_dict() for x in self.sl_info]}, #List 
-            **{'grouped_subscriber_entities': self.subscriber_entities_info}, # call for all entities in a loop[]
+            **{'claim_lines': [x.to_dict() for x in self.sl_info]}, #List
+            **{'diagnosis': self.diagnosis_info.to_dict()}
         }
 
     #
@@ -123,17 +108,15 @@ class MedicalClaim(EDI):
     def build(self) -> None:
         self.submitter_info = self._populate_submitter_loop()
         self.receiver_info = self._populate_receiver_loop()
-        self.billing_info = self._populate_billing_loop()
         self.subscriber_info = self._populate_subscriber_loop()
         self.patient_info = (
             self._populate_subscriber_loop() if self.patient_loop == [] else self._populate_patient_loop()
         )
-        self.claim_info = self._populate_claim_loop()
         self.sl_info =  self._populate_sl_loop()
-
-        self.claim_entities_info = self._populate_grouped_entities(self.claim_loop)
-        self.subscriber_entities_info = self._populate_grouped_entities(self.subscriber_loop)
-
+        self.claim_info = self._populate_claim_loop()
+        self.provider_info = self._populate_providers()
+        self.diagnosis_info = self._populate_diagnosis()
+        self.payer_info = self._populate_payer_info()
 
 class Claim837i(MedicalClaim):
 
@@ -141,29 +124,74 @@ class Claim837i(MedicalClaim):
 
     # Format of 837P https://www.dhs.wisconsin.gov/publications/p0/p00265.pdf
 
+    def _attending_provider(self):
+        return ProviderIdentity(Segment.empty(), Segment.empty())  #TODO
+
+    def _operating_provider(self):
+        return ProviderIdentity(Segment.empty(), Segment.empty()) #TODO
+
+    def _other_provider(self):
+        return ProviderIdentity(Segment.empty(), Segment.empty()) #TODO
+
+    def _facility_provider(self):
+        return ProviderIdentity(Segment.empty(), Segment.empty()) #TODO 
+        
+    def _populate_providers(self):
+        return {"billing": self._billing_provider(),
+                "attending": self._attending_provider(),
+                "operating": self._operating_provider(),
+                "other": self._other_provider(),
+                "facility": self._facility_provider()
+                }
+
+    def _populate_claim_loop(self):
+        return ClaimIdentity(clm = self._first(self.claim_loop, "CLM"),
+                             dtp = self._first(self.claim_loop, "DTP"),
+                             cl1 = self._first(self.claim_loop, "CL1"))
+    
     def _populate_sl_loop(self, missing=""):
         return list(
             map(lambda s:
                 ServiceLine.from_sv2(
-                    sv2=[x for x in s if x.segment_name()=="SV2"][0],
-                    lx=[x for x in s if x.segment_name()=="LX"][0],
-                    dtp=[x for x in s if x.segment_name()=="DTP"][0]
+                    sv2 = self._first(s, "SV2"),
+                    lx = self._first(s, "LX"),
+                    dtp = self._first(s, "DTP")
                 ),self.claim_lines()))
 
+    def __populate_patient_loop(self):
+        # Note - if this doesn't exist then its the same as subscriber loop
+        # Note to include in loop: information about subscriber/dependent relationship is marked by Element 2
+        # 01 = Spouse; 18 = Self; 19 = Child; G8 = Other
+        pass
+    
 class Claim837p(MedicalClaim):
 
     NAME = "837P"
+
+    def _rendering_provider(self):
+        return ProviderIdentity(nm1=self._first([x for x in self.claim_loop if x.element(1) == "82"],"NM1"),
+                                prv=self._first([x for x in self.claim_loop if x.element(1) == "PE"],"PRV"))
+
+    def _populate_providers(self):
+        return {"billing": self._billing_provider(),
+                "servicing": (self._billing_provider() if self._rendering_provider() is None else self._rendering_provider())
+                }
+
     
     def _populate_sl_loop(self, missing=""):
         return list(
             map(lambda s:
                 ServiceLine.from_sv1(
-                    sv1=[x for x in s if x.segment_name()=="SV1"][0],
-                    lx=[x for x in s if x.segment_name()=="LX"][0],
-                    dtp=[x for x in s if x.segment_name()=="DTP"][0]
+                    sv1 = self._first(s, "SV1"),
+                    lx = self._first(s, "LX"),
+                    dtp = self._first(s, "DTP")
                 ), self.claim_lines()))
 
-
+    def _populate_patient_loop(self):
+        # Note - if this doesn't exist then its the same as subscriber loop
+        # Note to include in loop: information about subscriber/dependent relationship is marked by Element 2
+        # 01 = Spouse; 18 = Self; 19 = Child; G8 = Other
+        pass
 #
 # Base claim builder (transaction -> 1 or more claims)
 #
@@ -243,58 +271,3 @@ class ClaimBuilder(EDI):
         return [
             self.build_claim(seg, i) for i, seg in self.segments_by_name_index("CLM")
         ]
-
-
-"""
-sample_data_837i_edited = open("/sampledata/837/CHPW_Claimdata_edited.txt", "rb").read().decode("utf-8")
-claim_class = ClaimBuilder(trnx_type='837I', trnx_data=sample_data_837i_edited, delim_cls=AnsiX12Delim)
-claim_class.build()
-
-[{'1000A': {'desc': 'Submitter Name', 'segments': 'CLEARINGHOUSE'},
-  '1000B': {'desc': 'Receiver Name', 'segments': '123456789'},
-  '2000A': {'desc': 'Billing Provider',
-   'segments': ['BH CLINIC OF VANCOUVER']},
-  '2000B': {'desc': 'Subscriber', 'segments': ['COMMUNITY HLTH PLAN OF WASH']},
-  '2010BA': {'desc': 'Patient', 'segments': (['JOHN'], ['SUBSCRIBER'])},
-  '2010BB': {'desc': 'Payer',
-   'segments': ['COMMUNITY HEALTH PLAN OF WASHINGTON']},
-  '2300': {'desc': 'Claim', 'segments': (['1805080AV3648339'], ['20'])}},
- {'1000A': {'desc': 'Submitter Name', 'segments': 'CLEARINGHOUSE'},
-  '1000B': {'desc': 'Receiver Name', 'segments': '123456789'},
-  '2000A': {'desc': 'Billing Provider',
-   'segments': ['BH CLINIC OF VANCOUVER']},
-  '2000B': {'desc': 'Subscriber', 'segments': ['COMMUNITY HLTH PLAN OF WASH']},
-  '2010BA': {'desc': 'Patient', 'segments': (['SUSAN'], ['PATIENT'])},
-  '2010BB': {'desc': 'Payer',
-   'segments': ['COMMUNITY HEALTH PLAN OF WASHINGTON']},
-  '2300': {'desc': 'Claim', 'segments': (['1805080AV3648347'], ['50.1'])}},
- {'1000A': {'desc': 'Submitter Name', 'segments': 'CLEARINGHOUSE'},
-  '1000B': {'desc': 'Receiver Name', 'segments': '123456789'},
-  '2000A': {'desc': 'Billing Provider',
-   'segments': ['BH CLINIC OF VANCOUVER']},
-  '2000B': {'desc': 'Subscriber', 'segments': ['COMMUNITY HLTH PLAN OF WASH']},
-  '2010BA': {'desc': 'Patient', 'segments': (['JOHN'], ['SUBSCRIBER'])},
-  '2010BB': {'desc': 'Payer',
-   'segments': ['COMMUNITY HEALTH PLAN OF WASHINGTON']},
-  '2300': {'desc': 'Claim', 'segments': (['1805080AV3648340'], ['11.64'])}},
- {'1000A': {'desc': 'Submitter Name', 'segments': 'CLEARINGHOUSE'},
-  '1000B': {'desc': 'Receiver Name', 'segments': '123456789'},
-  '2000A': {'desc': 'Billing Provider',
-   'segments': ['BH CLINIC OF VANCOUVER']},
-  '2000B': {'desc': 'Subscriber', 'segments': ['COMMUNITY HLTH PLAN OF WASH']},
-  '2010BA': {'desc': 'Patient', 'segments': (['SUSAN'], ['PATIENT'])},
-  '2010BB': {'desc': 'Payer',
-   'segments': ['COMMUNITY HEALTH PLAN OF WASHINGTON']},
-  '2300': {'desc': 'Claim', 'segments': (['1805080AV3648353'], ['234'])}},
- {'1000A': {'desc': 'Submitter Name', 'segments': 'CLEARINGHOUSE'},
-  '1000B': {'desc': 'Receiver Name', 'segments': '123456789'},
-  '2000A': {'desc': 'Billing Provider',
-   'segments': ['BH CLINIC OF VANCOUVER']},
-  '2000B': {'desc': 'Subscriber', 'segments': ['COMMUNITY HLTH PLAN OF WASH']},
-  '2010BA': {'desc': 'Patient',
-   'segments': (['JOHN', 'JOHN'], ['SUBSCRIBER', 'SUBSCRIBER'])},
-  '2010BB': {'desc': 'Payer',
-   'segments': ['COMMUNITY HEALTH PLAN OF MASS',
-    'COMMUNITY HEALTH PLAN OF WASHINGTON']},
-  '2300': {'desc': 'Claim', 'segments': (['1805080AV3648355'], ['20'])}}]
-"""

@@ -37,7 +37,17 @@ class EDI():
     #
     def segments_by_name_index(self, segment_name, range_start=-1, range_end = None):
         return [(i,x) for i,x in enumerate(self.data) if x.segment_name() == segment_name and range_start <= i <= (range_end or len(self.data))]
-    
+
+    #
+    # Return the first occurence of the specified index 
+    #
+    def index_of_segment(self, segments, segment_name):
+        try:
+            return min([(i) for i,x in enumerate(segments) if x.segment_name() == segment_name])
+        except:
+            return -1 #not found
+
+        
     #
     # @param position_start - integer, the first segment to include (inclusive) starting at 0
     # @param position_end - integer, the last segment to include (exclusive) starting at 0
@@ -146,7 +156,7 @@ class Segment():
     # @param dne - "Does Not Exist" value to return if  the element or sub element requested exceeds what is there
     # @returns a single element or sub element string
     #
-    def element(self, element, sub_element=-1, dne="na/dne"):
+    def element(self, element, sub_element=-1, dne=""):
         try:
             return ( self.data.split(self.format_cls.ELEMENT_DELIM)[element]
                      if sub_element == -1 else
@@ -176,8 +186,12 @@ class Segment():
     #
     # Filter this segment for element/sub_element values
     #
-    def filter(self, value, element, sub_element, dne="na/dne"):
+    def filter(self, value, element, sub_element, dne=""):
         return self if value == self.get_element(element, sub_element, dne) else None
+
+    @classmethod
+    def empty(cls):
+        return cls(data="")
 
 
 #
