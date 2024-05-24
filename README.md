@@ -38,21 +38,56 @@ claims = spark.read.json(rdd)
 
 #Create Claims tables from the EDI transactions
 claims.createOrReplaceTempView("edi")
+```
 
-#Create a "Claims Header" table
-spark.sql("""
-select tax_id, `fg.FunctionalGroup`
+``` SQL
+--flatten EDI format
+CREATE TABLE stg_claims to a claim view
+as 
+select clms, filename, tax_id, sender, transaction_type 
+from 
+(
+select *, explode(trnx.Claims) as clms
 from
+(
+select filename, tax_id, 
+  fg.`FunctionalGroup.sender` as sender, 
+  fg.`FunctionalGroup.transaction_type` as transaction_type,
+  explode(fg.`Transactions`) as trnx
+from 
 (
 select
 `edi.sender_tax_id` as tax_id,
-explode(`FuncitonalGroup`) as fg
+explode(`FuncitonalGroup`) as fg,
+filename
 from edi
-) groups
-""").show()
+) fgs
+) trnx
+) clms 
 
+--Create a "Claims Header" table
 
-#Create a "Claim Line" table  
+create table claim_header as 
+select filename, 
+tax_id, 
+sender,
+transaction_type, 
+clms.claim_header.*, 
+clms.diagnosis.*,
+clms.patient.*,
+clms.payer.*,
+clms.providers.*
+from stg_claims
+
+--Create a "Claim Line" table  
+create table claim_line as 
+select filename, claim_id, cl.*
+from (
+select filename, 
+clms.claim_header.claim_id, 
+explode(clms.claim_lines) as cl 
+from stg_claims
+) foo
 
 ```
 
