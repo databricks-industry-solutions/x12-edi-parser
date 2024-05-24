@@ -146,7 +146,7 @@ class Segment():
     # @param dne - "Does Not Exist" value to return if  the element or sub element requested exceeds what is there
     # @returns a single element or sub element string
     #
-    def element(self, element, sub_element=-1, dne="na/dne"):
+    def element(self, element, sub_element=-1, dne=""):
         try:
             return ( self.data.split(self.format_cls.ELEMENT_DELIM)[element]
                      if sub_element == -1 else
@@ -176,8 +176,12 @@ class Segment():
     #
     # Filter this segment for element/sub_element values
     #
-    def filter(self, value, element, sub_element, dne="na/dne"):
+    def filter(self, value, element, sub_element, dne=""):
         return self if value == self.get_element(element, sub_element, dne) else None
+
+    @classmethod
+    def empty(cls):
+        return cls(data="")
 
 
 #
