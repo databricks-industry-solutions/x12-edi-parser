@@ -15,7 +15,52 @@ pip install git+https://github.com/databricks-industry-solutions/x12-edi-parser
 
 # Run 
 
-## Reading in EDI Data
+### 837i and 837p sample data in Spark
+
+```python
+from databricksx12 import *
+from databricksx12.hls import *
+import json
+from pyspark.sql.functions import input_file_name
+
+hm = HealthcareManager()
+df = spark.read.text("sampledata/837/*txt", wholetext = True)
+
+
+rdd = (
+ df.withColumn("filename", input_file_name()).rdd
+  .map(lambda x: (x.asDict().get("filename"),x.asDict().get("value")))
+  .map(lambda x: (x[0], EDI(x[1])))
+  .map(lambda x: { **{'filename': x[0]}, **hm.to_json(x[1])} )
+  .map(lambda x: json.dumps(x))
+)
+claims = spark.read.json(rdd)
+
+#Create Claims tables from the EDI transactions
+claims.createOrReplaceTempView("edi")
+
+#Create a "Claims Header" table
+spark.sql("""
+select tax_id, `fg.FunctionalGroup`
+from
+(
+select
+`edi.sender_tax_id` as tax_id,
+explode(`FuncitonalGroup`) as fg
+from edi
+) groups
+""").show()
+
+
+#Create a "Claim Line" table  
+
+```
+
+### Output Data Model & Dictionary
+
+TODO 
+
+## Different EDI Formats 
 
 Default format used is AnsiX12 (* as a delim and ~ as segment separator)
 
@@ -47,40 +92,9 @@ df = spark.read.text("sampledata/837/*txt", wholetext = True)
 """
 ```
 
-## Parsing Healthcare Transactions
+## Reading & Parsing Healthcare Transactions
 
 Currently supports 837s. Records in each format type should be saved separately, e.g. do not mix 835s & 837s in the df.save() command.
-
-### 837i and 837p sample data in Spark
-
-```python
-from databricksx12 import *
-from databricksx12.hls import *
-import json
-from pyspark.sql.functions import input_file_name
-
-hm = HealthcareManager()
-df = spark.read.text("sampledata/837/*txt", wholetext = True)
-
-
-rdd = (
- df.withColumn("filename", input_file_name()).rdd
-  .map(lambda x: (x.asDict().get("filename"),x.asDict().get("value")))
-  .map(lambda x: (x[0], EDI(x[1])))
-  .map(lambda x: { **{'filename': x[0]}, **hm.to_json(x[1])} )
-  .map(lambda x: json.dumps(x))
-)
-claims = spark.read.json(rdd)
-
-#Claim header table TODO 
-
-#Claim line table TODO 
-
-```
-
-### Output Data Model & Dictionary
-
-TODO 
 
 ## Sample data outside of Spark
 
