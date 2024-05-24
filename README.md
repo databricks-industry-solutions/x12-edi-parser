@@ -39,6 +39,7 @@ claims = spark.read.json(rdd)
 #Create Claims tables from the EDI transactions
 claims.createOrReplaceTempView("edi")
 ```
+### Creating claim header and line tables from EDI 
 
 ``` SQL
 --flatten EDI format
@@ -91,9 +92,10 @@ from stg_claims
 
 ```
 
-### Output Data Model & Dictionary
+### Sample Output and Data Dictionary
 
-TODO 
+![image](images/claim_header.png?raw=true)
+![image](images/claim_line.png?raw=true)
 
 ## Different EDI Formats 
 
