@@ -29,19 +29,6 @@ class ProviderIdentity(Identity):
         self.taxonomy = prv.element(3)
         self.provider_role = prv.element(1)
         
-
-class SubscriberIdentity(Identity):
-    def __init__(self, subscriber_segments: List[Segment]):
-        pass
-        #self.relationship_to_insured = None
-        #super().__init__(subscriber_segments)
-        #self.build_subscriber(subscriber_segments)
-
-    def build_subscriber(self, subscriber_loop: List[Segment]):
-        sbr_segment = next(filter(lambda segment: segment.element(0) == 'SBR', subscriber_loop), None)
-        if sbr_segment:
-            self.relationship_to_insured = 'Self' if sbr_segment.element(2) == '18' else 'Dependent'
-
 class PayerIdentity(Identity):
     def __init__(self, nm1):
         self.payer_name = nm1.element(3)
@@ -53,7 +40,7 @@ class PatientIdentity(Identity):
         def __init__(self, nm1, n3, n4, dmg, pat, sbr):
             self.name = ' '.join([nm1.element(3), nm1.element(4), nm1.element(5)])
             self.patient_relationship_cd = pat.element(1)
-            self.subscriber_relationship_cd = sbr.element(1)
+            self.subscriber_relationship_cd = sbr.element(2)
             self.street = n3.element(1)
             self.city = n4.element(1)
             self.state = n4.element(2)
