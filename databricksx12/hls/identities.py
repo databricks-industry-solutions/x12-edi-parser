@@ -70,20 +70,14 @@ class DiagnosisIdentity(Identity):
         self.external_injury_dx_cd = "" if [s.element(1,1) for s in hi_segments if s.element(1, 0) == "ABN"] == [] else [s.element(1,1) for s in hi_segments if s.element(1, 0) == "ABN"][0]
         self.other_dx_cds = ",".join([s.element(1,1) for s in hi_segments if s.element(1, 0) == "ABF"])
     
-class SubmitterIdentity(Identity):
+class Submitter_Receiver_Identity(Identity):
     def __init__(self, nm1=Segment.empty(), per= Segment.empty()):
-        self.sbmtter_type = 'Organization' if nm1.element(2) == '2' else 'Individual'
-        self.sbmtter = nm1.element(3) if self.sbmtter_type == 'Organization' else ' '.join([nm1.element(3), nm1.element(4,dne=""), nm1.element(5)])
-        self.sbmtter_contact_name = per.element(2)
-        self.sbmtter_contacts = [] if (per.element(3), per.element(4)) == [] else [(per.element(3), per.element(4)), #telephone
-                                                                                   (per.element(5), per.element(6))] # usually fax/email
-
-
-
-class ReceiverIdentity(Identity):
-    def __init__(self, nm1=Segment.empty()):
-        self.receiver_type = 'Organization' if nm1.element(2) == '2' else 'Individual'
-        self.receiver = nm1.element(3) if self.receiver_type == 'Organization' else ' '.join([nm1.element(3), nm1.element(4,dne=""), nm1.element(5)])
+        self.type = 'Organization' if nm1.element(2) == '2' else 'Individual'
+        self.name = nm1.element(3) if self.type == 'Organization' else ' '.join([nm1.element(3), nm1.element(4,dne=""), nm1.element(5)])
+        if per.element(0):
+            self.sbmtter_contact_name = "" if per.element(2) == '' else per.element(2)
+            self.sbmtter_contacts = "" if (per.element(3), per.element(4)) == [] else [(per.element(3), per.element(4)), #telephone
+                                                                                    (per.element(5), per.element(6))] # usually fax/email
 
                 
 class ServiceLine(Identity):
