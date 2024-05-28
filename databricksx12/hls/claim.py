@@ -47,10 +47,11 @@ class MedicalClaim(EDI):
         return DiagnosisIdentity([x for x in self.claim_loop if x.segment_name() == "HI"])
     
     def _populate_submitter_loop(self) -> Dict[str, str]:
-        return SubmitterIdentity(self.sender_receiver_loop)
+        return SubmitterIdentity(nm1=self._first([x for x in self.sender_receiver_loop if x.element(1) == "41"],"NM1"),
+                                per=self._first(self.sender_receiver_loop, "PER"))
     
     def _populate_receiver_loop(self) -> Dict[str, str]:
-        return ReceiverIdentity(self.sender_receiver_loop)
+        return ReceiverIdentity(nm1=self._first([x for x in self.sender_receiver_loop if x.element(1) == "40"],"NM1"))
 
     def _populate_subscriber_loop(self):
         l = self.subscriber_loop[0:min(filter(lambda x: x!= -1, [self.index_of_segment(self.subscriber_loop, "CLM"), len(self.subscriber_loop)]))] #subset the subscriber loop before the CLM segment
