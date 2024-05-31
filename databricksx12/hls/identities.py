@@ -70,54 +70,14 @@ class DiagnosisIdentity(Identity):
         self.external_injury_dx_cd = "" if [s.element(1,1) for s in hi_segments if s.element(1, 0) == "ABN"] == [] else [s.element(1,1) for s in hi_segments if s.element(1, 0) == "ABN"][0]
         self.other_dx_cds = ",".join([s.element(1,1) for s in hi_segments if s.element(1, 0) == "ABF"])
     
-class SubmitterIdentity(Identity):
-    def __init__(self, submitter_segments: List[Segment]):
-        self.contact_name = None
-        self.contacts = None
-        #super().__init__(submitter_segments)
-        #self.build_submitter_lines(submitter_segments)
-    
-    def build_submitter_lines(self, submitter_loop: List[Segment]):
-        nm1_segments = filter(lambda segment: segment.element(0) == 'NM1' and segment.element(1) == '41', submitter_loop)
-        per_segments = filter(lambda segment: segment.element(0) == 'PER', submitter_loop)
-
-        list(map(self.process_nm1_segment, nm1_segments))
-        list(map(self.process_per_segment, per_segments))
-
-    def process_per_segment(self, segment):
-        self.contact_name = segment.element(2)
-        contact_methods = {
-            'EM': 'Email',
-            'TE': 'Telephone',
-            'FX': 'Fax'
-        }
-        contact = {
-            'contact_method': contact_methods.get(segment.element(3), 'Unknown method'),
-            'contact_number': segment.element(4)
-            }
-        # Add additional contact details if present
-        if segment.element(5) in contact_methods:
-            contact['contact_method_2'] = contact_methods.get(segment.element(5), 'Unknown method')
-            contact['contact_number_2'] = segment.element(6)
-        
-        if segment.element(7) in contact_methods:
-            contact['contact_method_3'] = contact_methods.get(segment.element(7), 'Unknown method')
-            contact['contact_number_3'] = segment.element(8)
-        
-        self.contacts['primary'].append(contact)
-
-
-
-class ReceiverIdentity(Identity):
-    def __init__(self, receiver_segments: List[Segment]):
-        pass
-        #super().__init__(receiver_segments)
-        #self.build_receiver_lines(receiver_segments)
-
-    def build_receiver_lines(self, receiver_loop: List[Segment]):
-        nm1_segments = filter(lambda segment: segment.element(0) == 'NM1' and segment.element(1) == '40', receiver_loop)
-        return list(map(self.process_nm1_segment, nm1_segments))
-
+class Submitter_Receiver_Identity(Identity):
+    def __init__(self, nm1=Segment.empty(), per= Segment.empty()):
+        self.type = 'Organization' if nm1.element(2) == '2' else 'Individual'
+        self.name = nm1.element(3) if self.type == 'Organization' else ' '.join([nm1.element(3), nm1.element(4,dne=""), nm1.element(5)])
+        if per.element(0):
+            self.sbmtter_contact_name = "" if per.element(2) == '' else per.element(2)
+            self.sbmtter_contacts = "" if (per.element(3), per.element(4)) == [] else [(per.element(3), per.element(4)), #telephone
+                                                                                    (per.element(5), per.element(6))] # usually fax/email
 
                 
 class ServiceLine(Identity):

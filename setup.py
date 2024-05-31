@@ -12,7 +12,7 @@ setup(
     version="0.0.1",
     # python_requires='>=3.9.*',
     python_requires='>=3.9',
-    author="",
+    author="Aaron Zavora, Raven Mukherjee",
     author_email="aaron.zavora@databricks.com",
     description= "Parser for handling x12 EDI transactions in Spark",
     long_description=LONG_DESCRIPTION,

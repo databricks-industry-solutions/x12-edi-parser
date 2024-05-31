@@ -47,10 +47,11 @@ class MedicalClaim(EDI):
         return DiagnosisIdentity([x for x in self.claim_loop if x.segment_name() == "HI"])
     
     def _populate_submitter_loop(self) -> Dict[str, str]:
-        return SubmitterIdentity(self.sender_receiver_loop)
+        return Submitter_Receiver_Identity(nm1=self._first([x for x in self.sender_receiver_loop if x.element(1) == "41"],"NM1"),
+                                           per=self._first(self.sender_receiver_loop, "PER"))
     
     def _populate_receiver_loop(self) -> Dict[str, str]:
-        return ReceiverIdentity(self.sender_receiver_loop)
+        return Submitter_Receiver_Identity(nm1=self._first([x for x in self.sender_receiver_loop if x.element(1) == "40"],"NM1"))
 
     def _populate_subscriber_loop(self):
         l = self.subscriber_loop[0:min(filter(lambda x: x!= -1, [self.index_of_segment(self.subscriber_loop, "CLM"), len(self.subscriber_loop)]))] #subset the subscriber loop before the CLM segment
@@ -64,7 +65,7 @@ class MedicalClaim(EDI):
         )
     
     def _populate_patient_loop(self) -> Dict[str, str]:
-        # Note - if this doesn't exist then its the same as subscriber loop
+        # Note - if this doesn't exist then it's the same as subscriber loop
         # 01 = Spouse; 18 = Self; 19 = Child; G8 = Other
         return self._populate_subscriber_loop() if self._first(self.subscriber_loop, "SBR").element(1) == "18" else PatientIdentity(
             nm1 = self._first(self.patient_loop, "NM1"),
@@ -122,19 +123,23 @@ class Claim837i(MedicalClaim):
 
     NAME = "837I"
 
-    # Format of 837P https://www.dhs.wisconsin.gov/publications/p0/p00265.pdf
-
+    # Format for 837I https://www.dhs.wisconsin.gov/publications/p0/p00266.pdf
+    
     def _attending_provider(self):
-        return ProviderIdentity(Segment.empty(), Segment.empty())  #TODO
+        return ProviderIdentity(nm1=self._first([x for x in self.claim_loop if x.element(1) == "71"],"NM1"),
+                                prv=self._first([x for x in self.claim_loop if x.element(1) == "AT"],"PRV"),
+                                ref=self._first(self.claim_loop, "REF")) # only occurs once post CLM loop providers
 
     def _operating_provider(self):
-        return ProviderIdentity(Segment.empty(), Segment.empty()) #TODO
+        return ProviderIdentity(nm1=self._first([x for x in self.claim_loop if x.element(1) == "72"],"NM1"),
+                                prv=self._first([x for x in self.claim_loop if x.element(1) == "OP"],"PRV"))
 
     def _other_provider(self):
-        return ProviderIdentity(Segment.empty(), Segment.empty()) #TODO
+        return ProviderIdentity(nm1=self._first([x for x in self.claim_loop if x.element(1) == "73"],"NM1"),
+                                prv=self._first([x for x in self.claim_loop if x.element(1) == "OT"],"PRV")) 
 
     def _facility_provider(self):
-        return ProviderIdentity(Segment.empty(), Segment.empty()) #TODO 
+        return ProviderIdentity(nm1=self._first([x for x in self.claim_loop if x.element(1) == "FA"],"NM1")) # also in 837P but rare
         
     def _populate_providers(self):
         return {"billing": self._billing_provider(),
@@ -158,23 +163,28 @@ class Claim837i(MedicalClaim):
                     dtp = self._first(s, "DTP")
                 ),self.claim_lines()))
 
-    def __populate_patient_loop(self):
-        # Note - if this doesn't exist then its the same as subscriber loop
-        # Note to include in loop: information about subscriber/dependent relationship is marked by Element 2
-        # 01 = Spouse; 18 = Self; 19 = Child; G8 = Other
-        pass
     
 class Claim837p(MedicalClaim):
 
     NAME = "837P"
+    # Format of 837P https://www.dhs.wisconsin.gov/publications/p0/p00265.pdf
 
     def _rendering_provider(self):
         return ProviderIdentity(nm1=self._first([x for x in self.claim_loop if x.element(1) == "82"],"NM1"),
                                 prv=self._first([x for x in self.claim_loop if x.element(1) == "PE"],"PRV"))
+    
+    def _referring_provider(self):
+        return ProviderIdentity(nm1=self._first([x for x in self.claim_loop if x.element(1) == "DN"],"NM1"),
+                                prv=self._first([x for x in self.claim_loop if x.element(1) == "RF"],"PRV"))
+
+    def _service_facility_provider(self):
+        return ProviderIdentity(nm1=self._first([x for x in self.claim_loop if x.element(1) == "77"],"NM1"))
 
     def _populate_providers(self):
         return {"billing": self._billing_provider(),
-                "servicing": (self._billing_provider() if self._rendering_provider() is None else self._rendering_provider())
+                "referring": self._referring_provider(),
+                "servicing": (self._billing_provider() if self._rendering_provider() is None else self._rendering_provider()),
+                "service_facility": self._service_facility_provider()
                 }
 
     
@@ -188,9 +198,6 @@ class Claim837p(MedicalClaim):
                 ), self.claim_lines()))
 
     def _populate_patient_loop(self):
-        # Note - if this doesn't exist then its the same as subscriber loop
-        # Note to include in loop: information about subscriber/dependent relationship is marked by Element 2
-        # 01 = Spouse; 18 = Self; 19 = Child; G8 = Other
         pass
 #
 # Base claim builder (transaction -> 1 or more claims)
