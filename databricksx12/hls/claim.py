@@ -220,7 +220,7 @@ class ClaimBuilder(EDI):
     # @param clm_segment - the claim segment of claim to build
     # @param idx - the index of the claim segment in the data
     #
-    #  @return the clas containing the relevent claim information
+    #  @return the class containing the relevent claim information
     #
     def build_claim(self, clm_segment, idx):
         return self.trnx_cls(
@@ -231,6 +231,14 @@ class ClaimBuilder(EDI):
             claim_loop=self.get_claim_loop(idx),
             sl_loop=self.get_service_line_loop(idx),  # service line loop
         )
+
+    def build_remittance(self, pay_segment, idx):
+        return self.trnx_cls([]
+                             ,[]
+                             ,[]
+                             ,[]
+                             ,[]
+                             )
 
     #
     # Determine claim loop: starts at the clm index and ends at LX segment, or CLM segment, or end of data
@@ -275,6 +283,42 @@ class ClaimBuilder(EDI):
     #  @return a list of Claim for each "clm" segment
     #
     def build(self):
-        return [
-            self.build_claim(seg, i) for i, seg in self.segments_by_name_index("CLM")
-        ]
+        if self.trnx_cls.NAME in ['837I', '837P']:
+            return [
+                self.build_claim(seg, i) for i, seg in self.segments_by_name_index("CLM")
+            ]
+        elif self.trnx_cls.NAME == '835':
+            return [
+                self.build_remittance(seg, i) for i, seg in self.segments_by_name_index("CLP")
+            ]
+
+class Remittance(MedicalClaim):
+
+    NAME = "835"
+    
+    def __init__(self,
+                 trx_header_loop,
+                 payer_loop,
+                 payee_loop,
+                 clm_payment_loop,
+                 srv_payment_loop):
+        self.trx_header_loop = trx_header_loop
+        self.payer_loop = payer_loop
+        self.payee_loop = payee_loop
+        self.clm_payment_loop = clm_payment_loop
+        self.srv_payment_loop = srv_payment_loop
+        self.build()
+
+    def build(self):
+        pass
+
+    def to_json(self):
+        return {
+            **{'payer': 'TODO'},
+            **{'payee': 'TODO'},
+            **{'claim': 'TODO'},
+            **{'providers': 'TODO'},
+            **{'service_lines': 'TODO'}
+        }
+    
+    
