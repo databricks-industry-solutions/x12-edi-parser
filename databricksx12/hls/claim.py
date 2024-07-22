@@ -292,6 +292,10 @@ class ClaimBuilder(EDI):
                 self.build_remittance(seg, i) for i, seg in self.segments_by_name_index("CLP")
             ]
 
+#
+# 835 payment information
+#  https://datainsight.health/edi/payments/with-discount/
+#
 class Remittance(MedicalClaim):
 
     NAME = "835"
