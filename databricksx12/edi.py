@@ -29,8 +29,10 @@ class EDI():
     #
     # Returns all segments matching segment_name
     #
-    def segments_by_name(self, segment_name, range_start=-1, range_end=None):
-        return [x for i,x in enumerate(self.data) if x.segment_name() == segment_name and range_start <= i <= (range_end or len(self.data))]
+    def segments_by_name(self, segment_name, range_start=-1, range_end=None, data = None):
+        if data is None:
+            data = self.data
+        return [x for i,x in enumerate(data) if x.segment_name() == segment_name and range_start <= i <= (range_end or len(data))]
 
     #
     # Returns a tuple of all segments matching segment_name and their index

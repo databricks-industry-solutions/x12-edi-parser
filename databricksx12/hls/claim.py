@@ -2,6 +2,7 @@ from databricksx12.edi import EDI, AnsiX12Delim, Segment
 from databricksx12.hls.loop import Loop
 from databricksx12.hls.identities import *
 from typing import List, Dict
+import functools
 from collections import defaultdict
 
 
@@ -145,7 +146,6 @@ class MedicalClaim(EDI):
                                 n3=self._first(self.billing_loop, "N3"),
                                 n4=self._first(self.billing_loop, "N4"),
                                 ref=self._first(self.billing_loop, "REF"))
-
 
     def _populate_diagnosis(self):
         return DiagnosisIdentity([x for x in self.claim_loop if x.segment_name() == "HI"])
@@ -397,17 +397,18 @@ class Remittance(MedicalClaim):
             'service_date_qualifier_cd': self._first(self.clm_loop, "DTM", idx).element(1),
             'service_date': self._first(self.clm_loop, "DTM", idx).element(2),
             'service_date': self._first(self.clm_loop, "DTM", idx).element(3),
-            'service_adjustments': { #TODO grp_cd as key... repeat adjustments. multiple CAS options
-                'service_adj_grp_cd_1': self._first(self.clm_loop, "CAS", idx).element(1),
-                'service_adj_reason_cd_1': self._first(self.clm_loop, "CAS", idx).element(2),
-                'service_adj_amt_1': self._first(self.clm_loop, "CAS", idx).element(3),
-                'service_adj_grp_cd_2': self._first(self.clm_loop, "CAS", idx).element(4),
-                'service_adj_reason_cd_2': self._first(self.clm_loop, "CAS", idx).element(5),
-                'service_adj_amt_2': self._first(self.clm_loop, "CAS", idx).element(6)
-            },
+            'service_adjustments': functools.reduce(lambda x,y: x+y,[
+                self.populate_adjustment_groups(x) for x in self.segments_by_name("CAS", data = self.clm_loop[idx:svc_end_idx])
+            ]+[[]]),
             'amt_qualifier_cd': self._first(self.clm_loop, "AMT", idx).element(1),
             'servie_line_amt': self._first(self.clm_loop, "AMT", idx).element(2)
         }
+
+    #
+    # group adjustment logic
+    #
+    def populate_adjustment_groups(self, cas):
+        return [{'grp_cd': cas.element(i), 'reason_cd': cas.element(i+1), 'amount': cas.element(i+2)} for i in list(range(1, cas.segment_len(), 3))]
 
     def to_json(self):
         return {
