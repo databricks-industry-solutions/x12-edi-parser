@@ -41,9 +41,9 @@ class EDI():
     #
     # Return the first occurence of the specified index 
     #
-    def index_of_segment(self, segments, segment_name):
+    def index_of_segment(self, segments, segment_name, search_start_idx=0):
         try:
-            return min([(i) for i,x in enumerate(segments) if x.segment_name() == segment_name])
+            return min([(i) for i,x in enumerate(segments) if x.segment_name() == segment_name and i >=search_start_idx])
         except:
             return -1 #not found
 

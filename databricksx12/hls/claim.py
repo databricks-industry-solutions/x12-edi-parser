@@ -232,12 +232,22 @@ class ClaimBuilder(EDI):
             sl_loop=self.get_service_line_loop(idx),  # service line loop
         )
 
+    #
+    # https://datainsight.health/edi/payments/dollars-separate/
+    #  trx_header_loop = 0000
+    #  payer_loop = 1000A
+    #  payee_loop = 1000B
+    #  clm_payment_loop = 2100
+    #  srv_payment_loop = 2110
     def build_remittance(self, pay_segment, idx):
-        return self.trnx_cls([]
-                             ,[]
-                             ,[]
-                             ,[]
-                             ,[]
+        return self.trnx_cls(trx_header_loop = self.data[0:self.index_of_segment(self.data, "N1")]
+                             ,payer_loop = self.data[self.index_of_segment(self.data, "N1"):self.index_of_segment(self.data, "N1", self.index_of_segment(self.data, "N1")+1)]
+                             ,payee_loop = self.data[self.index_of_segment(self.data, "N1", self.index_of_segment(self.data, "N1")+1): self.index_of_segment(self.data, "LX")]
+                             ,clm_loop = self.data[idx:min(
+                                 self.index_of_segment(self.data, "LX", idx+1), #next LX OR CLP or end
+                                 self.index_of_segment(self.data, "CLP", idx+1),
+                                 self.index_of_segment(self.data, "SE", idx+1)                       
+                                 )]
                              )
 
     #
@@ -304,25 +314,85 @@ class Remittance(MedicalClaim):
                  trx_header_loop,
                  payer_loop,
                  payee_loop,
-                 clm_payment_loop,
-                 srv_payment_loop):
+                 clm_loop):
         self.trx_header_loop = trx_header_loop
         self.payer_loop = payer_loop
         self.payee_loop = payee_loop
-        self.clm_payment_loop = clm_payment_loop
-        self.srv_payment_loop = srv_payment_loop
+        self.clm_loop = clm_loop
         self.build()
 
     def build(self):
-        pass
+        self.trx_header_info = self.populate_trx_loop()
+        self.payer_info = self.populate_payer_loop()
+        self.payee_info = self.populate_payee_loop()
+        self.clm_info = self.populate_claim_loop()
+
+    def populate_payer_loop(self):
+        return {
+            'entity_id_cd': self._first(self.payer_loop, "N1").element(1),
+            'payer_name': self._first(self.payer_loop, "N1").element(2),
+            'payer_street': self._first(self.payer_loop, "N3").element(1),
+            'payer_city': self._first(self.payer_loop, "N4").element(1),
+            'payer_state': self._first(self.payer_loop, "N4").element(2),
+            'payer_zip': self._first(self.payer_loop, "N4").element(3),
+            'payer_contact_name': self._first(self.payer_loop, "PER").element(2),
+            'payer_contact_function_cd': self._first(self.payer_loop, "PER").element(1),
+            'payer_contact_number': self._first(self.payer_loop, "PER").element(4)
+        }
+
+    def populate_payee_loop(self):
+        return {
+            'payee_name': self._first(self.payer_loop, "N1").element(2),
+            'payee_npi': self._first(self.payer_loop, "N1").element(3),
+            'payee_id_cd': self._first(self.payer_loop, "N1").element(4)
+        }
+    
+    def populate_trx_loop(self):
+        return {
+            'transaction_handling_cd': self._first(self.trx_header_loop,"BPR").element(1),
+            'pay_amt': self._first(self.trx_header_loop,"BPR").element(2),
+            'credit_debit_flag': self._first(self.trx_header_loop,"BPR").element(3),
+            'origin_company_id': self._first(self.trx_header_loop,"BPR").element(10)
+            }
+
+    def populate_claim_loop(self):
+        return {
+            'claim_id': self._first(self.clm_loop,"CLP").element(1),
+            'claim_status_cd': self._first(self.clm_loop,"CLP").element(2),
+            'claim_chrg_amt': self._first(self.clm_loop,"CLP").element(3),
+            'claim_pay_amt': self._first(self.clm_loop,"CLP").element(4),
+            'patient_pay_amt': self._first(self.clm_loop,"CLP").element(5),
+            'claim_filing_cd': self._first(self.clm_loop,"CLP").element(6),
+            'payer_claim_id': self._first(self.clm_loop,"CLP").element(7),
+            'facility_type_cd': self._first(self.clm_loop,"CLP").element(8),
+            'claim_freq_cd': self._first(self.clm_loop,"CLP").element(9),
+            'patient_entity_id_cd': self._first(self.clm_loop,"NM1").element(1),
+            'entity_type_qualifier': self._first(self.clm_loop,"NM1").element(2),
+            'patient_last_nm': self._first(self.clm_loop,"NM1").element(4),
+            'patient_first_nm': self._first(self.clm_loop,"NM1").element(5),
+            'id_code_qualifier': self._first(self.clm_loop,"NM1").element(9),
+            'patient_id': self._first(self.clm_loop,"NM1").element(10),
+            'provider_adjustment_id': self._first(self.clm_loop,"PLB").element(1),
+            'provider_adjustment_date': self._first(self.clm_loop,"PLB").element(2),
+            'provider_adjustment_reason_cd': self._first(self.clm_loop,"PLB").element(3),
+            'provider_adjustment_amt': self._first(self.clm_loop,"PLB").element(4)
+            #,            **{'claim_lines': [self.populate_claim_line(x) for x in ] }
+        }
+
+    #
+    # @parma data = Service line segments found within CLP 
+    #
+    def populate_claim_line(self, data):
+        return {
+            
+        }
 
     def to_json(self):
         return {
-            **{'payer': 'TODO'},
-            **{'payee': 'TODO'},
-            **{'claim': 'TODO'},
-            **{'providers': 'TODO'},
-            **{'service_lines': 'TODO'}
+            **{'payment': self.trx_header_info},
+            **{'payer': self.payer_info},
+            **{'payee': self.payee_info},
+            **{'claim': self.clm_info}
         }
     
     
