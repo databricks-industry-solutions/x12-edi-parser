@@ -35,8 +35,10 @@ class EDI():
     #
     # Returns a tuple of all segments matching segment_name and their index
     #
-    def segments_by_name_index(self, segment_name, range_start=-1, range_end = None):
-        return [(i,x) for i,x in enumerate(self.data) if x.segment_name() == segment_name and range_start <= i <= (range_end or len(self.data))]
+    def segments_by_name_index(self, segment_name, range_start=-1, range_end = None, data = None):
+        if data is None:
+            data = self.data
+        return [(i,x) for i,x in enumerate(data) if x.segment_name() == segment_name and range_start <= i <= (range_end or len(data))]
 
     #
     # Return the first occurence of the specified index 

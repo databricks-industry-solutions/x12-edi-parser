@@ -4,6 +4,110 @@ from databricksx12.hls.identities import *
 from typing import List, Dict
 from collections import defaultdict
 
+
+#
+# Base claim builder (transaction -> 1 or more claims)
+#
+
+
+class ClaimBuilder(EDI):
+    #
+    # Given claim type (837i, 837p, etc), segments, and delim class, build claim level classes
+    #
+    def __init__(self, trnx_type_cls, trnx_data, delim_cls=AnsiX12Delim):
+        self.data = trnx_data
+        self.format_cls = delim_cls
+        self.trnx_cls = trnx_type_cls
+        self.loop = Loop(trnx_data)
+
+    #
+    # Builds a claim object from
+    #
+    # @param clm_segment - the claim segment of claim to build
+    # @param idx - the index of the claim segment in the data
+    #
+    #  @return the class containing the relevent claim information
+    #
+    def build_claim(self, clm_segment, idx):
+        return self.trnx_cls(
+            sender_receiver_loop=self.get_submitter_receiver_loop(idx),
+            billing_loop=self.loop.get_loop_segments(idx, "2000A"),
+            subscriber_loop=self.loop.get_loop_segments(idx, "2000B"),
+            patient_loop=self.loop.get_loop_segments(idx, "2000C"),
+            claim_loop=self.get_claim_loop(idx),
+            sl_loop=self.get_service_line_loop(idx),  # service line loop
+        )
+
+    #
+    # https://datainsight.health/edi/payments/dollars-separate/
+    #  trx_header_loop = 0000
+    #  payer_loop = 1000A
+    #  payee_loop = 1000B
+    #  clm_payment_loop = 2100
+    #  srv_payment_loop = 2110
+    def build_remittance(self, pay_segment, idx):
+        return self.trnx_cls(trx_header_loop = self.data[0:self.index_of_segment(self.data, "N1")]
+                             ,payer_loop = self.data[self.index_of_segment(self.data, "N1"):self.index_of_segment(self.data, "N1", self.index_of_segment(self.data, "N1")+1)]
+                             ,payee_loop = self.data[self.index_of_segment(self.data, "N1", self.index_of_segment(self.data, "N1")+1): self.index_of_segment(self.data, "LX")]
+                             ,clm_loop = self.data[idx:min(
+                                 self.index_of_segment(self.data, "LX", idx+1), #next LX OR CLP or end
+                                 self.index_of_segment(self.data, "CLP", idx+1),
+                                 self.index_of_segment(self.data, "SE", idx+1)                       
+                                 )]
+                             )
+
+    #
+    # Determine claim loop: starts at the clm index and ends at LX segment, or CLM segment, or end of data
+    #
+    def get_claim_loop(self, clm_idx):
+        sl_start_indexes = list(map(lambda x: x[0], filter(lambda x: x[0] > clm_idx, self.segments_by_name_index("LX"))))
+        clm_indexes = list(map(lambda x: x[0], filter(lambda x: x[0] > clm_idx, self.segments_by_name_index("CLM"))))
+
+        if sl_start_indexes:
+            clm_end_idx = min(sl_start_indexes)
+        elif clm_indexes:
+            clm_end_idx = min(clm_indexes + [len(self.data)])
+        else:
+            clm_end_idx = len(self.data)
+        
+        return self.data[clm_idx:clm_end_idx]
+
+    #
+    # fetch the indices of LX and CLM segments that are beyond the current clm index
+    #
+    def get_service_line_loop(self, clm_idx):
+        sl_start_indexes = list(map(lambda x: x[0], filter(lambda x: x[0] > clm_idx, self.segments_by_name_index("LX"))))
+        tx_end_indexes = list(map(lambda x: x[0], filter(lambda x: x[0] > clm_idx, self.segments_by_name_index("SE"))))
+        if sl_start_indexes:
+            sl_end_idx = min(tx_end_indexes + [len(self.data)])
+            return self.data[min(sl_start_indexes):sl_end_idx]
+        return []
+
+    def get_submitter_receiver_loop(self, clm_idx):
+        bht_start_indexes = list(map(lambda x: x[0], filter(lambda x: x[0] < clm_idx, self.segments_by_name_index("BHT"))))
+        bht_end_indexes = list(map(lambda x: x[0], filter(lambda x: x[0] < clm_idx and x[1].element(3) == '20', self.segments_by_name_index("HL"))))
+        if bht_start_indexes:
+            sub_rec_start_idx = max(bht_start_indexes)
+            sub_rec_end_idx = max(bht_end_indexes)
+
+            return self.data[sub_rec_start_idx:sub_rec_end_idx]
+        return []
+
+
+    #
+    # Given transaction type, transaction segments, and delim info, build out claims in the transaction
+    #  @return a list of Claim for each "clm" segment
+    #
+    def build(self):
+        if self.trnx_cls.NAME in ['837I', '837P']:
+            return [
+                self.build_claim(seg, i) for i, seg in self.segments_by_name_index("CLM")
+            ]
+        elif self.trnx_cls.NAME == '835':
+            return [
+                self.build_remittance(seg, i) for i, seg in self.segments_by_name_index("CLP")
+            ]
+
 #
 # Base claim class
 #
@@ -30,8 +134,8 @@ class MedicalClaim(EDI):
     #
     # Return first segment found of name == name otherwise Segment.empty()
     #
-    def _first(self, segments, name):
-        return ([x for x in segments if x.segment_name() == name][0]  if len([x for x in segments if x.segment_name() == name]) > 0 else Segment.empty())
+    def _first(self, segments, name, start_index = 0):
+        return ([x for x in segments[start_index:] if x.segment_name() == name][0]  if len([x for x in segments[start_index:] if x.segment_name() == name]) > 0 else Segment.empty())
         
     def _populate_providers(self):
         return {"billing": self._billing_provider()}
@@ -199,108 +303,6 @@ class Claim837p(MedicalClaim):
 
     def _populate_patient_loop(self):
         pass
-#
-# Base claim builder (transaction -> 1 or more claims)
-#
-
-
-class ClaimBuilder(EDI):
-    #
-    # Given claim type (837i, 837p, etc), segments, and delim class, build claim level classes
-    #
-    def __init__(self, trnx_type_cls, trnx_data, delim_cls=AnsiX12Delim):
-        self.data = trnx_data
-        self.format_cls = delim_cls
-        self.trnx_cls = trnx_type_cls
-        self.loop = Loop(trnx_data)
-
-    #
-    # Builds a claim object from
-    #
-    # @param clm_segment - the claim segment of claim to build
-    # @param idx - the index of the claim segment in the data
-    #
-    #  @return the class containing the relevent claim information
-    #
-    def build_claim(self, clm_segment, idx):
-        return self.trnx_cls(
-            sender_receiver_loop=self.get_submitter_receiver_loop(idx),
-            billing_loop=self.loop.get_loop_segments(idx, "2000A"),
-            subscriber_loop=self.loop.get_loop_segments(idx, "2000B"),
-            patient_loop=self.loop.get_loop_segments(idx, "2000C"),
-            claim_loop=self.get_claim_loop(idx),
-            sl_loop=self.get_service_line_loop(idx),  # service line loop
-        )
-
-    #
-    # https://datainsight.health/edi/payments/dollars-separate/
-    #  trx_header_loop = 0000
-    #  payer_loop = 1000A
-    #  payee_loop = 1000B
-    #  clm_payment_loop = 2100
-    #  srv_payment_loop = 2110
-    def build_remittance(self, pay_segment, idx):
-        return self.trnx_cls(trx_header_loop = self.data[0:self.index_of_segment(self.data, "N1")]
-                             ,payer_loop = self.data[self.index_of_segment(self.data, "N1"):self.index_of_segment(self.data, "N1", self.index_of_segment(self.data, "N1")+1)]
-                             ,payee_loop = self.data[self.index_of_segment(self.data, "N1", self.index_of_segment(self.data, "N1")+1): self.index_of_segment(self.data, "LX")]
-                             ,clm_loop = self.data[idx:min(
-                                 self.index_of_segment(self.data, "LX", idx+1), #next LX OR CLP or end
-                                 self.index_of_segment(self.data, "CLP", idx+1),
-                                 self.index_of_segment(self.data, "SE", idx+1)                       
-                                 )]
-                             )
-
-    #
-    # Determine claim loop: starts at the clm index and ends at LX segment, or CLM segment, or end of data
-    #
-    def get_claim_loop(self, clm_idx):
-        sl_start_indexes = list(map(lambda x: x[0], filter(lambda x: x[0] > clm_idx, self.segments_by_name_index("LX"))))
-        clm_indexes = list(map(lambda x: x[0], filter(lambda x: x[0] > clm_idx, self.segments_by_name_index("CLM"))))
-
-        if sl_start_indexes:
-            clm_end_idx = min(sl_start_indexes)
-        elif clm_indexes:
-            clm_end_idx = min(clm_indexes + [len(self.data)])
-        else:
-            clm_end_idx = len(self.data)
-        
-        return self.data[clm_idx:clm_end_idx]
-
-    #
-    # fetch the indices of LX and CLM segments that are beyond the current clm index
-    #
-    def get_service_line_loop(self, clm_idx):
-        sl_start_indexes = list(map(lambda x: x[0], filter(lambda x: x[0] > clm_idx, self.segments_by_name_index("LX"))))
-        tx_end_indexes = list(map(lambda x: x[0], filter(lambda x: x[0] > clm_idx, self.segments_by_name_index("SE"))))
-        if sl_start_indexes:
-            sl_end_idx = min(tx_end_indexes + [len(self.data)])
-            return self.data[min(sl_start_indexes):sl_end_idx]
-        return []
-
-    def get_submitter_receiver_loop(self, clm_idx):
-        bht_start_indexes = list(map(lambda x: x[0], filter(lambda x: x[0] < clm_idx, self.segments_by_name_index("BHT"))))
-        bht_end_indexes = list(map(lambda x: x[0], filter(lambda x: x[0] < clm_idx and x[1].element(3) == '20', self.segments_by_name_index("HL"))))
-        if bht_start_indexes:
-            sub_rec_start_idx = max(bht_start_indexes)
-            sub_rec_end_idx = max(bht_end_indexes)
-
-            return self.data[sub_rec_start_idx:sub_rec_end_idx]
-        return []
-
-
-    #
-    # Given transaction type, transaction segments, and delim info, build out claims in the transaction
-    #  @return a list of Claim for each "clm" segment
-    #
-    def build(self):
-        if self.trnx_cls.NAME in ['837I', '837P']:
-            return [
-                self.build_claim(seg, i) for i, seg in self.segments_by_name_index("CLM")
-            ]
-        elif self.trnx_cls.NAME == '835':
-            return [
-                self.build_remittance(seg, i) for i, seg in self.segments_by_name_index("CLP")
-            ]
 
 #
 # 835 payment information
@@ -376,14 +378,15 @@ class Remittance(MedicalClaim):
             'provider_adjustment_date': self._first(self.clm_loop,"PLB").element(2),
             'provider_adjustment_reason_cd': self._first(self.clm_loop,"PLB").element(3),
             'provider_adjustment_amt': self._first(self.clm_loop,"PLB").element(4),
-            {'claim_lines': [self.populate_claim_line(seg, i) for i,seg in self.segments_by_name_index("SVC")] }
+            'claim_lines': [self.populate_claim_line(seg, i, min(self.index_of_segment(self.clm_loop, 'SVC', i+1), len(self.clm_loop)-1)) for i,seg in self.segments_by_name_index(segment_name="SVC", data=self.clm_loop)]
         }
 
     #
     # @parma svc - the svc segment for the service rendered
     # @param idx - the index where the svc is found within self.clm_loop
+    # @param svc_end_idx - the last segment associated witht he service 
     #
-    def populate_claim_line(self, svc, idx):
+    def populate_claim_line(self, svc, idx, svc_end_idx):
         return {
             'prcdr_cd':svc.element(1),
             'chrg_amt':svc.element(2),
@@ -397,11 +400,10 @@ class Remittance(MedicalClaim):
             'service_adjustments': { #TODO grp_cd as key... repeat adjustments. multiple CAS options
                 'service_adj_grp_cd_1': self._first(self.clm_loop, "CAS", idx).element(1),
                 'service_adj_reason_cd_1': self._first(self.clm_loop, "CAS", idx).element(2),
-                'service_adj_amt_1': self._first(self.clm_loop, "CAS", idx).element(3)
-                
+                'service_adj_amt_1': self._first(self.clm_loop, "CAS", idx).element(3),
                 'service_adj_grp_cd_2': self._first(self.clm_loop, "CAS", idx).element(4),
                 'service_adj_reason_cd_2': self._first(self.clm_loop, "CAS", idx).element(5),
-                'service_adj_amt_2': self._first(self.clm_loop, "CAS", idx).element(6),
+                'service_adj_amt_2': self._first(self.clm_loop, "CAS", idx).element(6)
             },
             'amt_qualifier_cd': self._first(self.clm_loop, "AMT", idx).element(1),
             'servie_line_amt': self._first(self.clm_loop, "AMT", idx).element(2)
