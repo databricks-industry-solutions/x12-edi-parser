@@ -375,16 +375,36 @@ class Remittance(MedicalClaim):
             'provider_adjustment_id': self._first(self.clm_loop,"PLB").element(1),
             'provider_adjustment_date': self._first(self.clm_loop,"PLB").element(2),
             'provider_adjustment_reason_cd': self._first(self.clm_loop,"PLB").element(3),
-            'provider_adjustment_amt': self._first(self.clm_loop,"PLB").element(4)
-            #,            **{'claim_lines': [self.populate_claim_line(x) for x in ] }
+            'provider_adjustment_amt': self._first(self.clm_loop,"PLB").element(4),
+            {'claim_lines': [self.populate_claim_line(seg, i) for i,seg in self.segments_by_name_index("SVC")] }
         }
 
     #
-    # @parma data = Service line segments found within CLP 
+    # @parma svc - the svc segment for the service rendered
+    # @param idx - the index where the svc is found within self.clm_loop
     #
-    def populate_claim_line(self, data):
+    def populate_claim_line(self, svc, idx):
         return {
-            
+            'prcdr_cd':svc.element(1),
+            'chrg_amt':svc.element(2),
+            'paid_amt':svc.element(3),
+            'rev_cd':svc.element(4),
+            'units': svc.element(5),
+            'original_prcdr_cd':svc.element(6),
+            'service_date_qualifier_cd': self._first(self.clm_loop, "DTM", idx).element(1),
+            'service_date': self._first(self.clm_loop, "DTM", idx).element(2),
+            'service_date': self._first(self.clm_loop, "DTM", idx).element(3),
+            'service_adjustments': { #TODO grp_cd as key... repeat adjustments. multiple CAS options
+                'service_adj_grp_cd_1': self._first(self.clm_loop, "CAS", idx).element(1),
+                'service_adj_reason_cd_1': self._first(self.clm_loop, "CAS", idx).element(2),
+                'service_adj_amt_1': self._first(self.clm_loop, "CAS", idx).element(3)
+                
+                'service_adj_grp_cd_2': self._first(self.clm_loop, "CAS", idx).element(4),
+                'service_adj_reason_cd_2': self._first(self.clm_loop, "CAS", idx).element(5),
+                'service_adj_amt_2': self._first(self.clm_loop, "CAS", idx).element(6),
+            },
+            'amt_qualifier_cd': self._first(self.clm_loop, "AMT", idx).element(1),
+            'servie_line_amt': self._first(self.clm_loop, "AMT", idx).element(2)
         }
 
     def to_json(self):
