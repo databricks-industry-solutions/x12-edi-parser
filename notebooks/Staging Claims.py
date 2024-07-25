@@ -1,14 +1,16 @@
 # Databricks notebook source
+# MAGIC %md # 837I and 837P
+
+# COMMAND ----------
+
 from databricksx12 import *
 from databricksx12.hls import *
 import json, os
 from pyspark.sql.functions import input_file_name
 
-# COMMAND ----------
-
 
 hm = HealthcareManager()
-df = spark.read.text("file:////Workspace/Users/aaron.zavora@databricks.com/x12-edi-parser/sampledata/837/*txt", wholetext = True)
+df = spark.read.text("file:////Workspace/Repos/aaron.zavora@databricks.com/x12-edi-parser/sampledata/837/*txt", wholetext = True)
 
 
 rdd = (
@@ -65,7 +67,7 @@ claims.createOrReplaceTempView("edi")
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC select * from stg_claims
+# MAGIC select * from stg_claims limit 10
 
 # COMMAND ----------
 
@@ -107,7 +109,7 @@ claims.createOrReplaceTempView("edi")
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC select * from claim_header
+# MAGIC select * from claim_header limit 10
 
 # COMMAND ----------
 
@@ -129,29 +131,86 @@ claims.createOrReplaceTempView("edi")
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC select * from claim_line
+# MAGIC select * from claim_line limit 10;
+
+# COMMAND ----------
+
+# MAGIC %md # 835 
+
+# COMMAND ----------
+
+from databricksx12 import *
+from databricksx12.hls import *
+import json, os
+from pyspark.sql.functions import input_file_name
+
+hm = HealthcareManager()
+df = spark.read.text("file:////Workspace/Repos/aaron.zavora@databricks.com/x12-edi-parser/sampledata/835/*txt", wholetext = True)
+
+
+rdd = (
+ df.withColumn("filename", input_file_name()).rdd
+  .map(lambda x: (x.asDict().get("filename"),x.asDict().get("value")))
+  .map(lambda x: (x[0], EDI(x[1])))
+  .map(lambda x: { **{'filename': x[0]}, **hm.to_json(x[1])} )
+  .map(lambda x: json.dumps(x))
+)
+claims = spark.read.json(rdd)
+
+# COMMAND ----------
+
+claims.createOrReplaceTempView("edi")
 
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC select current_catalog()
+# MAGIC --flatten EDI 
+# MAGIC drop table if exists stg_remittance;
+# MAGIC CREATE TABLE stg_remittance 
+# MAGIC as 
+# MAGIC select clms, filename, tax_id, sender, transaction_type 
+# MAGIC from 
+# MAGIC (
+# MAGIC select *, explode(trnx.Claims) as clms
+# MAGIC from
+# MAGIC (
+# MAGIC select filename, tax_id, 
+# MAGIC   fg.`FunctionalGroup.sender` as sender, 
+# MAGIC   fg.`FunctionalGroup.transaction_type` as transaction_type,
+# MAGIC   explode(fg.`Transactions`) as trnx
+# MAGIC from 
+# MAGIC (
+# MAGIC select
+# MAGIC `edi.sender_tax_id` as tax_id,
+# MAGIC explode(`FuncitonalGroup`) as fg,
+# MAGIC filename
+# MAGIC from edi
+# MAGIC ) fgs
+# MAGIC ) trnx
+# MAGIC ) clms 
 
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC select current_database()
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC create table hls_healthcare.hls_dev.claim_header as select * from main.default.claim_header;
-# MAGIC create table hls_healthcare.hls_dev.claim_line as select * from main.default.claim_line;
+# MAGIC select * from stg_remittance limit 10
 # MAGIC
 
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC select * from claim_header limit 10;
+# MAGIC drop table if exists remittance;
+# MAGIC create table remittance as 
+# MAGIC select filename, 
+# MAGIC tax_id, 
+# MAGIC sender,
+# MAGIC transaction_type, 
+# MAGIC clms.*
+# MAGIC from stg_remittance
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC select * from remittance limit 10;
 
 # COMMAND ----------
 
