@@ -1,5 +1,5 @@
 import unittest, re
-from test_spark_base import *
+from .test_spark_base import *
 from databricksx12.edi import *
 
 class TestEDI(PysparkBaseTest):

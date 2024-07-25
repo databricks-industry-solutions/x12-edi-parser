@@ -38,6 +38,7 @@ class PayerIdentity(Identity):
 
 class PatientIdentity(Identity):
         def __init__(self, nm1, n3, n4, dmg, pat, sbr):
+            self.subsciber_identifier = nm1.element(9)
             self.name = ' '.join([nm1.element(3), nm1.element(4), nm1.element(5)])
             self.patient_relationship_cd = pat.element(1)
             self.subscriber_relationship_cd = sbr.element(2)

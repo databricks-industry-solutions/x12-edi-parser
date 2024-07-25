@@ -29,21 +29,25 @@ class EDI():
     #
     # Returns all segments matching segment_name
     #
-    def segments_by_name(self, segment_name, range_start=-1, range_end=None):
-        return [x for i,x in enumerate(self.data) if x.segment_name() == segment_name and range_start <= i <= (range_end or len(self.data))]
+    def segments_by_name(self, segment_name, range_start=-1, range_end=None, data = None):
+        if data is None:
+            data = self.data
+        return [x for i,x in enumerate(data) if x.segment_name() == segment_name and range_start <= i <= (range_end or len(data))]
 
     #
     # Returns a tuple of all segments matching segment_name and their index
     #
-    def segments_by_name_index(self, segment_name, range_start=-1, range_end = None):
-        return [(i,x) for i,x in enumerate(self.data) if x.segment_name() == segment_name and range_start <= i <= (range_end or len(self.data))]
+    def segments_by_name_index(self, segment_name, range_start=-1, range_end = None, data = None):
+        if data is None:
+            data = self.data
+        return [(i,x) for i,x in enumerate(data) if x.segment_name() == segment_name and range_start <= i <= (range_end or len(data))]
 
     #
     # Return the first occurence of the specified index 
     #
-    def index_of_segment(self, segments, segment_name):
+    def index_of_segment(self, segments, segment_name, search_start_idx=0):
         try:
-            return min([(i) for i,x in enumerate(segments) if x.segment_name() == segment_name])
+            return min([(i) for i,x in enumerate(segments) if x.segment_name() == segment_name and i >=search_start_idx])
         except:
             return -1 #not found
 

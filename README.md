@@ -64,10 +64,10 @@ filename
 from edi
 ) fgs
 ) trnx
-) clms 
+) clms; 
 
 --Create a "Claims Header" table
-
+drop table if exists claim_header;
 create table claim_header as 
 select filename, 
 tax_id, 
@@ -75,10 +75,26 @@ sender,
 transaction_type, 
 clms.claim_header.*, 
 clms.diagnosis.*,
-clms.patient.*,
 clms.payer.*,
-clms.providers.*
-from stg_claims
+clms.providers.*,
+  clms.patient.name as patient_name,  
+  clms.patient.patient_relationship_cd,
+  clms.patient.street as patient_street,
+  clms.patient.city as patient_city,
+  clms.patient.zip as patient_zip,
+  clms.patient.dob as patient_dob,
+  clms.patient.dob_format as patient_dob_format,
+  clms.patient.gender_cd as patient_gender_cd,
+  clms.subscriber.subsciber_identifier,
+  clms.subscriber.name as subscriber_name,
+  clms.subscriber.subscriber_relationship_cd,
+  clms.subscriber.street as subscriber_street,
+  clms.subscriber.city as subscriber_city,
+  clms.subscriber.zip as subscriber_zip,
+  clms.subscriber.dob as subscriber_dob,
+  clms.subscriber.dob_format as subscriber_dob_format,
+  clms.subscriber.gender_cd as subscriber_gender_cd
+from stg_claims;
 
 --Create a "Claim Line" table  
 create table claim_line as 
@@ -96,6 +112,26 @@ from stg_claims
 
 ![image](images/claim_header.png?raw=true)
 ![image](images/claim_line.png?raw=true)
+
+### 835 sample
+
+```python
+df = spark.read.text("sampledata/835/*txt", wholetext = True)
+
+rdd = (
+ df.withColumn("filename", input_file_name()).rdd
+  .map(lambda x: (x.asDict().get("filename"),x.asDict().get("value")))
+  .map(lambda x: (x[0], EDI(x[1])))
+  .map(lambda x: { **{'filename': x[0]}, **hm.to_json(x[1])} )
+  .map(lambda x: json.dumps(x))
+)
+claims = spark.read.json(rdd)
+
+#Create Claims tables from the EDI transactions
+#...
+```
+![image](images/remittance.png?raw=true)
+
 
 ## Different EDI Formats 
 
