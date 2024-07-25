@@ -113,6 +113,26 @@ from stg_claims
 ![image](images/claim_header.png?raw=true)
 ![image](images/claim_line.png?raw=true)
 
+### 835 sample
+
+```python
+df = spark.read.text("sampledata/835/*txt", wholetext = True)
+
+rdd = (
+ df.withColumn("filename", input_file_name()).rdd
+  .map(lambda x: (x.asDict().get("filename"),x.asDict().get("value")))
+  .map(lambda x: (x[0], EDI(x[1])))
+  .map(lambda x: { **{'filename': x[0]}, **hm.to_json(x[1])} )
+  .map(lambda x: json.dumps(x))
+)
+claims = spark.read.json(rdd)
+
+#Create Claims tables from the EDI transactions
+#...
+```
+![image](images/remittance.png?raw=true)
+
+
 ## Different EDI Formats 
 
 Default format used is AnsiX12 (* as a delim and ~ as segment separator)
