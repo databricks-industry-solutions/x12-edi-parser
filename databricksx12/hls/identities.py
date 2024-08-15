@@ -55,7 +55,7 @@ class ClaimIdentity(Identity):
         self.claim_id = clm.element(1)
         self.claim_amount = clm.element(2)
         self.facility_type_code = clm.element(5)
-        self.service_date =dtp.element(3)
+        self.claim_submitted_date =dtp.element(3)
         self.date_format = dtp.element(2)
         self.service_time =dtp.element(1)
         self.admission_type = cl1.element(1)
@@ -109,7 +109,10 @@ class ServiceLine(Identity):
                         "prcdr_cd": sv2.element(2, 1, ""),
                         "prcdr_cd_type": sv2.element(2, 0, ""),
                         "modifier_cds": ','.join(filter(lambda x: x!="", [sv2.element(2, 2, ""), sv2.element(2, 3, ""), sv2.element(2, 4,""), sv2.element(2, 5, "")])),
-                        "revenue_cd": sv2.element(1)
+                        "revenue_cd": sv2.element(1),
+                        "service_date": dtp.element(3),
+                        "service_time": dtp.element(1),
+                        "date_format": dtp.element(2)
                     }
                 })
 
@@ -127,7 +130,11 @@ class ServiceLine(Identity):
                         "prcdr_cd_type": sv1.element(1, 0),
                         "modifier_cds": ','.join(filter(lambda x: x!="", [sv1.element(1, 2, ""), sv1.element(1, 3, ""), sv1.element(1, 4,""), sv1.element(1, 5, "")])),
                         "place_of_service": sv1.element(5),
-                        "dg_cd_pntr": sv1.element(7)
+                        "dg_cd_pntr": sv1.element(7),
+                        "service_date": dtp.element(3),
+                        "service_time": dtp.element(1),
+                        "date_format": dtp.element(2)
+
                     }
                 })
         

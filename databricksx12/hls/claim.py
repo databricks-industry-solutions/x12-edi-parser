@@ -175,8 +175,9 @@ class MedicalClaim(EDI):
             nm1 = self._first(self.patient_loop, "NM1"),
             n3 = self._first(self.patient_loop, "N3"),
             n4 = self._first(self.patient_loop, "N4"),
-            pat = self._first(self.patient_loop, "PAT")
-                                                                                                                                    )
+            dmg = self._first(self.patient_loop, "DMG"),
+            pat = self._first(self.patient_loop, "PAT"),
+            sbr = self._first(self.patient_loop, "SBR"))            
     
     def _populate_claim_loop(self):
         return ClaimIdentity(clm = self._first(self.claim_loop, "CLM"),
@@ -366,7 +367,7 @@ class Remittance(MedicalClaim):
             'patient_pay_amt': self._first(self.clm_loop,"CLP").element(5),
             'claim_filing_cd': self._first(self.clm_loop,"CLP").element(6),
             'payer_claim_id': self._first(self.clm_loop,"CLP").element(7),
-            'facility_type_cd': self._first(self.clm_loop,"CLP").element(8),
+            'type_of_bill_cd': self._first(self.clm_loop,"CLP").element(8),
             'claim_freq_cd': self._first(self.clm_loop,"CLP").element(9),
             'patient_entity_id_cd': self._first(self.clm_loop,"NM1").element(1),
             'entity_type_qualifier': self._first(self.clm_loop,"NM1").element(2),
