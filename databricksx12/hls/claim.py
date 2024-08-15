@@ -175,7 +175,10 @@ class MedicalClaim(EDI):
             nm1 = self._first(self.patient_loop, "NM1"),
             n3 = self._first(self.patient_loop, "N3"),
             n4 = self._first(self.patient_loop, "N4"),
-            pat = self._first(self.patient_loop, "PAT")
+            pat = self._first(self.patient_loop, "PAT"),
+            dmg = self._first(l, "DMG"),
+            pat = self._first(l, "PAT"),
+            sbr = self._first(l, "SBR")
                                                                                                                                     )
     
     def _populate_claim_loop(self):
