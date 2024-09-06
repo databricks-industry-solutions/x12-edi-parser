@@ -51,10 +51,11 @@ class ClaimBuilder(EDI):
                              ,payer_loop = self.data[self.index_of_segment(self.data, "N1"):self.index_of_segment(self.data, "N1", self.index_of_segment(self.data, "N1")+1)]
                              ,payee_loop = self.data[self.index_of_segment(self.data, "N1", self.index_of_segment(self.data, "N1")+1): self.index_of_segment(self.data, "LX")]
                              ,clm_loop = self.data[idx:min(
-                                 self.index_of_segment(self.data, "LX", idx+1), #next LX OR CLP or end
-                                 self.index_of_segment(self.data, "CLP", idx+1),
-                                 self.index_of_segment(self.data, "SE", idx+1)                       
-                                 )]
+                                 list(filter(lambda x: x > 0, [self.index_of_segment(self.data, "LX", idx+1), 
+                                  self.index_of_segment(self.data, "CLP", idx+1),
+                                  self.index_of_segment(self.data, "SE", idx+1),
+                                  len(self.data)])
+                                ))]
                              )
 
     #
@@ -340,33 +341,41 @@ class Remittance(MedicalClaim):
             'payer_zip': self._first(self.payer_loop, "N4").element(3),
             'payer_contact_name': self._first(self.payer_loop, "PER").element(2),
             'payer_contact_function_cd': self._first(self.payer_loop, "PER").element(1),
-            'payer_contact_number': self._first(self.payer_loop, "PER").element(4)
+            'payer_contact_number': self._first(self.payer_loop, "PER").element(4),
+            'payer_email': self._first(self.payer_loop, "PER").element(6)
         }
 
     def populate_payee_loop(self):
         return {
-            'payee_name': self._first(self.payer_loop, "N1").element(2),
-            'payee_npi': self._first(self.payer_loop, "N1").element(3),
-            'payee_id_cd': self._first(self.payer_loop, "N1").element(4)
+            'payee_name': self._first(self.payee_loop, "N1").element(2),
+            'payee_npi': self._first(self.payee_loop, "N1").element(3),
+            'payee_id_cd': self._first(self.payee_loop, "N1").element(4),
+            'payee_tax_id': self._first(self.payee_loop, "REF").element(2)
         }
     
     def populate_trx_loop(self):
         return {
             'transaction_handling_cd': self._first(self.trx_header_loop,"BPR").element(1),
-            'pay_amt': self._first(self.trx_header_loop,"BPR").element(2),
+            'monetary_amt': self._first(self.trx_header_loop,"BPR").element(2),
             'credit_debit_flag': self._first(self.trx_header_loop,"BPR").element(3),
-            'origin_company_id': self._first(self.trx_header_loop,"BPR").element(10)
+            'payment_method_cd': self._first(self.trx_header_loop,"BPR").element(4),
+            'payment_date': self._first(self.trx_header_loop,"BPR").element(16),
+            'trace_type_cd': self._first(self.trx_header_loop,"TRN").element(1),
+            'trace_reference_id': self._first(self.trx_header_loop,"TRN").element(2),            
+            'trace_origin_company_id':  self._first(self.trx_header_loop,"TRN").element(3)
             }
 
     def populate_claim_loop(self):
+        end_clp_index = ([i for i,z in enumerate([y.segment_name() for y in self.clm_loop[1:]]) if z == "CLP"] + [len(self.clm_loop)])[0]
         return {
             'claim_id': self._first(self.clm_loop,"CLP").element(1),
+            'person_or_organization': self._populate_names(self.clm_loop[:end_clp_index]),
             'claim_status_cd': self._first(self.clm_loop,"CLP").element(2),
             'claim_chrg_amt': self._first(self.clm_loop,"CLP").element(3),
             'claim_pay_amt': self._first(self.clm_loop,"CLP").element(4),
             'patient_pay_amt': self._first(self.clm_loop,"CLP").element(5),
             'claim_filing_cd': self._first(self.clm_loop,"CLP").element(6),
-            'payer_claim_id': self._first(self.clm_loop,"CLP").element(7),
+            'reference_id': self._first(self.clm_loop,"CLP").element(7),
             'type_of_bill_cd': self._first(self.clm_loop,"CLP").element(8),
             'claim_freq_cd': self._first(self.clm_loop,"CLP").element(9),
             'patient_entity_id_cd': self._first(self.clm_loop,"NM1").element(1),
@@ -379,9 +388,29 @@ class Remittance(MedicalClaim):
             'provider_adjustment_date': self._first(self.clm_loop,"PLB").element(2),
             'provider_adjustment_reason_cd': self._first(self.clm_loop,"PLB").element(3),
             'provider_adjustment_amt': self._first(self.clm_loop,"PLB").element(4),
-            'claim_lines': [self.populate_claim_line(seg, i, min(self.index_of_segment(self.clm_loop, 'SVC', i+1), len(self.clm_loop)-1)) for i,seg in self.segments_by_name_index(segment_name="SVC", data=self.clm_loop)]
+            #in claim_loop index, find next CLP segment to end sevice adjustment serach
+             'service_adjustments': functools.reduce(lambda x,y: x+y,[ 
+                self.populate_adjustment_groups(x) for x in self.segments_by_name("CAS",
+                data = self.clm_loop[1:end_clp_index])]),
+            'claim_lines': [self.populate_claim_line(seg, i, min(self.index_of_segment(self.clm_loop, 'SVC', i+1), len(self.clm_loop)-1)) for i,seg in self.segments_by_name_index(segment_name="SVC", data=self.clm_loop)],
+            'reference_cd': self._first(self.clm_loop,"REF").element(1),
+            'reference_num': self._first(self.clm_loop,"REF").element(2),
+            'date_references': [{'date_cd': x.element(1), 'date': x.element(2)} for x in self.clm_loop if x.segment_name() == "DTM"]
         }
 
+    def _populate_names(self, loop):
+        return [
+            {
+                "entity_id_cd": x.element(1),
+                "entity_type_qualifier": x.element(2),
+                "entity_last_or_organization_name": x.element(3),
+                "entity_first": x.element(4),
+                "id_cd_qualifier": x.element(9),
+                "id_cd": x.element(10)
+            }
+                 for x in loop if x.segment_name()== "NM1"]
+
+    
     #
     # @parma svc - the svc segment for the service rendered
     # @param idx - the index where the svc is found within self.clm_loop
@@ -398,9 +427,6 @@ class Remittance(MedicalClaim):
             'service_date_qualifier_cd': self._first(self.clm_loop, "DTM", idx).element(1),
             'service_date': self._first(self.clm_loop, "DTM", idx).element(2),
             'service_date': self._first(self.clm_loop, "DTM", idx).element(3),
-            'service_adjustments': functools.reduce(lambda x,y: x+y,[
-                self.populate_adjustment_groups(x) for x in self.segments_by_name("CAS", data = self.clm_loop[idx:svc_end_idx])
-            ]+[[]]),
             'amt_qualifier_cd': self._first(self.clm_loop, "AMT", idx).element(1),
             'servie_line_amt': self._first(self.clm_loop, "AMT", idx).element(2)
         }
@@ -409,7 +435,7 @@ class Remittance(MedicalClaim):
     # group adjustment logic
     #
     def populate_adjustment_groups(self, cas):
-        return [{'grp_cd': cas.element(i), 'reason_cd': cas.element(i+1), 'amount': cas.element(i+2)} for i in list(range(1, cas.segment_len(), 3))]
+        return [{'adjustment_grp_cd': cas.element(i), 'adjustment_reason_cd': cas.element(i+1), 'adjustment_amount': cas.element(i+2)} for i in list(range(1, cas.segment_len()-1, 3))]
 
     def to_json(self):
         return {

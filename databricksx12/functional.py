@@ -6,7 +6,10 @@ class FunctionalGroup(EDI):
         self.data = segments
         self.format_cls = delim_cls
         self.transaction_type = self._transaction_type()
-        self.transaction_datetime = self._transaction_datetime()
+        self.standard_version = self.segments_by_name("GS")[0].element(8)
+        self.control_number = self.segments_by_name("GS")[0].element(6)
+        self.date = self.segments_by_name("GS")[0].element(4)
+        self.time =  self.segments_by_name("GS")[0].element(5)
         self.sender = self._sender()
         self.receiver = self._reciever()
 
@@ -25,10 +28,6 @@ class FunctionalGroup(EDI):
     # 
     def _transaction_type(self):
         return self.segments_by_name("GS")[0].element(8)[7:10]
-
-
-    def _transaction_datetime(self):
-        return self.segments_by_name("GS")[0].element(4) + ":" + self.segments_by_name("GS")[0].element(5)
 
     def _sender(self):
         return self.segments_by_name("GS")[0].element(2)
