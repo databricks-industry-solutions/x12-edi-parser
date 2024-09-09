@@ -18,7 +18,12 @@ class EDI():
         self.raw_data = data
         self.format_cls = delim_cls
         self.data = [Segment(x, self.format_cls) for x in data.split(self.format_cls.SEGMENT_DELIM)[:-1]]
-        self.sender_tax_id = self.segments_by_name("ISA")[0].element(7)
+        self.sender_qualifier_id = self.segments_by_name("ISA")[0].element(5) + self.segments_by_name("ISA")[0].element(6)
+        self.recipient_qualifier_id = self.segments_by_name("ISA")[0].element(7) + self.segments_by_name("ISA")[0].element(8)
+        self.standard_version=  self.segments_by_name("ISA")[0].element(12)
+        self.date = self.segments_by_name("ISA")[0].element(9)
+        self.time = self.segments_by_name("ISA")[0].element(10)
+        self.control_number = self.segments_by_name("ISA")[0].element(13)
         
     #
     # Returns total count of segments
