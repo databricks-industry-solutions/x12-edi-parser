@@ -42,37 +42,47 @@ claims.createOrReplaceTempView("edi")
 ### Creating claim header and line tables from EDI 
 
 ``` SQL
---flatten EDI format
-CREATE TABLE stg_claims to a claim view
+--flatten EDI 
+drop table if exists stg_claims;
+CREATE TABLE stg_claims 
 as 
-select clms, filename, tax_id, sender, transaction_type 
+select *
 from 
 (
 select *, explode(trnx.Claims) as clms
 from
 (
-select filename, tax_id, 
-  fg.`FunctionalGroup.sender` as sender, 
-  fg.`FunctionalGroup.transaction_type` as transaction_type,
-  explode(fg.`Transactions`) as trnx
+select filename, edi_control_number, edi_date, edi_time, 
+edi_recipient_qualifier_id, edi_sender_qualifier_id, edi_standard_version,
+fgs.fg.`FunctionalGroup.control_number` as fg_control_number,
+fgs.fg.`FunctionalGroup.date` as fg_date,
+fgs.fg.`FunctionalGroup.time` as fg_time,
+fgs.fg.`FunctionalGroup.receiver` as fg_receiver,
+fgs.fg.`FunctionalGroup.sender` as fg_sender,
+fgs.fg.`FunctionalGroup.standard_version` as fg_standard_version,
+fgs.fg.`FunctionalGroup.transaction_type` as fg_transaction_type,
+  explode(fgs.fg.`Transactions`) as trnx
 from 
 (
 select
-`edi.sender_tax_id` as tax_id,
+`edi.control_number` as edi_control_number,
+`edi.date` as edi_date,
+`edi.time` as edi_time,
+`EDI.recipient_qualifier_id` as edi_recipient_qualifier_id,
+`EDI.sender_qualifier_id` as edi_sender_qualifier_id,
+`EDI.standard_version` as edi_standard_version,
 explode(`FuncitonalGroup`) as fg,
 filename
 from edi
 ) fgs
 ) trnx
-) clms; 
+) clms;
 
---Create a "Claims Header" table
 drop table if exists claim_header;
 create table claim_header as 
-select filename, 
-tax_id, 
-sender,
-transaction_type, 
+select
+filename, edi_control_number, edi_date, edi_time, edi_recipient_qualifier_id, edi_sender_qualifier_id, edi_standard_version,
+fg_control_number, fg_date, fg_time, fg_receiver, fg_sender, fg_standard_version, fg_transaction_type,
 clms.claim_header.*, 
 clms.diagnosis.*,
 clms.payer.*,
@@ -96,7 +106,6 @@ clms.providers.*,
   clms.subscriber.gender_cd as subscriber_gender_cd
 from stg_claims;
 
---Create a "Claim Line" table  
 create table claim_line as 
 select filename, claim_id, cl.*
 from (
@@ -104,7 +113,7 @@ select filename,
 clms.claim_header.claim_id, 
 explode(clms.claim_lines) as cl 
 from stg_claims
-) foo
+) foo;
 
 ```
 
@@ -128,7 +137,49 @@ rdd = (
 claims = spark.read.json(rdd)
 
 #Create Claims tables from the EDI transactions
-#...
+%sql
+--flatten EDI 
+drop table if exists stg_remittance;
+CREATE TABLE stg_remittance 
+as 
+select *
+from 
+(
+select *, explode(trnx.Claims) as clms
+from
+(
+select filename, edi_control_number, edi_date, edi_time, 
+edi_recipient_qualifier_id, edi_sender_qualifier_id, edi_standard_version,
+fgs.fg.`FunctionalGroup.control_number` as fg_control_number,
+fgs.fg.`FunctionalGroup.date` as fg_date,
+fgs.fg.`FunctionalGroup.time` as fg_time,
+fgs.fg.`FunctionalGroup.receiver` as fg_receiver,
+fgs.fg.`FunctionalGroup.sender` as fg_sender,
+fgs.fg.`FunctionalGroup.standard_version` as fg_standard_version,
+fgs.fg.`FunctionalGroup.transaction_type` as fg_transaction_type,
+  explode(fgs.fg.`Transactions`) as trnx
+from 
+(
+select
+`edi.control_number` as edi_control_number,
+`edi.date` as edi_date,
+`edi.time` as edi_time,
+`EDI.recipient_qualifier_id` as edi_recipient_qualifier_id,
+`EDI.sender_qualifier_id` as edi_sender_qualifier_id,
+`EDI.standard_version` as edi_standard_version,
+explode(`FuncitonalGroup`) as fg,
+filename
+from edi
+) fgs
+) trnx
+) clms ;
+
+drop table if exists remittance;
+create table remittance as 
+select filename, edi_control_number, edi_date, edi_time, edi_recipient_qualifier_id, edi_sender_qualifier_id, edi_standard_version,
+fg_control_number, fg_date, fg_time, fg_receiver, fg_sender, fg_standard_version, fg_transaction_type,
+clms.*
+from stg_remittance;
 ```
 ![image](images/remittance.png?raw=true)
 
