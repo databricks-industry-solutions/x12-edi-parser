@@ -10,7 +10,7 @@ from pyspark.sql.functions import input_file_name
 
 
 hm = HealthcareManager()
-df = spark.read.text("file:////Workspace/Repos/aaron.zavora@databricks.com/x12-edi-parser/sampledata/837/*txt", wholetext = True)
+df = spark.read.text("file:////Workspace/Users/aaron.zavora@databricks.com/x12-edi-parser/sampledata/837/*txt", wholetext = True)
 
 
 rdd = (
@@ -29,11 +29,29 @@ claims.createOrReplaceTempView("edi")
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC
+# MAGIC select filename, edi_control_number, edi_date, edi_time, 
+# MAGIC edi_recipient_qualifier_id, edi_sender_qualifier_id, edi_standard_version,
+# MAGIC fgs.fg.`FunctionalGroup.control_number` as fg_control_number,
+# MAGIC fgs.fg.`FunctionalGroup.date` as fg_date,
+# MAGIC fgs.fg.`FunctionalGroup.time` as fg_time,
+# MAGIC fgs.fg.`FunctionalGroup.receiver` as fg_receiver,
+# MAGIC fgs.fg.`FunctionalGroup.sender` as fg_sender,
+# MAGIC fgs.fg.`FunctionalGroup.standard_version` as fg_standard_version,
+# MAGIC fgs.fg.`FunctionalGroup.transaction_type` as fg_transaction_type,
+# MAGIC   explode(fgs.fg.`Transactions`) as trnx
+# MAGIC from 
+# MAGIC (
 # MAGIC select
-# MAGIC `edi.sender_tax_id` as tax_id,
-# MAGIC explode(`FuncitonalGroup`) as fg
+# MAGIC `edi.control_number` as edi_control_number,
+# MAGIC `edi.date` as edi_date,
+# MAGIC `edi.time` as edi_time,
+# MAGIC `EDI.recipient_qualifier_id` as edi_recipient_qualifier_id,
+# MAGIC `EDI.sender_qualifier_id` as edi_sender_qualifier_id,
+# MAGIC `EDI.standard_version` as edi_standard_version,
+# MAGIC explode(`FuncitonalGroup`) as fg,
+# MAGIC filename
 # MAGIC from edi
+# MAGIC ) fgs
 
 # COMMAND ----------
 
@@ -42,20 +60,31 @@ claims.createOrReplaceTempView("edi")
 # MAGIC drop table if exists stg_claims;
 # MAGIC CREATE TABLE stg_claims 
 # MAGIC as 
-# MAGIC select clms, filename, tax_id, sender, transaction_type 
+# MAGIC select *
 # MAGIC from 
 # MAGIC (
 # MAGIC select *, explode(trnx.Claims) as clms
 # MAGIC from
 # MAGIC (
-# MAGIC select filename, tax_id, 
-# MAGIC   fg.`FunctionalGroup.sender` as sender, 
-# MAGIC   fg.`FunctionalGroup.transaction_type` as transaction_type,
-# MAGIC   explode(fg.`Transactions`) as trnx
+# MAGIC select filename, edi_control_number, edi_date, edi_time, 
+# MAGIC edi_recipient_qualifier_id, edi_sender_qualifier_id, edi_standard_version,
+# MAGIC fgs.fg.`FunctionalGroup.control_number` as fg_control_number,
+# MAGIC fgs.fg.`FunctionalGroup.date` as fg_date,
+# MAGIC fgs.fg.`FunctionalGroup.time` as fg_time,
+# MAGIC fgs.fg.`FunctionalGroup.receiver` as fg_receiver,
+# MAGIC fgs.fg.`FunctionalGroup.sender` as fg_sender,
+# MAGIC fgs.fg.`FunctionalGroup.standard_version` as fg_standard_version,
+# MAGIC fgs.fg.`FunctionalGroup.transaction_type` as fg_transaction_type,
+# MAGIC   explode(fgs.fg.`Transactions`) as trnx
 # MAGIC from 
 # MAGIC (
 # MAGIC select
-# MAGIC `edi.sender_tax_id` as tax_id,
+# MAGIC `edi.control_number` as edi_control_number,
+# MAGIC `edi.date` as edi_date,
+# MAGIC `edi.time` as edi_time,
+# MAGIC `EDI.recipient_qualifier_id` as edi_recipient_qualifier_id,
+# MAGIC `EDI.sender_qualifier_id` as edi_sender_qualifier_id,
+# MAGIC `EDI.standard_version` as edi_standard_version,
 # MAGIC explode(`FuncitonalGroup`) as fg,
 # MAGIC filename
 # MAGIC from edi
@@ -79,10 +108,9 @@ claims.createOrReplaceTempView("edi")
 # MAGIC %sql
 # MAGIC drop table if exists claim_header;
 # MAGIC create table claim_header as 
-# MAGIC select filename, 
-# MAGIC tax_id, 
-# MAGIC sender,
-# MAGIC transaction_type, 
+# MAGIC select
+# MAGIC filename, edi_control_number, edi_date, edi_time, edi_recipient_qualifier_id, edi_sender_qualifier_id, edi_standard_version,
+# MAGIC fg_control_number, fg_date, fg_time, fg_receiver, fg_sender, fg_standard_version, fg_transaction_type,
 # MAGIC clms.claim_header.*, 
 # MAGIC clms.diagnosis.*,
 # MAGIC clms.payer.*,
@@ -131,7 +159,7 @@ claims.createOrReplaceTempView("edi")
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC select * from claim_line limit 10;
+# MAGIC select * from claim_line
 
 # COMMAND ----------
 
@@ -145,7 +173,7 @@ import json, os
 from pyspark.sql.functions import input_file_name
 
 hm = HealthcareManager()
-df = spark.read.text("file:////Workspace/Repos/aaron.zavora@databricks.com/x12-edi-parser/sampledata/835/*txt", wholetext = True)
+df = spark.read.text("file:////Workspace/Users/aaron.zavora@databricks.com/x12-edi-parser/sampledata/835/*txt", wholetext = True)
 
 
 rdd = (
@@ -168,20 +196,31 @@ claims.createOrReplaceTempView("edi")
 # MAGIC drop table if exists stg_remittance;
 # MAGIC CREATE TABLE stg_remittance 
 # MAGIC as 
-# MAGIC select clms, filename, tax_id, sender, transaction_type 
+# MAGIC select *
 # MAGIC from 
 # MAGIC (
 # MAGIC select *, explode(trnx.Claims) as clms
 # MAGIC from
 # MAGIC (
-# MAGIC select filename, tax_id, 
-# MAGIC   fg.`FunctionalGroup.sender` as sender, 
-# MAGIC   fg.`FunctionalGroup.transaction_type` as transaction_type,
-# MAGIC   explode(fg.`Transactions`) as trnx
+# MAGIC select filename, edi_control_number, edi_date, edi_time, 
+# MAGIC edi_recipient_qualifier_id, edi_sender_qualifier_id, edi_standard_version,
+# MAGIC fgs.fg.`FunctionalGroup.control_number` as fg_control_number,
+# MAGIC fgs.fg.`FunctionalGroup.date` as fg_date,
+# MAGIC fgs.fg.`FunctionalGroup.time` as fg_time,
+# MAGIC fgs.fg.`FunctionalGroup.receiver` as fg_receiver,
+# MAGIC fgs.fg.`FunctionalGroup.sender` as fg_sender,
+# MAGIC fgs.fg.`FunctionalGroup.standard_version` as fg_standard_version,
+# MAGIC fgs.fg.`FunctionalGroup.transaction_type` as fg_transaction_type,
+# MAGIC   explode(fgs.fg.`Transactions`) as trnx
 # MAGIC from 
 # MAGIC (
 # MAGIC select
-# MAGIC `edi.sender_tax_id` as tax_id,
+# MAGIC `edi.control_number` as edi_control_number,
+# MAGIC `edi.date` as edi_date,
+# MAGIC `edi.time` as edi_time,
+# MAGIC `EDI.recipient_qualifier_id` as edi_recipient_qualifier_id,
+# MAGIC `EDI.sender_qualifier_id` as edi_sender_qualifier_id,
+# MAGIC `EDI.standard_version` as edi_standard_version,
 # MAGIC explode(`FuncitonalGroup`) as fg,
 # MAGIC filename
 # MAGIC from edi
@@ -200,18 +239,12 @@ claims.createOrReplaceTempView("edi")
 # MAGIC %sql
 # MAGIC drop table if exists remittance;
 # MAGIC create table remittance as 
-# MAGIC select filename, 
-# MAGIC tax_id, 
-# MAGIC sender,
-# MAGIC transaction_type, 
+# MAGIC select filename, edi_control_number, edi_date, edi_time, edi_recipient_qualifier_id, edi_sender_qualifier_id, edi_standard_version,
+# MAGIC fg_control_number, fg_date, fg_time, fg_receiver, fg_sender, fg_standard_version, fg_transaction_type,
 # MAGIC clms.*
 # MAGIC from stg_remittance
 
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC select * from remittance limit 10;
-
-# COMMAND ----------
-
-
+# MAGIC select * from remittance
