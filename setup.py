@@ -23,6 +23,6 @@ setup(
         "License :: Other/Proprietary License",
         "Operating System :: OS Independent",
     ],
-    packages=['databricksx12'],
+    packages=['databricksx12', 'databricksx12.hls'],
     py_modules=['databricksx12']
 )
