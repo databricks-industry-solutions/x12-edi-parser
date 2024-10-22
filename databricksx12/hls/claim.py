@@ -303,9 +303,6 @@ class Claim837p(MedicalClaim):
                     dtp = self._first(s, "DTP")
                 ), self.claim_lines()))
 
-    def _populate_patient_loop(self):
-        pass
-
 #
 # 835 payment information
 #  https://datainsight.health/edi/payments/with-discount/
