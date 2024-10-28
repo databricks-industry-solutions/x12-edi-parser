@@ -71,7 +71,7 @@ select
 `EDI.recipient_qualifier_id` as edi_recipient_qualifier_id,
 `EDI.sender_qualifier_id` as edi_sender_qualifier_id,
 `EDI.standard_version` as edi_standard_version,
-explode(`FuncitonalGroup`) as fg,
+explode(`FunctionalGroup`) as fg,
 filename
 from edi
 ) fgs
@@ -167,7 +167,7 @@ select
 `EDI.recipient_qualifier_id` as edi_recipient_qualifier_id,
 `EDI.sender_qualifier_id` as edi_sender_qualifier_id,
 `EDI.standard_version` as edi_standard_version,
-explode(`FuncitonalGroup`) as fg,
+explode(`FunctionalGroup`) as fg,
 filename
 from edi
 ) fgs
