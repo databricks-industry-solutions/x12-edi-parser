@@ -17,7 +17,8 @@ class TestClaims(PysparkBaseTest):
         assert(x.to_json().get('EDI.control_number') == "")
         assert([y.to_dict().get("claim_line_number") for y in data.sl_info] == ['1', '2', '3', '4', '5', '6', '7', '8', '9'])
         assert( reduce(add, [float(y.to_dict().get("line_chrg_amt")) for y in data.sl_info]) == 17166.7)
-        assert(len(hm.to_json(edi).get("FunctionalGroup")) == 1) 
+        assert(len(hm.to_json(edi).get("FunctionalGroup")) == 1)
+        
 
     def test_professional_service_lines(self):
         edi = EDI(open("sampledata/837/CC_837P_EDI.txt", "rb").read().decode("utf-8"))
