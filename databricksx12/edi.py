@@ -124,7 +124,7 @@ class EDI():
                     )
                 )
 
-    def to_json(self, exclude=["data", "raw_data"]):
+    def to_json(self, exclude=["data", "raw_data", "isa"]):
         return {str(self.__class__.__name__ + "." + attr): getattr(self, attr) for attr in dir(self) if not callable(getattr(self, attr)) and not attr.startswith("__") and attr not in exclude}
 
     """
