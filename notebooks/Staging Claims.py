@@ -48,7 +48,7 @@ claims.createOrReplaceTempView("edi")
 # MAGIC `EDI.recipient_qualifier_id` as edi_recipient_qualifier_id,
 # MAGIC `EDI.sender_qualifier_id` as edi_sender_qualifier_id,
 # MAGIC `EDI.standard_version` as edi_standard_version,
-# MAGIC explode(`FuncitonalGroup`) as fg,
+# MAGIC explode(`FunctionalGroup`) as fg,
 # MAGIC filename
 # MAGIC from edi
 # MAGIC ) fgs
@@ -85,7 +85,7 @@ claims.createOrReplaceTempView("edi")
 # MAGIC `EDI.recipient_qualifier_id` as edi_recipient_qualifier_id,
 # MAGIC `EDI.sender_qualifier_id` as edi_sender_qualifier_id,
 # MAGIC `EDI.standard_version` as edi_standard_version,
-# MAGIC explode(`FuncitonalGroup`) as fg,
+# MAGIC explode(`FunctionalGroup`) as fg,
 # MAGIC filename
 # MAGIC from edi
 # MAGIC ) fgs
@@ -221,7 +221,7 @@ claims.createOrReplaceTempView("edi")
 # MAGIC `EDI.recipient_qualifier_id` as edi_recipient_qualifier_id,
 # MAGIC `EDI.sender_qualifier_id` as edi_sender_qualifier_id,
 # MAGIC `EDI.standard_version` as edi_standard_version,
-# MAGIC explode(`FuncitonalGroup`) as fg,
+# MAGIC explode(`FunctionalGroup`) as fg,
 # MAGIC filename
 # MAGIC from edi
 # MAGIC ) fgs
