@@ -41,7 +41,7 @@ class HealthcareManager(EDI):
     def to_json(self, edi):
         return {
             **EDIManager.class_metadata(edi),
-            'FuncitonalGroup': [
+            'FunctionalGroup': [
                 {
                     **EDIManager.class_metadata(fg),
                     'Transactions': [

@@ -7,7 +7,18 @@ from functools import reduce
 from operator import add
 
 
-class TestClaims(PysparkBaseTest):    
+class TestClaims(PysparkBaseTest):
+
+
+    def test_no_isa(self):
+        edi = EDI(open("sampledata/malformed_files/CC_837I_EDI.txt", "rb").read().decode("utf-8"))
+        hm = HealthcareManager()
+        data = hm.from_edi(edi)[0]
+        assert(edi.to_json().get('EDI.control_number') == "")
+        assert([y.to_dict().get("claim_line_number") for y in data.sl_info] == ['1', '2', '3', '4', '5', '6', '7', '8', '9'])
+        assert( reduce(add, [float(y.to_dict().get("line_chrg_amt")) for y in data.sl_info]) == 17166.7)
+        assert(len(hm.to_json(edi).get("FunctionalGroup")) == 1)
+        
 
     def test_professional_service_lines(self):
         edi = EDI(open("sampledata/837/CC_837P_EDI.txt", "rb").read().decode("utf-8"))
