@@ -49,7 +49,7 @@ class EDI():
         return [(i,x) for i,x in enumerate(data) if x.segment_name() == segment_name and range_start <= i <= (range_end or len(data))]
 
     #
-    # Return the first occurence of the specified index 
+    # Return the first occurence index of the specified segment
     #
     def index_of_segment(self, segments, segment_name, search_start_idx=0):
         try:
@@ -57,7 +57,15 @@ class EDI():
         except:
             return -1 #not found
 
-        
+    #
+    # Return the last occurence index of the specified segment
+    #
+    def last_index_of_segment(self, segments, segment_name, search_start_idx = 0):
+        try:
+            return max([(i) for i,x in enumerate(segments) if x.segment_name() == segment_name and i >=search_start_idx])
+        except:
+            return -1
+    
     #
     # @param position_start - integer, the first segment to include (inclusive) starting at 0
     # @param position_end - integer, the last segment to include (exclusive) starting at 0
@@ -95,7 +103,7 @@ class EDI():
     #
     def functional_segments(self):
         from databricksx12.functional import FunctionalGroup
-        return [FunctionalGroup(self.segments_by_position(a-1,b+1), self.format_cls) for a,b in self._functional_group_locations()]
+        return [FunctionalGroup(self.segments_by_position(self.last_index_of_segment(self.data[:a], "GS", 0),b+1), self.format_cls) for a,b in self._functional_group_locations()]
                         
 
     def _functional_group_locations(self):
