@@ -69,7 +69,9 @@ class DiagnosisIdentity(Identity):
         self.admitting_dx_cd = "" if [s.element(1,1) for s in hi_segments if s.element(1, 0) == "ABJ"] == []	else [s.element(1,1) for s in hi_segments if s.element(1, 0) == "ABJ"][0]
         self.reason_visit_dx_cd = "" if [s.element(1,1) for s in hi_segments if s.element(1, 0) == "APR"] == [] else [s.element(1,1) for s in hi_segments if s.element(1, 0) == "APR"][0]
         self.external_injury_dx_cd = "" if [s.element(1,1) for s in hi_segments if s.element(1, 0) == "ABN"] == [] else [s.element(1,1) for s in hi_segments if s.element(1, 0) == "ABN"][0]
-        self.other_dx_cds = ",".join([s.element(1,1) for s in hi_segments if s.element(1, 0) == "ABF"])
+        self.other_dx_cds = ','.join([
+            ','.join([s.element(i,1) for i in list(range(1, s.segment_len())) if s.element(i,0) == "ABF"])
+            for s in hi_segments if s.element(1, 0) == "ABF"])
     
 class Submitter_Receiver_Identity(Identity):
     def __init__(self, nm1=Segment.empty(), per= Segment.empty()):
