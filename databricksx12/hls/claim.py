@@ -428,7 +428,7 @@ class Remittance(MedicalClaim):
             'service_date': self._first(self.clm_loop, "DTM", idx).element(2),
             'service_date': self._first(self.clm_loop, "DTM", idx).element(3),
             'amt_qualifier_cd': self._first(self.clm_loop, "AMT", idx).element(1),
-            'servie_line_amt': self._first(self.clm_loop, "AMT", idx).element(2)
+            'service_line_amt': self._first(self.clm_loop, "AMT", idx).element(2)
         }
 
     #
