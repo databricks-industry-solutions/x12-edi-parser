@@ -14,9 +14,9 @@ class EDI():
     # @param column_name - the column containing the UTF-8 edi data
     # @param delim_class - class that contains the delimiter information for parsing the EDI transactions
     #             - AnsiX12Delim is the default and most used
-    def __init__(self, data, delim_cls = AnsiX12Delim):
+    def __init__(self, data, delim_cls = None):
         self.raw_data = data
-        self.format_cls = delim_cls
+        self.format_cls = (self.extract_delim(data) if delim_cls is None else delim_cls)
         self.data = [Segment(x, self.format_cls) for x in data.split(self.format_cls.SEGMENT_DELIM)[:-1]]
         self.sender_qualifier_id = self.segments_by_name("ISA")[0].element(5) + self.segments_by_name("ISA")[0].element(6)
         self.recipient_qualifier_id = self.segments_by_name("ISA")[0].element(7) + self.segments_by_name("ISA")[0].element(8)
@@ -24,7 +24,12 @@ class EDI():
         self.date = self.segments_by_name("ISA")[0].element(9)
         self.time = self.segments_by_name("ISA")[0].element(10)
         self.control_number = self.segments_by_name("ISA")[0].element(13)
-        
+
+
+    @staticmethod
+    def extract_delim(data):
+        return type("", (), dict({"ELEMENT_DELIM": data[3:4], "SEGMENT_DELIM": data[105:106], "SUB_DELIM": data[104:105]}))
+   
     #
     # Returns total count of segments
     #
