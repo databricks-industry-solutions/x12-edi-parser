@@ -426,7 +426,6 @@ class Remittance(MedicalClaim):
             'original_prcdr_cd':svc.element(6),
             'service_date_qualifier_cd': self._first(self.clm_loop, "DTM", idx).element(1),
             'service_date': self._first(self.clm_loop, "DTM", idx).element(2),
-            'service_date': self._first(self.clm_loop, "DTM", idx).element(3),
             'amt_qualifier_cd': self._first(self.clm_loop, "AMT", idx).element(1),
             'service_line_amt': self._first(self.clm_loop, "AMT", idx).element(2)
         }
