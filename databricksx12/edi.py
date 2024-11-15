@@ -61,6 +61,14 @@ class EDI():
         except:
             return -1 #not found
 
+    #
+    # Return the last occurence index of the specified segment
+    #
+    def last_index_of_segment(self, segments, segment_name, search_start_idx = 0):
+        try:
+            return max([(i) for i,x in enumerate(segments) if x.segment_name() == segment_name and i >=search_start_idx])
+        except:
+            return -1
         
     #
     # @param position_start - integer, the first segment to include (inclusive) starting at 0
