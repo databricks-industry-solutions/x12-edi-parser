@@ -56,7 +56,12 @@ class ClaimBuilder(EDI):
                                   self.index_of_segment(self.data, "SE", idx+1),
                                   len(self.data)])
                                 ))]
-                             )
+                             ,trx_summary_loop = self.data[max(0,
+                                self.last_index_of_segment(self.data, "LX"),
+                                self.last_index_of_segment(self.data, "CLP"),
+                                self.last_index_of_segment(self.data, "SVC")
+                             ):]
+                            )
 
     #
     # Determine claim loop: starts at the clm index and ends at LX segment, or CLM segment, or end of data
@@ -318,11 +323,13 @@ class Remittance(MedicalClaim):
                  trx_header_loop,
                  payer_loop,
                  payee_loop,
-                 clm_loop):
+                 clm_loop,
+                 trx_summary_loop):
         self.trx_header_loop = trx_header_loop
         self.payer_loop = payer_loop
         self.payee_loop = payee_loop
         self.clm_loop = clm_loop
+        self.trx_summary_loop = trx_summary_loop
         self.build()
 
     def build(self):
@@ -384,10 +391,17 @@ class Remittance(MedicalClaim):
             'patient_first_nm': self._first(self.clm_loop,"NM1").element(5),
             'id_code_qualifier': self._first(self.clm_loop,"NM1").element(8),
             'patient_id': self._first(self.clm_loop,"NM1").element(9),
-            'provider_adjustment_id': self._first(self.clm_loop,"PLB").element(1),
-            'provider_adjustment_date': self._first(self.clm_loop,"PLB").element(2),
-            'provider_adjustment_reason_cd': self._first(self.clm_loop,"PLB").element(3),
-            'provider_adjustment_amt': self._first(self.clm_loop,"PLB").element(4),
+            'provider_adjustments':
+              [
+                  [{
+                      'provider_adjustment_npi': p.element(1),
+                      'provider_adjustment_date': p.element(i),
+                      'provider_adjustment_reason_cd': p.element(i+1, 0),
+                      'provider_adjustment_id': p.element(i+1, 1),
+                      'provider_adjustment_amt': p.element(i+2)
+                  }
+                      for i in list(range(2,p.segment_len(), 3))]
+                  for p in self.segments_by_name("PLB", data=self.trx_summary_loop)],
             #in claim_loop index, find next CLP segment to end sevice adjustment serach
              'service_adjustments': functools.reduce(lambda x,y: x+y,[ 
                 self.populate_adjustment_groups(x) for x in self.segments_by_name("CAS",
