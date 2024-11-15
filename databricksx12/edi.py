@@ -107,7 +107,7 @@ class EDI():
     #
     def functional_segments(self):
         from databricksx12.functional import FunctionalGroup
-        return [FunctionalGroup(self.segments_by_position(a-1,b+1), self.format_cls) for a,b in self._functional_group_locations()]
+        return [FunctionalGroup(self.segments_by_position(self.last_index_of_segment(self.data[:a], "GS", 0),b+1), self.format_cls) for a,b in self._functional_group_locations()]
                         
 
     def _functional_group_locations(self):
