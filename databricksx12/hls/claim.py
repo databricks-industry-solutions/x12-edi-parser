@@ -337,6 +337,19 @@ class Remittance(MedicalClaim):
         self.payer_info = self.populate_payer_loop()
         self.payee_info = self.populate_payee_loop()
         self.clm_info = self.populate_claim_loop()
+        self.plb_info = self.populate_plb_loop()
+
+    def populate_plb_loop(self):
+        return [
+            [{
+                'provider_adjustment_npi': p.element(1),
+                'provider_adjustment_date': p.element(i),
+                'provider_adjustment_reason_cd': p.element(i+1, 0),
+                'provider_adjustment_id': p.element(i+1, 1),
+                'provider_adjustment_amt': p.element(i+2)
+            }
+             for i in list(range(2,p.segment_len(), 3))]
+            for p in self.segments_by_name("PLB", data=self.trx_summary_loop)]
 
     def populate_payer_loop(self):
         return {
@@ -391,19 +404,8 @@ class Remittance(MedicalClaim):
             'patient_first_nm': self._first(self.clm_loop,"NM1").element(5),
             'id_code_qualifier': self._first(self.clm_loop,"NM1").element(8),
             'patient_id': self._first(self.clm_loop,"NM1").element(9),
-            'provider_adjustments':
-              [
-                  [{
-                      'provider_adjustment_npi': p.element(1),
-                      'provider_adjustment_date': p.element(i),
-                      'provider_adjustment_reason_cd': p.element(i+1, 0),
-                      'provider_adjustment_id': p.element(i+1, 1),
-                      'provider_adjustment_amt': p.element(i+2)
-                  }
-                      for i in list(range(2,p.segment_len(), 3))]
-                  for p in self.segments_by_name("PLB", data=self.trx_summary_loop)],
             #in claim_loop index, find next CLP segment to end sevice adjustment serach
-             'service_adjustments': functools.reduce(lambda x,y: x+y,
+            'service_adjustments': functools.reduce(lambda x,y: x+y,
                 [self.populate_adjustment_groups(x)
                  for x in self.segments_by_name("CAS",
                 data = self.clm_loop[1:end_clp_index])]),
@@ -456,7 +458,8 @@ class Remittance(MedicalClaim):
             **{'payment': self.trx_header_info},
             **{'payer': self.payer_info},
             **{'payee': self.payee_info},
-            **{'claim': self.clm_info}
+            **{'claim': self.clm_info},
+            **{'provider_adjustments': self.plb_info}
         }
     
     

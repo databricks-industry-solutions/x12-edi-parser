@@ -25,5 +25,21 @@ class TestIssues(PysparkBaseTest):
         assert([x['date'] for x in data[0].to_json()['claim_header']['claim_dates']] == ['0900', '20180628-20180702', '201806280800'])
         assert([x['date_format'] for x in data[0].to_json()['claim_header']['claim_dates']] == ['TM', 'RD8', 'DT'])
 
-
     
+    def test_issue19(self):
+        edi = EDI(open('sampledata/835/sample.txt', 'rb').read().decode("utf-8"))
+        hm = HealthcareManager()
+        data = hm.from_edi(edi)
+        assert(len(data) == 3)
+        assert(len(data[0].to_json()['provider_adjustments']) == 0)
+        assert(len(data[1].to_json()['provider_adjustments']) == 0)
+        assert(len(data[2].to_json()['provider_adjustments']) == 1)
+
+        edi = EDI(open('sampledata/835/plb_sample.txt', 'rb').read().decode("utf-8"))
+        data = hm.from_edi(edi)
+        assert(len(data) == 1)
+        assert(len(data[0].to_json()['provider_adjustments']) == 1)
+
+
+if __name__ == '__main__':
+    unittest.main()
