@@ -49,15 +49,18 @@ class PatientIdentity(Identity):
             self.dob = dmg.element(2)
             self.dob_format = dmg.element(1)
             self.gender_cd = dmg.element(3)
-            
+
+
 class ClaimIdentity(Identity):
+    #
+    # clm, cl1 are individual segments
+    # dtp is a loop of 0 or more dates 
+    #
     def __init__(self, clm, dtp, cl1 = Segment.empty()):
         self.claim_id = clm.element(1)
         self.claim_amount = clm.element(2)
         self.facility_type_code = clm.element(5)
-        self.claim_submitted_date =dtp.element(3)
-        self.date_format = dtp.element(2)
-        self.service_time =dtp.element(1)
+        self.claim_dates = [{'date_cd': s.element(1), 'date_format': s.element(2), 'date': s.element(3)} for s in dtp]
         self.admission_type = cl1.element(1)
         self.admission_src_cd = cl1.element(2)
         self.discharge_status_cd = cl1.element(3)

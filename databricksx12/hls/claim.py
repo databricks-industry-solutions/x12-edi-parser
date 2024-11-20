@@ -187,7 +187,7 @@ class MedicalClaim(EDI):
     
     def _populate_claim_loop(self):
         return ClaimIdentity(clm = self._first(self.claim_loop, "CLM"),
-                             dtp = self._first(self.claim_loop, "DTP"))
+                             dtp = self.segments_by_name("DTP", data=self.claim_loop))
 
     def _populate_payer_info(self):
         return PayerIdentity(self._first([x for x in self.subscriber_loop if x.element(1) == "PR"], "NM1"))
@@ -262,7 +262,7 @@ class Claim837i(MedicalClaim):
 
     def _populate_claim_loop(self):
         return ClaimIdentity(clm = self._first(self.claim_loop, "CLM"),
-                             dtp = self._first(self.claim_loop, "DTP"),
+                             dtp = self.segments_by_name("DTP", data = self.claim_loop),
                              cl1 = self._first(self.claim_loop, "CL1"))
     
     def _populate_sl_loop(self, missing=""):
@@ -403,8 +403,9 @@ class Remittance(MedicalClaim):
                       for i in list(range(2,p.segment_len(), 3))]
                   for p in self.segments_by_name("PLB", data=self.trx_summary_loop)],
             #in claim_loop index, find next CLP segment to end sevice adjustment serach
-             'service_adjustments': functools.reduce(lambda x,y: x+y,[ 
-                self.populate_adjustment_groups(x) for x in self.segments_by_name("CAS",
+             'service_adjustments': functools.reduce(lambda x,y: x+y,
+                [self.populate_adjustment_groups(x)
+                 for x in self.segments_by_name("CAS",
                 data = self.clm_loop[1:end_clp_index])]),
             'claim_lines': [self.populate_claim_line(seg, i, min(self.index_of_segment(self.clm_loop, 'SVC', i+1), len(self.clm_loop)-1)) for i,seg in self.segments_by_name_index(segment_name="SVC", data=self.clm_loop)],
             'reference_cd': self._first(self.clm_loop,"REF").element(1),

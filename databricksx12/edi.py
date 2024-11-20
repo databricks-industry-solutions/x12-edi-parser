@@ -28,7 +28,7 @@ class EDI():
 
     @staticmethod
     def extract_delim(data):
-        return type("", (), dict({"ELEMENT_DELIM": data[3:4], "SEGMENT_DELIM": data[105:106], "SUB_DELIM": data[104:105]}))
+        return Format(ELEMENT_DELIM= data[3:4], SEGMENT_DELIM = data[105:106], SUB_DELIM = data[104:105])
    
     #
     # Returns total count of segments
