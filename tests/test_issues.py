@@ -40,6 +40,12 @@ class TestIssues(PysparkBaseTest):
         assert(len(data) == 1)
         assert(len(data[0].to_json()['provider_adjustments']) == 1)
 
+    def test_issue15(self):
+        edi = EDI(open('sampledata/837/CC_837I_EDI.txt', "rb").read().decode("utf-8"))
+        hm = HealthcareManager()
+        data = hm.from_edi(edi)
+        assert(data[0].to_json()['diagnosis']['other_dx_cds'] == 'F1319,F419,F17210,E876')
+
 
 if __name__ == '__main__':
     unittest.main()
