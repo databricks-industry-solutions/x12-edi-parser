@@ -136,7 +136,7 @@ class EDI():
                     )
                 )
 
-    def to_json(self, exclude=["data", "raw_data", "isa", "format_cls"]):
+    def to_json(self, exclude=["data", "raw_data", "isa", "format_cls", "fg"]):
         return {str(self.__class__.__name__ + "." + attr): getattr(self, attr) for attr in dir(self) if not callable(getattr(self, attr)) and not attr.startswith("__") and attr not in exclude}
 
     """
@@ -247,7 +247,7 @@ class EDIManager():
     #  @returns a python dictionary representing metadata found in EDI/FunctionalGroup/Transaction classes
     #
     @staticmethod
-    def class_metadata(cls_obj, exclude=['data', 'raw_data', 'isa', 'format_cls']):
+    def class_metadata(cls_obj, exclude=['data', 'raw_data', 'isa', 'format_cls', 'fg']):
         return {str(cls_obj.__class__.__name__ + "." + attr): getattr(cls_obj, attr) for attr in dir(cls_obj) if not callable(getattr(cls_obj, attr)) and not attr.startswith("__") and attr not in exclude}
 
     #
