@@ -13,7 +13,7 @@ class FunctionalGroup(EDI):
         self.time =  self.fg.element(5)
         self.sender = self._sender()
         self.receiver = self._reciever()
-
+        
     #
     # Return all segments associated with each transaction
     #  [ trx1[SEGMENT1, ... SEGMENTN], trx2[SEGMENT1, ... SEGMENTN] ... ]

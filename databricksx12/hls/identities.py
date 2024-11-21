@@ -49,15 +49,18 @@ class PatientIdentity(Identity):
             self.dob = dmg.element(2)
             self.dob_format = dmg.element(1)
             self.gender_cd = dmg.element(3)
-            
+
+
 class ClaimIdentity(Identity):
+    #
+    # clm, cl1 are individual segments
+    # dtp is a loop of 0 or more dates 
+    #
     def __init__(self, clm, dtp, cl1 = Segment.empty()):
         self.claim_id = clm.element(1)
         self.claim_amount = clm.element(2)
         self.facility_type_code = clm.element(5)
-        self.claim_submitted_date =dtp.element(3)
-        self.date_format = dtp.element(2)
-        self.service_time =dtp.element(1)
+        self.claim_dates = [{'date_cd': s.element(1), 'date_format': s.element(2), 'date': s.element(3)} for s in dtp]
         self.admission_type = cl1.element(1)
         self.admission_src_cd = cl1.element(2)
         self.discharge_status_cd = cl1.element(3)
@@ -69,7 +72,9 @@ class DiagnosisIdentity(Identity):
         self.admitting_dx_cd = "" if [s.element(1,1) for s in hi_segments if s.element(1, 0) == "ABJ"] == []	else [s.element(1,1) for s in hi_segments if s.element(1, 0) == "ABJ"][0]
         self.reason_visit_dx_cd = "" if [s.element(1,1) for s in hi_segments if s.element(1, 0) == "APR"] == [] else [s.element(1,1) for s in hi_segments if s.element(1, 0) == "APR"][0]
         self.external_injury_dx_cd = "" if [s.element(1,1) for s in hi_segments if s.element(1, 0) == "ABN"] == [] else [s.element(1,1) for s in hi_segments if s.element(1, 0) == "ABN"][0]
-        self.other_dx_cds = ",".join([s.element(1,1) for s in hi_segments if s.element(1, 0) == "ABF"])
+        self.other_dx_cds = ','.join([
+            ','.join([s.element(i,1) for i in list(range(1, s.segment_len())) if s.element(i,0) == "ABF"])
+            for s in hi_segments if s.element(1, 0) == "ABF"])
     
 class Submitter_Receiver_Identity(Identity):
     def __init__(self, nm1=Segment.empty(), per= Segment.empty()):

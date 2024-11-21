@@ -14,10 +14,11 @@ class EDI():
     # @param column_name - the column containing the UTF-8 edi data
     # @param delim_class - class that contains the delimiter information for parsing the EDI transactions
     #             - AnsiX12Delim is the default and most used
-    def __init__(self, data, delim_cls = AnsiX12Delim):
+    def __init__(self, data, delim_cls = None):
         self.raw_data = data
-        self.format_cls = delim_cls
+        self.format_cls = (self.extract_delim(data) if delim_cls is None else delim_cls)
         self.data = [Segment(x, self.format_cls) for x in data.split(self.format_cls.SEGMENT_DELIM)[:-1]]
+
         self.isa = (self.segments_by_name("ISA")[0] if len(self.segments_by_name("ISA")) > 0 else Segment.empty())
         self.sender_qualifier_id = self.isa.element(5) + self.isa.element(6)
         self.recipient_qualifier_id = self.isa.element(7) + self.isa.element(8)
@@ -25,7 +26,11 @@ class EDI():
         self.date = self.isa.element(9)
         self.time = self.isa.element(10)
         self.control_number = self.isa.element(13)
-        
+
+    @staticmethod
+    def extract_delim(data):
+        return Format(ELEMENT_DELIM= data[3:4], SEGMENT_DELIM = data[105:106], SUB_DELIM = data[104:105])
+
     #
     # Returns total count of segments
     #
@@ -65,7 +70,7 @@ class EDI():
             return max([(i) for i,x in enumerate(segments) if x.segment_name() == segment_name and i >=search_start_idx])
         except:
             return -1
-    
+
     #
     # @param position_start - integer, the first segment to include (inclusive) starting at 0
     # @param position_end - integer, the last segment to include (exclusive) starting at 0
@@ -132,7 +137,8 @@ class EDI():
                     )
                 )
 
-    def to_json(self, exclude=["data", "raw_data", "isa"]):
+
+    def to_json(self, exclude=["data", "raw_data", "isa", "format_cls", "fg"]):
         return {str(self.__class__.__name__ + "." + attr): getattr(self, attr) for attr in dir(self) if not callable(getattr(self, attr)) and not attr.startswith("__") and attr not in exclude}
 
     """
@@ -243,7 +249,7 @@ class EDIManager():
     #  @returns a python dictionary representing metadata found in EDI/FunctionalGroup/Transaction classes
     #
     @staticmethod
-    def class_metadata(cls_obj, exclude=['data', 'raw_data', 'isa', 'fg']):
+    def class_metadata(cls_obj, exclude=['data', 'raw_data', 'isa', 'format_cls', 'fg']):
         return {str(cls_obj.__class__.__name__ + "." + attr): getattr(cls_obj, attr) for attr in dir(cls_obj) if not callable(getattr(cls_obj, attr)) and not attr.startswith("__") and attr not in exclude}
 
     #

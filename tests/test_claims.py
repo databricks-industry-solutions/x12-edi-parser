@@ -37,4 +37,5 @@ class TestClaims(PysparkBaseTest):
         assert([y.to_dict().get("revenue_cd") for y in data.sl_info] ==['0124', '0250', '0260', '0300', '0301', '0305', '0306', '0307', '0351'])
         assert( reduce(add, [float(y.to_dict().get("line_chrg_amt")) for y in data.sl_info]) == 17166.7)
 
-        
+if __name__ == '__main__':
+    unittest.main()        
