@@ -177,7 +177,7 @@ class MedicalClaim(EDI):
     def _populate_patient_loop(self) -> Dict[str, str]:
         # Note - if this doesn't exist then it's the same as subscriber loop
         # 01 = Spouse; 18 = Self; 19 = Child; G8 = Other
-        return self._populate_subscriber_loop() if self._first(self.subscriber_loop, "SBR").element(1) == "18" else PatientIdentity(
+        return self._populate_subscriber_loop() if self._first(self.subscriber_loop, "SBR").element(2) == "18" else PatientIdentity(
             nm1 = self._first(self.patient_loop, "NM1"),
             n3 = self._first(self.patient_loop, "N3"),
             n4 = self._first(self.patient_loop, "N4"),
@@ -307,9 +307,6 @@ class Claim837p(MedicalClaim):
                     lx = self._first(s, "LX"),
                     dtp = self._first(s, "DTP")
                 ), self.claim_lines()))
-
-    def _populate_patient_loop(self):
-        pass
 
 #
 # 835 payment information

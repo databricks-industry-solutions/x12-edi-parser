@@ -7,6 +7,12 @@ class TestEDI(PysparkBaseTest):
     x = EDI(open("sampledata/837/CC_837I_EDI.txt", "rb").read().decode("utf-8"))
     y = EDI(open("sampledata/837/CC_837P_EDI.txt", "rb").read().decode("utf-8"))
     z = EDI(open("sampledata/837/CHPW_Claimdata.txt", "rb").read().decode("utf-8"))
+
+    def test_no_isa(self):
+        x = EDI(open("sampledata/malformed_files/CC_837I_EDI.txt", "rb").read().decode("utf-8"))
+        assert(x.to_json().get('EDI.control_number') == "")
+        
+    
     #
     # Test counting total number of segments 
     # 

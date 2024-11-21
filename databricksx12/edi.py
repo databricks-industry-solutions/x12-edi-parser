@@ -18,18 +18,19 @@ class EDI():
         self.raw_data = data
         self.format_cls = (self.extract_delim(data) if delim_cls is None else delim_cls)
         self.data = [Segment(x, self.format_cls) for x in data.split(self.format_cls.SEGMENT_DELIM)[:-1]]
-        self.sender_qualifier_id = self.segments_by_name("ISA")[0].element(5) + self.segments_by_name("ISA")[0].element(6)
-        self.recipient_qualifier_id = self.segments_by_name("ISA")[0].element(7) + self.segments_by_name("ISA")[0].element(8)
-        self.standard_version=  self.segments_by_name("ISA")[0].element(12)
-        self.date = self.segments_by_name("ISA")[0].element(9)
-        self.time = self.segments_by_name("ISA")[0].element(10)
-        self.control_number = self.segments_by_name("ISA")[0].element(13)
 
+        self.isa = (self.segments_by_name("ISA")[0] if len(self.segments_by_name("ISA")) > 0 else Segment.empty())
+        self.sender_qualifier_id = self.isa.element(5) + self.isa.element(6)
+        self.recipient_qualifier_id = self.isa.element(7) + self.isa.element(8)
+        self.standard_version=  self.isa.element(12)
+        self.date = self.isa.element(9)
+        self.time = self.isa.element(10)
+        self.control_number = self.isa.element(13)
 
     @staticmethod
     def extract_delim(data):
         return Format(ELEMENT_DELIM= data[3:4], SEGMENT_DELIM = data[105:106], SUB_DELIM = data[104:105])
-   
+
     #
     # Returns total count of segments
     #
@@ -53,7 +54,7 @@ class EDI():
         return [(i,x) for i,x in enumerate(data) if x.segment_name() == segment_name and range_start <= i <= (range_end or len(data))]
 
     #
-    # Return the first occurence of the specified index 
+    # Return the first occurence index of the specified segment
     #
     def index_of_segment(self, segments, segment_name, search_start_idx=0):
         try:
@@ -69,7 +70,7 @@ class EDI():
             return max([(i) for i,x in enumerate(segments) if x.segment_name() == segment_name and i >=search_start_idx])
         except:
             return -1
-        
+
     #
     # @param position_start - integer, the first segment to include (inclusive) starting at 0
     # @param position_end - integer, the last segment to include (exclusive) starting at 0
@@ -135,6 +136,7 @@ class EDI():
                         lambda y: y is not None, [l := f(l, x, functional_group) for x in self._transaction_locations()]
                     )
                 )
+
 
     def to_json(self, exclude=["data", "raw_data", "isa", "format_cls", "fg"]):
         return {str(self.__class__.__name__ + "." + attr): getattr(self, attr) for attr in dir(self) if not callable(getattr(self, attr)) and not attr.startswith("__") and attr not in exclude}
