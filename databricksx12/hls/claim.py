@@ -408,7 +408,7 @@ class Remittance(MedicalClaim):
             'service_adjustments': functools.reduce(lambda x,y: x+y,
                 [self.populate_adjustment_groups(x)
                  for x in self.segments_by_name("CAS",
-                data = self.clm_loop[1:end_clp_index])]),
+                data = self.clm_loop[1:end_clp_index])], []),
             'claim_lines': [self.populate_claim_line(seg, i, min(self.index_of_segment(self.clm_loop, 'SVC', i+1), len(self.clm_loop)-1)) for i,seg in self.segments_by_name_index(segment_name="SVC", data=self.clm_loop)],
             'reference_cd': self._first(self.clm_loop,"REF").element(1),
             'reference_num': self._first(self.clm_loop,"REF").element(2),
