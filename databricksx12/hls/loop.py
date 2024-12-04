@@ -143,7 +143,7 @@ class Loop(EDI):
     #  returns the HL segment 
     #
     def _filter_hl_on_position(self, pos_idx):
-        return (list(temp)[0] if (temp := filter(lambda v: v['start_idx'] <= pos_idx <= v['end_idx'], self.loop_hierarchy.values())) else None)
+        return (list(temp)[0] if (temp := filter(lambda v: v['start_idx'] <= pos_idx < v['end_idx'], self.loop_hierarchy.values())) else None)
 
 
     #
