@@ -184,41 +184,9 @@ from stg_remittance;
 ![image](images/remittance.png?raw=true)
 
 
-## Different EDI Formats 
-
-Default format used is AnsiX12 (* as a delim and ~ as segment separator)
-
-```python
-from databricksx12 import *
-
-#EDI format type
-ediFormat = AnsiX12Delim #specifying formats of data, ansi is also the default if nothing is specified
-#can also specify customer formats (below is the same as AnsiX12Delim)
-ediFormat = type("", (), dict({'SEGMENT_DELIM': '~', 'ELEMENT_DELIM': '*', 'SUB_DELIM': ':'}))
-
-df = spark.read.text("sampledata/837/*txt", wholetext = True)
-
-(df.rdd
-  .map(lambda x: x.asDict().get("value"))
-  .map(lambda x: EDI(x, delim_cls = ediFormat))
-  .map(lambda x: {"transaction_count": x.num_transactions()})
-).toDF().show()
-"""
-+-----------------+
-|transaction_count|
-+-----------------+
-|                5|
-|                1|
-|                1|
-|                1|
-|                1|
-+-----------------+
-"""
-```
-
 ## Reading & Parsing Healthcare Transactions
 
-Currently supports 837s. Records in each format type should be saved separately, e.g. do not mix 835s & 837s in the df.save() command.
+Currently supports 837s and 835s. Records in each format type are recommended to be saved separately to avoid any ambiguity and opaqueness, e.g. do not to mix 835, 837i, 837p in df.save() command.  
 
 ## Sample data outside of Spark
 
