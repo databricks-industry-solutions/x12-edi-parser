@@ -14,7 +14,7 @@ class EDI():
     # @param column_name - the column containing the UTF-8 edi data
     # @param delim_class - class that contains the delimiter information for parsing the EDI transactions
     #             - AnsiX12Delim is the default and most used
-    def __init__(self, data, delim_cls = None):
+    def __init__(self, data, delim_cls = None, strict_transactions=True):
         self.raw_data = data
         self.format_cls = (self.extract_delim(data) if delim_cls is None else delim_cls)
         self.data = [Segment(x, self.format_cls) for x in data.split(self.format_cls.SEGMENT_DELIM)[:-1]]
@@ -26,6 +26,9 @@ class EDI():
         self.date = self.isa.element(9)
         self.time = self.isa.element(10)
         self.control_number = self.isa.element(13)
+
+        #@param to toggle between using SE01 to parse transactions (True) or to manually search for the preceding ST segment (False)
+        self._strict_transactions = strict_transactions
 
     @staticmethod
     def extract_delim(data):
@@ -118,7 +121,7 @@ class EDI():
     # Find all locations of a transaction
     #
     def _transaction_locations(self):
-        return [(i - int(x.element(1))+1,i+1) for i,x in  self.segments_by_name_index("SE")]
+        return [(i - int(x.element(1))+1,i+1) for i,x in  self.segments_by_name_index("SE")] if self._strict_transactions else list(zip([i for i,x in self.segments_by_name_index("ST")], [i+1 for i, x in self.segments_by_name_index("SE")]))
     
     #
     # Fold left, given a
@@ -138,7 +141,7 @@ class EDI():
                 )
 
 
-    def to_json(self, exclude=["data", "raw_data", "isa", "format_cls", "fg"]):
+    def to_json(self, exclude=["data", "raw_data", "isa", "format_cls", "fg","_strict_transactions"]):
         return {str(self.__class__.__name__ + "." + attr): getattr(self, attr) for attr in dir(self) if not callable(getattr(self, attr)) and not attr.startswith("__") and attr not in exclude}
 
     """
@@ -249,7 +252,7 @@ class EDIManager():
     #  @returns a python dictionary representing metadata found in EDI/FunctionalGroup/Transaction classes
     #
     @staticmethod
-    def class_metadata(cls_obj, exclude=['data', 'raw_data', 'isa', 'format_cls', 'fg']):
+    def class_metadata(cls_obj, exclude=['data', 'raw_data', 'isa', 'format_cls', 'fg', '_strict_transactions']):
         return {str(cls_obj.__class__.__name__ + "." + attr): getattr(cls_obj, attr) for attr in dir(cls_obj) if not callable(getattr(cls_obj, attr)) and not attr.startswith("__") and attr not in exclude}
 
     #
