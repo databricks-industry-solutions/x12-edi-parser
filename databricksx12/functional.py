@@ -2,7 +2,7 @@ from databricksx12.edi import *
 
 class FunctionalGroup(EDI):
 
-    def __init__(self, segments, delim_cls = AnsiX12Delim):
+    def __init__(self, segments, delim_cls = AnsiX12Delim, strict_transactions = True):
         self.data = segments
         self.format_cls = delim_cls
         self.transaction_type = self._transaction_type()
@@ -13,6 +13,7 @@ class FunctionalGroup(EDI):
         self.time =  self.fg.element(5)
         self.sender = self._sender()
         self.receiver = self._reciever()
+        self._strict_transactions = strict_transactions
         
     #
     # Return all segments associated with each transaction

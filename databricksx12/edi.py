@@ -28,7 +28,7 @@ class EDI():
         self.control_number = self.isa.element(13)
 
         #@param to toggle between using SE01 to parse transactions (True) or to manually search for the preceding ST segment (False)
-        self.strict_transactions = strict_transactions
+        self._strict_transactions = strict_transactions
 
     @staticmethod
     def extract_delim(data):
@@ -111,7 +111,7 @@ class EDI():
     #
     def functional_segments(self):
         from databricksx12.functional import FunctionalGroup
-        return [FunctionalGroup(self.segments_by_position(self.last_index_of_segment(self.data[:a], "GS", 0),b+1), self.format_cls) for a,b in self._functional_group_locations()]
+        return [FunctionalGroup(self.segments_by_position(self.last_index_of_segment(self.data[:a], "GS", 0),b+1), self.format_cls, strict_transactions=self._strict_transactions) for a,b in self._functional_group_locations()]
                         
 
     def _functional_group_locations(self):
@@ -121,7 +121,7 @@ class EDI():
     # Find all locations of a transaction
     #
     def _transaction_locations(self):
-        return [(i - int(x.element(1))+1,i+1) for i,x in  self.segments_by_name_index("SE")] if self.strict_transactions else list(zip([i for i,x in self.segments_by_name_index("ST")], [i+1 for i, x in self.segments_by_name_index("SE")]))
+        return [(i - int(x.element(1))+1,i+1) for i,x in  self.segments_by_name_index("SE")] if self._strict_transactions else list(zip([i for i,x in self.segments_by_name_index("ST")], [i+1 for i, x in self.segments_by_name_index("SE")]))
     
     #
     # Fold left, given a
@@ -141,7 +141,7 @@ class EDI():
                 )
 
 
-    def to_json(self, exclude=["data", "raw_data", "isa", "format_cls", "fg","strict_transactions"]):
+    def to_json(self, exclude=["data", "raw_data", "isa", "format_cls", "fg","_strict_transactions"]):
         return {str(self.__class__.__name__ + "." + attr): getattr(self, attr) for attr in dir(self) if not callable(getattr(self, attr)) and not attr.startswith("__") and attr not in exclude}
 
     """
@@ -252,7 +252,7 @@ class EDIManager():
     #  @returns a python dictionary representing metadata found in EDI/FunctionalGroup/Transaction classes
     #
     @staticmethod
-    def class_metadata(cls_obj, exclude=['data', 'raw_data', 'isa', 'format_cls', 'fg', 'strict_transactions']):
+    def class_metadata(cls_obj, exclude=['data', 'raw_data', 'isa', 'format_cls', 'fg', '_strict_transactions']):
         return {str(cls_obj.__class__.__name__ + "." + attr): getattr(cls_obj, attr) for attr in dir(cls_obj) if not callable(getattr(cls_obj, attr)) and not attr.startswith("__") and attr not in exclude}
 
     #
