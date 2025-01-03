@@ -147,6 +147,7 @@ claims.createOrReplaceTempView("edi")
 # COMMAND ----------
 
 # MAGIC %sql
+# MAGIC drop table if exists claim_line;
 # MAGIC create table claim_line as 
 # MAGIC select filename, claim_id, cl.*
 # MAGIC from (
