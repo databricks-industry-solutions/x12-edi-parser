@@ -52,27 +52,32 @@ class HealthcareManager(EDI):
                 } for fg in edi.functional_segments()] 
         }
 
+    def flatten_to_json(self, d):
+        return {**d['EDI'], **d['FunctionalGroup'], **d['Transaction'], **d['Claim'].to_json()}
+    
     def flatten(self, edi):
         return [
             {
-                **EDIManager.class_metadata(edi),
-                **EDIManager.class_metadata(fg),
-                **EDIManager.class_metadata(trnx),
-                'Claims': clms
+                'EDI': EDIManager.class_metadata(edi),
+                'FunctionalGroup': EDIManager.class_metadata(fg),
+                'Transaction': EDIManager.class_metadata(trnx),
+                'Claim': clm
             }
             for fg in edi.functional_segments()
             for trnx in fg.transaction_segments()
-            for clms in self.get_claims(trnx.transaction_type, trnx.data, edi)]
+            for clm in self.get_claims(trnx.transaction_type, trnx.data, edi)]
     
     def get_claims(self, transaction_type, data, edi):
         if transaction_type in ['223', '222']:
-            return self.build_claim()
+            return [self.build_claim(seg, i, self.mapping.get(transaction_type), data, edi) for i, seg in edi.segments_by_name_index(segment_name='CLM', data=data)]
         elif transaction_type == '221':
             return [self.build_remittance(seg, i, self.mapping.get(transaction_type), data, edi) for i, seg in edi.segments_by_name_index(segment_name='CLP', data=data)]
+        else:
+            return []
 
 
-    def build_claim(self):
-        pass
+    def build_claim(self, seg, i, trnx_cls, data, edi):
+        return ClaimBuilder(trnx_cls, [x for x in data if x.segment_name() not in ['SE', 'ST']], edi.format_cls).build_claim(seg, i)
 
     def build_remittance(self, seg, i, trnx_cls, data, edi):
         return ClaimBuilder(trnx_cls, [x for x in data if x.segment_name() not in ['SE', 'ST']], edi.format_cls).build_remittance(seg, i)
