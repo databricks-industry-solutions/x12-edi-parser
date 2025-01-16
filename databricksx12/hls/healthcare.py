@@ -57,7 +57,7 @@ class HealthcareManager(EDI):
             **d['EDI'],
             **d['FunctionalGroup'],
             **d['Transaction'],
-            'Claim': self.build(d['Claim'][1],
+            **self.build(d['Claim'][1],
                        d['Claim'][0],
                        d['trnx'].transaction_type,
                        d['trnx'].data,
