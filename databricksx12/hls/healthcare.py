@@ -53,7 +53,16 @@ class HealthcareManager(EDI):
         }
 
     def flatten_to_json(self, d):
-        return {**d['EDI'], **d['FunctionalGroup'], **d['Transaction'], **d['Claim'].to_json()}
+        return {
+            **d['EDI'],
+            **d['FunctionalGroup'],
+            **d['Transaction'],
+            'Claim': self.build(d['Claim'][1],
+                       d['Claim'][0],
+                       d['trnx'].transaction_type,
+                       d['trnx'].data,
+                       d['trnx'].format_cls).to_json()
+        }
     
     def flatten(self, edi):
         return [
@@ -61,24 +70,31 @@ class HealthcareManager(EDI):
                 'EDI': EDIManager.class_metadata(edi),
                 'FunctionalGroup': EDIManager.class_metadata(fg),
                 'Transaction': EDIManager.class_metadata(trnx),
-                'Claim': clm
+                'Claim': clm,
+                'trnx': trnx
             }
             for fg in edi.functional_segments()
             for trnx in fg.transaction_segments()
-            for clm in self.get_claims(trnx.transaction_type, trnx.data, edi)]
-    
-    def get_claims(self, transaction_type, data, edi):
-        if transaction_type in ['223', '222']:
-            return [self.build_claim(seg, i, self.mapping.get(transaction_type), data, edi) for i, seg in edi.segments_by_name_index(segment_name='CLM', data=data)]
+            for clm in self.get_claims_locations(trnx.transaction_type, trnx.data, trnx)]
+
+    def get_claims_locations(self, transaction_type, data, trnx):
+        if transaction_type in ['222', '223']:
+            return trnx.segments_by_name_index(segment_name='CLM', data=data)
         elif transaction_type == '221':
-            return [self.build_remittance(seg, i, self.mapping.get(transaction_type), data, edi) for i, seg in edi.segments_by_name_index(segment_name='CLP', data=data)]
-        else:
-            return []
+            return trnx.segments_by_name_index(segment_name='CLP', data=data)
+        return []
+            
+    def build(self, seg, i, transaction_type, data, format_cls):
+        if transaction_type in ['223', '222']:
+            return self.build_claim(seg, i, self.mapping.get(transaction_type), data, format_cls)
+        elif transaction_type == '221':
+            return self.build_remittance(seg, i, self.mapping.get(transaction_type), data, format_cls)
+        return {}
 
 
-    def build_claim(self, seg, i, trnx_cls, data, edi):
-        return ClaimBuilder(trnx_cls, [x for x in data if x.segment_name() not in ['SE', 'ST']], edi.format_cls).build_claim(seg, i)
+    def build_claim(self, seg, i, trnx_cls, data, format_cls):
+        return ClaimBuilder(trnx_cls, [x for x in data if x.segment_name() not in ['SE', 'ST']], format_cls).build_claim(seg, i)
 
-    def build_remittance(self, seg, i, trnx_cls, data, edi):
-        return ClaimBuilder(trnx_cls, [x for x in data if x.segment_name() not in ['SE', 'ST']], edi.format_cls).build_remittance(seg, i)
+    def build_remittance(self, seg, i, trnx_cls, data, format_cls):
+        return ClaimBuilder(trnx_cls, [x for x in data if x.segment_name() not in ['SE', 'ST']], format_cls).build_remittance(seg, i)
         
