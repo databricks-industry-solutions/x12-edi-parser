@@ -89,7 +89,7 @@ class HealthcareManager(EDI):
             return self.build_claim(seg, i, self.mapping.get(transaction_type), data, format_cls)
         elif transaction_type == '221':
             return self.build_remittance(seg, i, self.mapping.get(transaction_type), data, format_cls)
-        return {}
+        return type("", (), dict({'to_json': lambda: {}}))
 
 
     def build_claim(self, seg, i, trnx_cls, data, format_cls):
