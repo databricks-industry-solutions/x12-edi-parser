@@ -30,6 +30,9 @@ class EDI():
         #@param to toggle between using SE01 to parse transactions (True) or to manually search for the preceding ST segment (False)
         self._strict_transactions = strict_transactions
         self._valid_se01()
+
+    def __str__(self):
+        return "An EDI Object"
         
 
     @staticmethod
