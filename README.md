@@ -85,8 +85,8 @@ SELECT * FROM claim_line
 
 ### Sample Output and Data Dictionary
 
-![image](images/claim_header.png?raw=true)
-![image](images/claim_line.png?raw=true)
+![image](images/claim_header2.png?raw=true)
+![image](images/claim_line2.png?raw=true)
 
 ### 835 sample
 
@@ -107,7 +107,7 @@ from stg_remittance
 SELECT * FROM remittance;
 ```
 
-![image](images/remittance.png?raw=true)
+![image](images/remittance_2.png?raw=true)
 
 
 ## Reading & Parsing Healthcare Transactions
