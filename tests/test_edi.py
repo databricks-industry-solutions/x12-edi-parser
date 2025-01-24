@@ -9,7 +9,7 @@ class TestEDI(PysparkBaseTest):
     z = EDI(open("sampledata/837/CHPW_Claimdata.txt", "rb").read().decode("utf-8"))
 
     def test_no_isa(self):
-        x = EDI(open("sampledata/malformed_files/CC_837I_EDI.txt", "rb").read().decode("utf-8"))
+        x = EDI(open("sampledata/malformed_files/CC_837I_EDI.txt", "rb").read().decode("utf-8"), strict_transactions = False)
         assert(x.to_json().get('EDI.control_number') == "")
         
     
@@ -34,6 +34,12 @@ class TestEDI(PysparkBaseTest):
         assert(len(TestEDI.x.segments_by_position(0,100)) == 66)
         assert(TestEDI.x.segments_by_position(15, 20)[0].segment_name() == "NM1")
 
+    #SE01 should contain a value of total segments including ST segment start
+    def test_se01_failure(self):
+        assert ( TestEDI.x._valid_se01() )
+        e = '~'.join([x.data for x in TestEDI.x.data[:10] + TestEDI.x.data[11:]])
+        self.assertRaises(EDIException, EDI, e)
+        assert( len(EDI(e, strict_transactions = False).data) == 64)
 
     def test_functional_groups(self):
         assert(len(TestEDI.z.functional_segments()) == 1)

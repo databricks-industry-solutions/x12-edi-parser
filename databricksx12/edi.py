@@ -29,6 +29,8 @@ class EDI():
 
         #@param to toggle between using SE01 to parse transactions (True) or to manually search for the preceding ST segment (False)
         self._strict_transactions = strict_transactions
+        self._valid_se01()
+        
 
     @staticmethod
     def extract_delim(data):
@@ -117,6 +119,11 @@ class EDI():
     def _functional_group_locations(self):
         return list(map(self._functional_segments_trx_list, [(i, int(y.element(1))) for i, y in self.segments_by_name_index("GE")]))
 
+    def _valid_se01(self):
+        if self._strict_transactions and set([self.data[i].segment_name() for i,j in self._transaction_locations()]) != {'ST'}:
+            raise EDIException("SE01 segment(s) do not match to the beginning ST segment. File won't parse correctly. Is the file altered?\nTo Continue anyway, rerun with EDI(... strict_transactions=False)")
+        return True
+    
     #
     # Find all locations of a transaction
     #
@@ -271,6 +278,8 @@ class EDIManager():
             return EDIManager.class_metadata(data)
 
 
+class EDIException(Exception):
+    pass
 
 """
 from databricksx12.edi import *
