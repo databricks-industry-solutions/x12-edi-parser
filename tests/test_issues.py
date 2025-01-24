@@ -35,10 +35,12 @@ class TestIssues(PysparkBaseTest):
         assert(len(data[1].to_json()['provider_adjustments']) == 0)
         assert(len(data[2].to_json()['provider_adjustments']) == 1)
 
-        edi = EDI(open('sampledata/835/plb_sample.txt', 'rb').read().decode("utf-8"), strict_transactions=False)
+        edi = EDI(open('sampledata/835/plb_sample.txt', 'rb').read().decode("utf-8"))
         data = hm.from_edi(edi)
-        assert(len(data) == 1)
+        assert(len(data) == 3)
         assert(len(data[0].to_json()['provider_adjustments']) == 1)
+        assert(len(data[1].to_json()['provider_adjustments']) == 1)
+        assert(len(data[2].to_json()['provider_adjustments']) == 1)
 
     #capture all other dx codes
     def test_issue15(self):
@@ -53,9 +55,8 @@ class TestIssues(PysparkBaseTest):
         hm = HealthcareManager()
         data = hm.from_edi(edi)
         assert(data[0].to_json()['claim']['service_adjustments'] == [])
-        assert(len(data[1].to_json()['claim']['service_adjustments']) == 0)
-        assert(len(data[2].to_json()['claim']['service_adjustments']) == 1)
-        assert(len(data[3].to_json()['claim']['service_adjustments']) == 2)
+        assert(len(data[1].to_json()['claim']['service_adjustments']) == 1)
+        assert(len(data[2].to_json()['claim']['service_adjustments']) == 2)
         
 
 if __name__ == '__main__':
