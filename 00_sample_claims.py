@@ -60,7 +60,7 @@ claims.createOrReplaceTempView("stg_claims")
 # MAGIC %sql
 # MAGIC drop table if exists claim_line;
 # MAGIC create table claim_line as 
-# MAGIC select *  except(claim_header)
+# MAGIC select *  except(claim_header, claim_lines)
 # MAGIC from (
 # MAGIC select *, explode(claim_lines) as claim_line
 # MAGIC from stg_claims
@@ -109,7 +109,6 @@ claims.createOrReplaceTempView("stg_remittance")
 
 # DBTITLE 1,Create Remittance
 # MAGIC %sql
-# MAGIC --flatten EDI 
 # MAGIC drop table if exists remittance;
 # MAGIC CREATE TABLE remittance 
 # MAGIC as 
