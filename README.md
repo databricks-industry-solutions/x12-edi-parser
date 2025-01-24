@@ -18,7 +18,7 @@ pip install git+https://github.com/databricks-industry-solutions/x12-edi-parser
 ### 837i and 837p sample data in Spark
 
 > [!NOTE]
-> The recommended parsing path has been updated to be more effecient. You can still reference the old path in [this](https://github.com/databricks-industry-solutions/x12-edi-parser/commit/544f48e3cb9ebcf01027adb0867a3a2d6c0e768c) commit.
+> The recommended parsing path has been updated to be more effecient. You can still reference the previous approach in [this](https://github.com/databricks-industry-solutions/x12-edi-parser/commit/544f48e3cb9ebcf01027adb0867a3a2d6c0e768c) commit.
 
 
 ```python
