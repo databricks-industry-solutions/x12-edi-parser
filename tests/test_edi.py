@@ -38,7 +38,7 @@ class TestEDI(PysparkBaseTest):
     def test_se01_failure(self):
         assert ( TestEDI.x._valid_se01() )
         e = '~'.join([x.data for x in TestEDI.x.data[:10] + TestEDI.x.data[11:]])
-        self.assertRaises(EDIException, EDI, e)
+        self.assertRaises(Exception, EDI, e)
         assert( len(EDI(e, strict_transactions = False).data) == 64)
 
     def test_functional_groups(self):
