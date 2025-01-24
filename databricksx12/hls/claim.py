@@ -39,6 +39,8 @@ class ClaimBuilder(EDI):
             sl_loop=self.get_service_line_loop(idx),  # service line loop
         )
 
+
+        
     #
     # https://datainsight.health/edi/payments/dollars-separate/
     #  trx_header_loop = 0000
