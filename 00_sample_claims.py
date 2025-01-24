@@ -82,7 +82,7 @@ import json, os
 from pyspark.sql.functions import input_file_name
 
 hm = HealthcareManager()
-df = spark.read.text("file:////Workspace/Users/aaron.zavora@databricks.com/x12-edi-parser/sampledata/835/*txt", wholetext = True)
+df = spark.read.text(df = spark.read.text("file:///" + os.getcwd() + "/sampledata/835/*txt", wholetext = True)
 
 
 rdd = (
