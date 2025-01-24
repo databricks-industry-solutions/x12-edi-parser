@@ -27,7 +27,7 @@ class TestIssues(PysparkBaseTest):
 
     
     def test_issue19(self):
-        edi = EDI(open('sampledata/835/sample.txt', 'rb').read().decode("utf-8"))
+        edi = EDI(open('sampledata/835/sample.txt', 'rb').read().decode("utf-8"), strict_transactions=False)
         hm = HealthcareManager()
         data = hm.from_edi(edi)
         assert(len(data) == 3)
@@ -35,7 +35,7 @@ class TestIssues(PysparkBaseTest):
         assert(len(data[1].to_json()['provider_adjustments']) == 0)
         assert(len(data[2].to_json()['provider_adjustments']) == 1)
 
-        edi = EDI(open('sampledata/835/plb_sample.txt', 'rb').read().decode("utf-8"))
+        edi = EDI(open('sampledata/835/plb_sample.txt', 'rb').read().decode("utf-8"), strict_transactions=False)
         data = hm.from_edi(edi)
         assert(len(data) == 1)
         assert(len(data[0].to_json()['provider_adjustments']) == 1)
@@ -49,7 +49,7 @@ class TestIssues(PysparkBaseTest):
 
 
     def test_issue25_no_cas(self):
-        edi = EDI(open('sampledata/835/sample_no_cas.txt', "rb").read().decode("utf-8"))
+        edi = EDI(open('sampledata/835/sample_no_cas.txt', "rb").read().decode("utf-8"), strict_transactions=False)
         hm = HealthcareManager()
         data = hm.from_edi(edi)
         assert(data[0].to_json()['claim']['service_adjustments'] == [])

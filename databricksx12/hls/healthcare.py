@@ -52,8 +52,12 @@ class HealthcareManager(EDI):
                 } for fg in edi.functional_segments()] 
         }
 
+    #
+    # {k,d.get(k)} for support passing in the filename for transparency / traceability 
+    #
     def flatten_to_json(self, d):
         return {
+            **{k:d.get(k) for k in list(d.keys()) if k not in ['EDI', 'FunctionalGroup', 'Transaction', 'Claim', 'trnx']},
             **d['EDI'],
             **d['FunctionalGroup'],
             **d['Transaction'],
@@ -61,12 +65,16 @@ class HealthcareManager(EDI):
                        d['Claim'][0],
                        d['trnx'].transaction_type,
                        d['trnx'].data,
-                       d['trnx'].format_cls).to_json()
+                         d['trnx'].format_cls).to_json(),
         }
-    
-    def flatten(self, edi):
+
+    #
+    # Adding **kwargs to support passing in the EDI filename for transparency / traceability
+    #
+    def flatten(self, edi, *args, **kwargs):
         return [
             {
+                **kwargs,
                 'EDI': EDIManager.class_metadata(edi),
                 'FunctionalGroup': EDIManager.class_metadata(fg),
                 'Transaction': EDIManager.class_metadata(trnx),
