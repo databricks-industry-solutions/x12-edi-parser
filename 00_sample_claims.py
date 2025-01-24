@@ -16,7 +16,7 @@ from pyspark.sql.functions import input_file_name
 
 #hm manages the parsing of different formats
 hm = HealthcareManager()
-df = spark.read.text("file:///" + os.getcwd() + "/../sampledata/837/*txt", wholetext = True)
+df = spark.read.text("file:///" + os.getcwd() + "/sampledata/837/*txt", wholetext = True)
 
 rdd = (
   df.withColumn("filename", input_file_name()).rdd
