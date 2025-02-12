@@ -101,8 +101,8 @@ class HealthcareManager(EDI):
 
 
     def build_claim(self, seg, i, trnx_cls, data, format_cls):
-        return ClaimBuilder(trnx_cls, [x for x in data if x.segment_name() not in ['SE', 'ST']], format_cls).build_claim(seg, i)
+        return ClaimBuilder(trnx_cls, [x for x in data if x.segment_name() not in ['SE', 'ST']], format_cls).build_claim(seg, i-1)
 
     def build_remittance(self, seg, i, trnx_cls, data, format_cls):
-        return ClaimBuilder(trnx_cls, [x for x in data if x.segment_name() not in ['SE', 'ST']], format_cls).build_remittance(seg, i)
+        return ClaimBuilder(trnx_cls, [x for x in data if x.segment_name() not in ['SE', 'ST']], format_cls).build_remittance(seg, i-1)
         
