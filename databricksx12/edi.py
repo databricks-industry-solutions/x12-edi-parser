@@ -140,10 +140,10 @@ class EDI():
     #
     def _functional_segments_trx_list(self, functional_group):
         l = ()
-        f = lambda trxs, x, fg: x if len(trxs) <= fg[1] and x[1] <= fg[0] else None
+        f = lambda trxs, x, fg: x if len(trxs) <= fg[1] and x[1] <= fg[0] else []
         return functools.reduce(lambda a,b: (min(a[0], b[0]), max(a[1], b[1])),
                     filter(
-                        lambda y: y is not None, [l := f(l, x, functional_group) for x in self._transaction_locations()]
+                        lambda y: y != [], [l := f(l, x, functional_group) for x in self._transaction_locations()]
                     )
                 )
 
