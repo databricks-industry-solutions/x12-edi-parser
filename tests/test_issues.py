@@ -33,7 +33,7 @@ class TestIssues(PysparkBaseTest):
         assert(len(data) == 3)
         assert(len(data[0].to_json()['provider_adjustments']) == 0)
         assert(len(data[1].to_json()['provider_adjustments']) == 0)
-        assert(len(data[2].to_json()['provider_adjustments']) == 1)
+        assert(len(data[2].to_json()['provider_adjustments']) == 5)
 
         edi = EDI(open('sampledata/835/plb_sample.txt', 'rb').read().decode("utf-8"))
         data = hm.from_edi(edi)
