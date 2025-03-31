@@ -352,7 +352,7 @@ class Remittance(MedicalClaim):
                 'provider_adjustment_amt': p.element(i+2)
             }
              for i in list(range(2,p.segment_len(), 3))]
-            for p in self.segments_by_name("PLB", data=self.trx_summary_loop)])
+            for p in self.segments_by_name("PLB", data=self.trx_summary_loop)], [])
 
     def populate_payer_loop(self):
         return {

@@ -1,5 +1,7 @@
 from .test_spark_base import *
 from databricksx12.edi import *
+from databricksx12.hls import *
+import json
 
 class TestPyspark(PysparkBaseTest):
 
@@ -12,6 +14,26 @@ class TestPyspark(PysparkBaseTest):
                 ).toDF()
         assert ( data.count() == 5) #5 rows
         assert ( data.select(data.transaction_count).groupBy().sum().collect()[0]["sum(transaction_count)"] == 9) #8 ST/SE transactions
+
+    def test_835_plbs(self):
+        hm = HealthcareManager()
+        df = self.spark.read.text("sampledata/835/*plb*txt", wholetext=True)
+        rdd = (
+            df.rdd
+            .map(lambda row: EDI(row.value))
+            .map(lambda edi: hm.flatten(edi))
+            .flatMap(lambda x: x)
+        )
+        claims_rdd = (rdd
+            .map(lambda x: hm.flatten_to_json(x))
+            .map(lambda x: json.dumps(x))
+        )
+
+        claims = self.spark.read.json(claims_rdd)
+        result = claims.select("provider_adjustments").take(6)
+        assert(len(result) == 6)
+        len([x.asDict() for x in result if x.asDict()['provider_adjustments'] == []])
+        
 
 
 if __name__ == '__main__':
