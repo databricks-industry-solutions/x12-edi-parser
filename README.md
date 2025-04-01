@@ -107,6 +107,31 @@ from stg_remittance
 SELECT * FROM remittance;
 ```
 
+[!CAUTION]
+When reading in a small dataset and the repeating segments, like PLB (provider level adjustments) are not populated, the arrays for the column 'provider_adjustments' are defaulted to arrays of String value. To correct this behavior, you can explicitly specify the schema so that the 'provider_adjustments' column matches expected schema.
+
+e.g.
+```python
+from pyspark.sql.types import StructType, StructField, StringType, ArrayType
+
+provider_adjustments_schema = ArrayType(
+  StructType([StructField("adjustment_amount", StringType()),
+              StructField("adjustment_grp_cd", StringType()),
+              StructField("adjustment_reason_cd", StringType())]))
+
+s = spark.read.json(claims_rdd).schema
+s['provider_adjustments'].dataType = provider_adjustments_schema
+claims = spark.read.schema(s).json(claims_rdd)
+
+claims.select("provider_adjustments").printSchema()
+#root
+# |-- provider_adjustments: array (nullable = true)
+# |    |-- element: struct (containsNull = true)
+# |    |    |-- adjustment_amount: string (nullable = true)
+# |    |    |-- adjustment_grp_cd: string (nullable = true)
+# |    |    |-- adjustment_reason_cd: string (nullable = true)
+```
+
 ![image](images/remittance_2.png?raw=true)
 
 
