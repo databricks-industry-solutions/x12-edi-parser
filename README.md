@@ -17,171 +17,97 @@ pip install git+https://github.com/databricks-industry-solutions/x12-edi-parser
 
 ### 837i and 837p sample data in Spark
 
+> [!NOTE]
+> The recommended parsing path has been updated to be more effecient. You can still reference the previous approach in [this](https://github.com/databricks-industry-solutions/x12-edi-parser/commit/544f48e3cb9ebcf01027adb0867a3a2d6c0e768c) commit.
+
+
 ```python
 from databricksx12 import *
 from databricksx12.hls import *
 import json
 from pyspark.sql.functions import input_file_name
 
+#This class manages how the different formats are parsed together
 hm = HealthcareManager()
 df = spark.read.text("sampledata/837/*txt", wholetext = True)
 
-
 rdd = (
- df.withColumn("filename", input_file_name()).rdd
-  .map(lambda x: (x.asDict().get("filename"),x.asDict().get("value")))
-  .map(lambda x: (x[0], EDI(x[1])))
-  .map(lambda x: { **{'filename': x[0]}, **hm.to_json(x[1])} )
-  .map(lambda x: json.dumps(x))
+df.withColumn("filename", input_file_name()).rdd
+.map(lambda row: (row.filename, EDI(row.value)))
+.map(lambda edi: hm.flatten(edi[1], filename = edi[0]))
+.flatMap(lambda x: x)
 )
-claims = spark.read.json(rdd)
 
-#Create Claims tables from the EDI transactions
-claims.createOrReplaceTempView("edi")
 ```
-### Creating claim header and line tables from EDI 
+
+The **rdd** variable above will parse one file togther. To increase parallelism and reduce data skew, it is highly recommended to repartition like below for optimal performance
+
+```python
+
+claims_rdd = (
+rdd.repartition() #Repartition number should be >= # of cores in cluster and <= number of rows in rdd / DataFrame
+.map(lambda x: hm.flatten_to_json(x))
+.map(lambda x: json.dumps(x))
+)
+
+claims = spark.read.json(claims_rdd)
+```
+
+### Creating claim header and line tables from the parser 
+
+```python
+claims.createOrReplaceTempView("stg_claims")
+```
 
 ``` SQL
---flatten EDI 
-drop table if exists stg_claims;
-CREATE TABLE stg_claims 
-as 
-select *
-from 
-(
-select *, explode(trnx.Claims) as clms
-from
-(
-select filename, edi_control_number, edi_date, edi_time, 
-edi_recipient_qualifier_id, edi_sender_qualifier_id, edi_standard_version,
-fgs.fg.`FunctionalGroup.control_number` as fg_control_number,
-fgs.fg.`FunctionalGroup.date` as fg_date,
-fgs.fg.`FunctionalGroup.time` as fg_time,
-fgs.fg.`FunctionalGroup.receiver` as fg_receiver,
-fgs.fg.`FunctionalGroup.sender` as fg_sender,
-fgs.fg.`FunctionalGroup.standard_version` as fg_standard_version,
-fgs.fg.`FunctionalGroup.transaction_type` as fg_transaction_type,
-  explode(fgs.fg.`Transactions`) as trnx
-from 
-(
-select
-`edi.control_number` as edi_control_number,
-`edi.date` as edi_date,
-`edi.time` as edi_time,
-`EDI.recipient_qualifier_id` as edi_recipient_qualifier_id,
-`EDI.sender_qualifier_id` as edi_sender_qualifier_id,
-`EDI.standard_version` as edi_standard_version,
-explode(`FunctionalGroup`) as fg,
-filename
-from edi
-) fgs
-) trnx
-) clms;
-
+%sql
 drop table if exists claim_header;
 create table claim_header as 
-select
-filename, edi_control_number, edi_date, edi_time, edi_recipient_qualifier_id, edi_sender_qualifier_id, edi_standard_version,
-fg_control_number, fg_date, fg_time, fg_receiver, fg_sender, fg_standard_version, fg_transaction_type,
-clms.claim_header.*, 
-clms.diagnosis.*,
-clms.payer.*,
-clms.providers.*,
-  clms.patient.name as patient_name,  
-  clms.patient.patient_relationship_cd,
-  clms.patient.street as patient_street,
-  clms.patient.city as patient_city,
-  clms.patient.zip as patient_zip,
-  clms.patient.dob as patient_dob,
-  clms.patient.dob_format as patient_dob_format,
-  clms.patient.gender_cd as patient_gender_cd,
-  clms.subscriber.subsciber_identifier,
-  clms.subscriber.name as subscriber_name,
-  clms.subscriber.subscriber_relationship_cd,
-  clms.subscriber.street as subscriber_street,
-  clms.subscriber.city as subscriber_city,
-  clms.subscriber.zip as subscriber_zip,
-  clms.subscriber.dob as subscriber_dob,
-  clms.subscriber.dob_format as subscriber_dob_format,
-  clms.subscriber.gender_cd as subscriber_gender_cd
-from stg_claims;
-
-create table claim_line as 
-select filename, claim_id, cl.*
-from (
-select filename, 
-clms.claim_header.claim_id, 
-explode(clms.claim_lines) as cl 
+select * except(claim_lines)
 from stg_claims
-) foo;
+;
+
+SELECT * FROM claim_header;
+
+
+drop table if exists claim_line;
+create table claim_line as 
+select *  except(claim_header)
+from (
+select *, explode(claim_lines) as claim_line
+from stg_claims
+)
+;
+
+SELECT * FROM claim_line
 
 ```
 
 ### Sample Output and Data Dictionary
 
-![image](images/claim_header.png?raw=true)
-![image](images/claim_line.png?raw=true)
+![image](images/claim_header2.png?raw=true)
+![image](images/claim_line2.png?raw=true)
 
 ### 835 sample
 
+The steps for 835 are the same as 837s
+
 ```python
-df = spark.read.text("sampledata/835/*txt", wholetext = True)
-
-rdd = (
- df.withColumn("filename", input_file_name()).rdd
-  .map(lambda x: (x.asDict().get("filename"),x.asDict().get("value")))
-  .map(lambda x: (x[0], EDI(x[1])))
-  .map(lambda x: { **{'filename': x[0]}, **hm.to_json(x[1])} )
-  .map(lambda x: json.dumps(x))
-)
-claims = spark.read.json(rdd)
-
-#Create Claims tables from the EDI transactions
+claims.createOrReplaceTempView("stg_claims")
+```
+``` SQL
 %sql
---flatten EDI 
-drop table if exists stg_remittance;
-CREATE TABLE stg_remittance 
+drop table if exists remittance;
+CREATE TABLE remittance 
 as 
 select *
-from 
-(
-select *, explode(trnx.Claims) as clms
-from
-(
-select filename, edi_control_number, edi_date, edi_time, 
-edi_recipient_qualifier_id, edi_sender_qualifier_id, edi_standard_version,
-fgs.fg.`FunctionalGroup.control_number` as fg_control_number,
-fgs.fg.`FunctionalGroup.date` as fg_date,
-fgs.fg.`FunctionalGroup.time` as fg_time,
-fgs.fg.`FunctionalGroup.receiver` as fg_receiver,
-fgs.fg.`FunctionalGroup.sender` as fg_sender,
-fgs.fg.`FunctionalGroup.standard_version` as fg_standard_version,
-fgs.fg.`FunctionalGroup.transaction_type` as fg_transaction_type,
-  explode(fgs.fg.`Transactions`) as trnx
-from 
-(
-select
-`edi.control_number` as edi_control_number,
-`edi.date` as edi_date,
-`edi.time` as edi_time,
-`EDI.recipient_qualifier_id` as edi_recipient_qualifier_id,
-`EDI.sender_qualifier_id` as edi_sender_qualifier_id,
-`EDI.standard_version` as edi_standard_version,
-explode(`FunctionalGroup`) as fg,
-filename
-from edi
-) fgs
-) trnx
-) clms ;
+from stg_remittance 
+;
 
-drop table if exists remittance;
-create table remittance as 
-select filename, edi_control_number, edi_date, edi_time, edi_recipient_qualifier_id, edi_sender_qualifier_id, edi_standard_version,
-fg_control_number, fg_date, fg_time, fg_receiver, fg_sender, fg_standard_version, fg_transaction_type,
-clms.*
-from stg_remittance;
+SELECT * FROM remittance;
 ```
-![image](images/remittance.png?raw=true)
+
+![image](images/remittance_2.png?raw=true)
 
 
 ## Reading & Parsing Healthcare Transactions
@@ -202,32 +128,6 @@ edi =  EDI(open("sampledata/837/CHPW_Claimdata.txt", "rb").read().decode("utf-8"
 hm.from_edi(edi) 
 #[<databricksx12.hls.claim.Claim837p object at 0x106e57b50>, <databricksx12.hls.claim.Claim837p object at 0x106e57c40>, <databricksx12.hls.claim.Claim837p object at 0x106e57eb0>, <databricksx12.hls.claim.Claim837p object at 0x106e57b20>, <databricksx12.hls.claim.Claim837p object at 0x106e721f0>]
 
-#Print in json format
-print(json.dumps(hm.to_json(edi), indent=4)) 
-
-"""
-{
-    "EDI.sender_tax_id": "ZZ",
-    "FuncitonalGroup": [
-        {
-            "FunctionalGroup.receiver": "123456789",
-            "FunctionalGroup.sender": "CLEARINGHOUSE",
-            "FunctionalGroup.transaction_datetime": "20180508:0833",
-            "FunctionalGroup.transaction_type": "222",
-            "Transactions": [
-                {
-                    "Transaction.transaction_type": "222",
-                    "Claims": [
-                        {
-                            "submitter": {
-                                "contact_name": "CLEARINGHOUSE CLIENT SERVICES",
-                                "contacts": {
-                                    "primary": [
-                                        {
-                                            "contact_method": "Telephone",
-                                            "contact_number": "8005551212",
-...
-"""
 
 #print the raw EDI Segments of one claim
 one_claim = hm.from_edi(edi)[0]

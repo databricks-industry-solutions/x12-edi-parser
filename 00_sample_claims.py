@@ -16,7 +16,7 @@ from pyspark.sql.functions import input_file_name
 
 #hm manages the parsing of different formats
 hm = HealthcareManager()
-df = spark.read.text("file:///" + os.getcwd() + "/../sampledata/837/*txt", wholetext = True)
+df = spark.read.text("file:///" + os.getcwd() + "/sampledata/837/*txt", wholetext = True)
 
 rdd = (
   df.withColumn("filename", input_file_name()).rdd
@@ -60,7 +60,7 @@ claims.createOrReplaceTempView("stg_claims")
 # MAGIC %sql
 # MAGIC drop table if exists claim_line;
 # MAGIC create table claim_line as 
-# MAGIC select *  except(claim_header)
+# MAGIC select *  except(claim_header, claim_lines)
 # MAGIC from (
 # MAGIC select *, explode(claim_lines) as claim_line
 # MAGIC from stg_claims
@@ -82,7 +82,7 @@ import json, os
 from pyspark.sql.functions import input_file_name
 
 hm = HealthcareManager()
-df = spark.read.text("file:////Workspace/Users/aaron.zavora@databricks.com/x12-edi-parser/sampledata/835/*txt", wholetext = True)
+df = spark.read.text(df = spark.read.text("file:///" + os.getcwd() + "/sampledata/835/*txt", wholetext = True)
 
 
 rdd = (
@@ -109,7 +109,6 @@ claims.createOrReplaceTempView("stg_remittance")
 
 # DBTITLE 1,Create Remittance
 # MAGIC %sql
-# MAGIC --flatten EDI 
 # MAGIC drop table if exists remittance;
 # MAGIC CREATE TABLE remittance 
 # MAGIC as 
