@@ -364,8 +364,8 @@ class Remittance(MedicalClaim):
             'payer_zip': self._first(self.payer_loop, "N4").element(3),
             'payer_contact_name': self._first(self.payer_loop, "PER").element(2),
             'payer_contact_function_cd': self._first(self.payer_loop, "PER").element(1),
-            'payer_contact_number': self._first(self.payer_loop, "PER").element(4),
-            'payer_email': self._first(self.payer_loop, "PER").element(6)
+            'payer_contact_number': self._first(self.payer_loop, "PER").element(6),
+            'payer_email': self._first(self.payer_loop, "PER").element(4)
         }
 
     def populate_payee_loop(self):
