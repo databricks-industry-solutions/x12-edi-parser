@@ -362,10 +362,14 @@ class Remittance(MedicalClaim):
             'payer_city': self._first(self.payer_loop, "N4").element(1),
             'payer_state': self._first(self.payer_loop, "N4").element(2),
             'payer_zip': self._first(self.payer_loop, "N4").element(3),
-            'payer_contact_name': self._first(self.payer_loop, "PER").element(2),
-            'payer_contact_function_cd': self._first(self.payer_loop, "PER").element(1),
-            'payer_contact_number': self._first(self.payer_loop, "PER").element(6),
-            'payer_email': self._first(self.payer_loop, "PER").element(4),
+            'payer_contact_info': [
+                {
+                    'payer_contact_name': c.element(2),
+                    'payer_contact_function_cd': c.element(1),
+                    'payer_contact_number': c.element(6),
+                    'payer_email': c.element(4)
+                }
+                for c in self.segments_by_name("PER", data = self.payer_loop)],
             'payer_primary_id': self._first(self.payer_loop, "REF").element(1),
             'payer_secondary_id': self._first(self.payer_loop, "REF").element(2)
         }
