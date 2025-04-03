@@ -193,6 +193,7 @@ class MedicalClaim(EDI):
         return ClaimIdentity(clm = self._first(self.claim_loop, "CLM"),
                              dtp = self.segments_by_name("DTP", data=self.claim_loop),
                              k3 = self._first(self.claim_loop, "K3"))
+                             
 
     def _populate_payer_info(self):
         return PayerIdentity(self._first([x for x in self.subscriber_loop if x.element(1) == "PR"], "NM1"))
@@ -269,7 +270,8 @@ class Claim837i(MedicalClaim):
         return ClaimIdentity(clm = self._first(self.claim_loop, "CLM"),
                              dtp = self.segments_by_name("DTP", data = self.claim_loop),
                              cl1 = self._first(self.claim_loop, "CL1"),
-                             k3 = self._first(self.claim_loop, "K3"))
+                             k3 = self._first(self.claim_loop, "K3"),
+                             hi = self._first([x for x in self.claim_loop if x.segment_name() == "HI" and x.element(1).startswith("DR")], "HI")) #DRG Code)
     
     def _populate_sl_loop(self, missing=""):
         return list(
