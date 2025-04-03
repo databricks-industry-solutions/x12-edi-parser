@@ -414,11 +414,11 @@ class Remittance(MedicalClaim):
             'patient_first_nm': self._first(self.clm_loop,"NM1").element(5),
             'id_code_qualifier': self._first(self.clm_loop,"NM1").element(8),
             'patient_id': self._first(self.clm_loop,"NM1").element(9),
-            #in claim_loop index, find next CLP segment to end sevice adjustment serach
+            #Claim level service adjustments CAS
             'service_adjustments': functools.reduce(lambda x,y: x+y,
                 [self.populate_adjustment_groups(x)
                  for x in self.segments_by_name("CAS",
-                data = self.clm_loop[1:end_clp_index])], []),
+                    data = self.clm_loop[1:min(  list(filter(lambda x: x>=0, [self.index_of_segment(self.clm_loop, 'SVC'), len(self.clm_loop)-1]))) ])], []),
             'claim_lines': [self.populate_claim_line(seg, i, min(self.index_of_segment(self.clm_loop, 'SVC', i+1), len(self.clm_loop)-1)) for i,seg in self.segments_by_name_index(segment_name="SVC", data=self.clm_loop)],
             'reference_cd': self._first(self.clm_loop,"REF").element(1),
             'reference_num': self._first(self.clm_loop,"REF").element(2),
@@ -455,14 +455,17 @@ class Remittance(MedicalClaim):
             'service_date': self._first(self.clm_loop, "DTM", idx).element(2),
             'amt_qualifier_cd': self._first(self.clm_loop, "AMT", idx).element(1),
             'service_line_amt': self._first(self.clm_loop, "AMT", idx).element(2),
-            'remarks': [{'qualifier_cd': x.element(1), 'remark_cd': x.element(2)} for x in self.segments_by_name("LQ", data = self.clm_loop[idx:svc_end_idx])]
+            'remarks': [{'qualifier_cd': x.element(1), 'remark_cd': x.element(2)} for x in self.segments_by_name("LQ", data = self.clm_loop[idx:svc_end_idx])],
+            #line level service adjustments
+            'service_adjustments': functools.reduce(lambda x,y: x+y,
+                [self.populate_adjustment_groups(x) for x in self.segments_by_name("CAS", data =  self.clm_loop[idx:svc_end_idx])], [])
         }
 
     #
     # group adjustment logic
     #
     def populate_adjustment_groups(self, cas):
-        return [{'adjustment_grp_cd': cas.element(i), 'adjustment_reason_cd': cas.element(i+1), 'adjustment_amount': cas.element(i+2)} for i in list(range(1, cas.segment_len()-1, 3))]
+        return [{'adjustment_grp_cd': (cas.element(1) if cas.element(i) == "" else cas.element(i)), 'adjustment_reason_cd': cas.element(i+1), 'adjustment_amount': cas.element(i+2)} for i in list(range(1, cas.segment_len()-1, 3))]
 
     def to_json(self):
         return {
