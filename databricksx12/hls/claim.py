@@ -407,6 +407,7 @@ class Remittance(MedicalClaim):
             'payer_claim_id': self._first(self.clm_loop,"CLP").element(7),
             'type_of_bill_cd': self._first(self.clm_loop,"CLP").element(8),
             'claim_freq_cd': self._first(self.clm_loop,"CLP").element(9),
+            'drg_cd': self._first(self.clm_loop,"CLP").element(11),
             'patient_entity_id_cd': self._first(self.clm_loop,"NM1").element(1),
             'entity_type_qualifier': self._first(self.clm_loop,"NM1").element(2),
             'patient_last_nm': self._first(self.clm_loop,"NM1").element(4),
