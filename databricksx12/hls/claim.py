@@ -344,16 +344,19 @@ class Remittance(MedicalClaim):
         self.clm_info = self.populate_claim_loop()
         self.plb_info = self.populate_plb_loop()
 
+    #
+    # Assuming npi, date, then repeating <reason cd:id, adj amount>
+    #
     def populate_plb_loop(self):
         return functools.reduce(lambda x, y: x+y, [
             [{
                 'provider_adjustment_npi': p.element(1),
-                'provider_adjustment_date': p.element(i),
-                'provider_adjustment_reason_cd': p.element(i+1, 0),
-                'provider_adjustment_id': p.element(i+1, 1),
-                'provider_adjustment_amt': p.element(i+2)
+                'provider_adjustment_date': p.element(2),
+                'provider_adjustment_reason_cd': p.element(i, 0),
+                'provider_adjustment_id': p.element(i, 1),
+                'provider_adjustment_amt': p.element(i+1)
             }
-             for i in list(range(2,p.segment_len(), 3))]
+             for i in list(range(3,p.segment_len(), 2))]
             for p in self.segments_by_name("PLB", data=self.trx_summary_loop)], [])
 
     def populate_payer_loop(self):
