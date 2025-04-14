@@ -53,6 +53,10 @@ rdd.repartition() #Repartition number should be >= # of cores in cluster and <= 
 claims = spark.read.json(claims_rdd)
 ```
 
+> [!NOTE]
+> Some EDI data does not have the correct SE01 value (number of segments in transaction). This check can be disabled by passing in strict_transactions=False e.g. EDI(...,strict_transactions=False)
+
+
 ### Creating claim header and line tables from the parser 
 
 ```python
