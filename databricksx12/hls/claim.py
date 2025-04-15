@@ -173,7 +173,8 @@ class MedicalClaim(EDI):
             n4 = self._first(l, "N4"),
             dmg = self._first(l, "DMG"),            
             pat = self._first(l, "PAT"),
-            sbr = self._first(l, "SBR")
+            sbr = self._first(l, "SBR"),
+            ref = self._first(l, "REF")
         )
     
     def _populate_patient_loop(self) -> Dict[str, str]:
@@ -185,11 +186,14 @@ class MedicalClaim(EDI):
             n4 = self._first(self.patient_loop, "N4"),
             dmg = self._first(self.patient_loop, "DMG"),
             pat = self._first(self.patient_loop, "PAT"),
-            sbr = self._first(self.patient_loop, "SBR"))            
+            sbr = self._first(self.patient_loop, "SBR"),
+            ref = self._first(self.patient_loop, "REF"))            
     
     def _populate_claim_loop(self):
         return ClaimIdentity(clm = self._first(self.claim_loop, "CLM"),
-                             dtp = self.segments_by_name("DTP", data=self.claim_loop))
+                             dtp = self.segments_by_name("DTP", data=self.claim_loop),
+                             k3 = self._first(self.claim_loop, "K3"))
+                             
 
     def _populate_payer_info(self):
         return PayerIdentity(self._first([x for x in self.subscriber_loop if x.element(1) == "PR"], "NM1"))
@@ -265,7 +269,9 @@ class Claim837i(MedicalClaim):
     def _populate_claim_loop(self):
         return ClaimIdentity(clm = self._first(self.claim_loop, "CLM"),
                              dtp = self.segments_by_name("DTP", data = self.claim_loop),
-                             cl1 = self._first(self.claim_loop, "CL1"))
+                             cl1 = self._first(self.claim_loop, "CL1"),
+                             k3 = self._first(self.claim_loop, "K3"),
+                             hi = self._first([x for x in self.claim_loop if x.segment_name() == "HI" and x.element(1).startswith("DR")], "HI")) #DRG Code)
     
     def _populate_sl_loop(self, missing=""):
         return list(
@@ -338,17 +344,20 @@ class Remittance(MedicalClaim):
         self.clm_info = self.populate_claim_loop()
         self.plb_info = self.populate_plb_loop()
 
+    #
+    # Assuming npi, date, then repeating <reason cd:id, adj amount>
+    #
     def populate_plb_loop(self):
-        return [
+        return functools.reduce(lambda x, y: x+y, [
             [{
                 'provider_adjustment_npi': p.element(1),
-                'provider_adjustment_date': p.element(i),
-                'provider_adjustment_reason_cd': p.element(i+1, 0),
-                'provider_adjustment_id': p.element(i+1, 1),
-                'provider_adjustment_amt': p.element(i+2)
+                'provider_adjustment_date': p.element(2),
+                'provider_adjustment_reason_cd': p.element(i, 0),
+                'provider_adjustment_id': p.element(i, 1),
+                'provider_adjustment_amt': p.element(i+1)
             }
-             for i in list(range(2,p.segment_len(), 3))]
-            for p in self.segments_by_name("PLB", data=self.trx_summary_loop)]
+             for i in list(range(3,p.segment_len(), 2))]
+            for p in self.segments_by_name("PLB", data=self.trx_summary_loop)], [])
 
     def populate_payer_loop(self):
         return {
@@ -358,10 +367,16 @@ class Remittance(MedicalClaim):
             'payer_city': self._first(self.payer_loop, "N4").element(1),
             'payer_state': self._first(self.payer_loop, "N4").element(2),
             'payer_zip': self._first(self.payer_loop, "N4").element(3),
-            'payer_contact_name': self._first(self.payer_loop, "PER").element(2),
-            'payer_contact_function_cd': self._first(self.payer_loop, "PER").element(1),
-            'payer_contact_number': self._first(self.payer_loop, "PER").element(4),
-            'payer_email': self._first(self.payer_loop, "PER").element(6)
+            'payer_contact_info': [
+                {
+                    'payer_contact_name': c.element(2),
+                    'payer_contact_function_cd': c.element(1),
+                    'payer_contact_number': c.element(6),
+                    'payer_email': c.element(4)
+                }
+                for c in self.segments_by_name("PER", data = self.payer_loop)],
+            'payer_primary_id': self._first(self.payer_loop, "REF").element(1),
+            'payer_secondary_id': self._first(self.payer_loop, "REF").element(2)
         }
 
     def populate_payee_loop(self):
@@ -397,17 +412,18 @@ class Remittance(MedicalClaim):
             'payer_claim_id': self._first(self.clm_loop,"CLP").element(7),
             'type_of_bill_cd': self._first(self.clm_loop,"CLP").element(8),
             'claim_freq_cd': self._first(self.clm_loop,"CLP").element(9),
+            'drg_cd': self._first(self.clm_loop,"CLP").element(11),
             'patient_entity_id_cd': self._first(self.clm_loop,"NM1").element(1),
             'entity_type_qualifier': self._first(self.clm_loop,"NM1").element(2),
             'patient_last_nm': self._first(self.clm_loop,"NM1").element(4),
             'patient_first_nm': self._first(self.clm_loop,"NM1").element(5),
             'id_code_qualifier': self._first(self.clm_loop,"NM1").element(8),
             'patient_id': self._first(self.clm_loop,"NM1").element(9),
-            #in claim_loop index, find next CLP segment to end sevice adjustment serach
+            #Claim level service adjustments CAS
             'service_adjustments': functools.reduce(lambda x,y: x+y,
                 [self.populate_adjustment_groups(x)
                  for x in self.segments_by_name("CAS",
-                data = self.clm_loop[1:end_clp_index])], []),
+                    data = self.clm_loop[1:min(  list(filter(lambda x: x>=0, [self.index_of_segment(self.clm_loop, 'SVC'), len(self.clm_loop)-1]))) ])], []),
             'claim_lines': [self.populate_claim_line(seg, i, min(self.index_of_segment(self.clm_loop, 'SVC', i+1), len(self.clm_loop)-1)) for i,seg in self.segments_by_name_index(segment_name="SVC", data=self.clm_loop)],
             'reference_cd': self._first(self.clm_loop,"REF").element(1),
             'reference_num': self._first(self.clm_loop,"REF").element(2),
@@ -443,14 +459,18 @@ class Remittance(MedicalClaim):
             'service_date_qualifier_cd': self._first(self.clm_loop, "DTM", idx).element(1),
             'service_date': self._first(self.clm_loop, "DTM", idx).element(2),
             'amt_qualifier_cd': self._first(self.clm_loop, "AMT", idx).element(1),
-            'service_line_amt': self._first(self.clm_loop, "AMT", idx).element(2)
+            'service_line_amt': self._first(self.clm_loop, "AMT", idx).element(2),
+            'remarks': [{'qualifier_cd': x.element(1), 'remark_cd': x.element(2)} for x in self.segments_by_name("LQ", data = self.clm_loop[idx:svc_end_idx])],
+            #line level service adjustments
+            'service_adjustments': functools.reduce(lambda x,y: x+y,
+                [self.populate_adjustment_groups(x) for x in self.segments_by_name("CAS", data =  self.clm_loop[idx:svc_end_idx])], [])
         }
 
     #
     # group adjustment logic
     #
     def populate_adjustment_groups(self, cas):
-        return [{'adjustment_grp_cd': cas.element(i), 'adjustment_reason_cd': cas.element(i+1), 'adjustment_amount': cas.element(i+2)} for i in list(range(1, cas.segment_len()-1, 3))]
+        return [{'adjustment_grp_cd': (cas.element(1) if cas.element(i) == "" else cas.element(i)), 'adjustment_reason_cd': cas.element(i+1), 'adjustment_amount': cas.element(i+2)} for i in list(range(1, cas.segment_len()-1, 3))]
 
     def to_json(self):
         return {
