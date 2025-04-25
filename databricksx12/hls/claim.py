@@ -279,7 +279,7 @@ class Claim837i(MedicalClaim):
                 ServiceLine.from_sv2(
                     sv2 = self._first(s, "SV2"),
                     lx = self._first(s, "LX"),
-                    dtp = self._first(s, "DTP")
+                    dtp = self.segments_by_name("DTP", data = s)
                 ),self.claim_lines()))
 
     
@@ -313,7 +313,7 @@ class Claim837p(MedicalClaim):
                 ServiceLine.from_sv1(
                     sv1 = self._first(s, "SV1"),
                     lx = self._first(s, "LX"),
-                    dtp = self._first(s, "DTP")
+                    dtp = self.segments_by_name("DTP", data=s)
                 ), self.claim_lines()))
 
 #

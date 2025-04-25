@@ -100,9 +100,7 @@ class ServiceLine(Identity):
     def common(sv, lx, dtp):
         return {
             "claim_line_number": lx.element(1),
-            "service_date": dtp.element(3),
-            "service_time": dtp.element(1),
-            "service_date_format": dtp.element(2)
+            "service_dates": [{'date_cd': s.element(1), 'date_format': s.element(2), 'date': s.element(3)} for s in dtp]
         }
 
     #
@@ -119,9 +117,7 @@ class ServiceLine(Identity):
                         "prcdr_cd_type": sv2.element(2, 0, ""),
                         "modifier_cds": ','.join(filter(lambda x: x!="", [sv2.element(2, 2, ""), sv2.element(2, 3, ""), sv2.element(2, 4,""), sv2.element(2, 5, "")])),
                         "revenue_cd": sv2.element(1),
-                        "service_date": dtp.element(3),
-                        "service_time": dtp.element(1),
-                        "date_format": dtp.element(2)
+                        "service_dates": [{'date_cd': s.element(1), 'date_format': s.element(2), 'date': s.element(3)} for s in dtp]
                     }
                 })
 
@@ -140,10 +136,7 @@ class ServiceLine(Identity):
                         "modifier_cds": ','.join(filter(lambda x: x!="", [sv1.element(1, 2, ""), sv1.element(1, 3, ""), sv1.element(1, 4,""), sv1.element(1, 5, "")])),
                         "place_of_service": sv1.element(5),
                         "dg_cd_pntr": sv1.element(7),
-                        "service_date": dtp.element(3),
-                        "service_time": dtp.element(1),
-                        "date_format": dtp.element(2)
-
+                        "service_dates": [{'date_cd': s.element(1), 'date_format': s.element(2), 'date': s.element(3)} for s in dtp]
                     }
                 })
         
