@@ -437,8 +437,8 @@ class Remittance(MedicalClaim):
                 "entity_type_qualifier": x.element(2),
                 "entity_last_or_organization_name": x.element(3),
                 "entity_first": x.element(4),
-                "id_cd_qualifier": x.element(9),
-                "id_cd": x.element(10)
+                "id_cd_qualifier": x.element(8),
+                "id_cd": x.element(9)
             }
                  for x in loop if x.segment_name()== "NM1"]
 
