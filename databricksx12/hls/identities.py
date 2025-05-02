@@ -58,7 +58,7 @@ class ClaimIdentity(Identity):
     # clm, cl1 are individual segments
     # dtp is a loop of 0 or more dates 
     #
-    def __init__(self, clm, dtp, cl1 = Segment.empty(), k3 = Segment.empty(), hi = Segment.empty()):
+    def __init__(self, clm, dtp, cl1 = Segment.empty(), k3 = Segment.empty(), hi = Segment.empty(), ref = []):
         self.claim_id = clm.element(1)
         self.claim_amount = clm.element(2)
         self.facility_type_code = clm.element(5)
@@ -68,6 +68,7 @@ class ClaimIdentity(Identity):
         self.discharge_status_cd = cl1.element(3)
         self.encounter_id = k3.element(1)
         self.drg_cd = hi.element(1)
+        self.clm_refs = [{'id_code_qualifier': x.element(1), 'id': x.element(2)} for x in ref]
         
 
 class DiagnosisIdentity(Identity):
