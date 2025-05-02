@@ -193,7 +193,8 @@ class MedicalClaim(EDI):
         return ClaimIdentity(clm = self._first(self.claim_loop, "CLM"),
                              dtp = self.segments_by_name("DTP", data=self.claim_loop),
                              k3 = self._first(self.claim_loop, "K3"),
-                             ref = self.segments_by_name("REF", data=self.claim_loop))
+                             ref = self.segments_by_name("REF", data=self.claim_loop[:(len(self.claim_loop)-1 if (temp := [i for i, x in enumerate(self.claim_loop) if x.segment_name() == "NM1"]) == [] else temp[0]) ])) #ref up until loop 2310
+
                              
 
     def _populate_payer_info(self):
@@ -274,7 +275,7 @@ class Claim837i(MedicalClaim):
                              cl1 = self._first(self.claim_loop, "CL1"),
                              k3 = self._first(self.claim_loop, "K3"),
                              hi = self._first([x for x in self.claim_loop if x.segment_name() == "HI" and x.element(1).startswith("DR")], "HI"), #DRG_CD
-                             ref = self.segments_by_name("REF", data=self.claim_loop[:(len(self.claim_loop)-1 if (temp := [i for i, x in enumerate(self.claim_loop) if x.element(1) == "71" and x.segment_name() == "NM1"]) == [] else temp[0]) ])) #ref up until loop 2310 
+                             ref = self.segments_by_name("REF", data=self.claim_loop[:(len(self.claim_loop)-1 if (temp := [i for i, x in enumerate(self.claim_loop) if x.segment_name() == "NM1"]) == [] else temp[0]) ])) #ref up until loop 2310 
     
     def _populate_sl_loop(self, missing=""):
         return list(
