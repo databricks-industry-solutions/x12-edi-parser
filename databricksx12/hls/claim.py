@@ -423,14 +423,13 @@ class Remittance(MedicalClaim):
             'patient_first_nm': self._first(self.clm_loop,"NM1").element(5),
             'id_code_qualifier': self._first(self.clm_loop,"NM1").element(8),
             'patient_id': self._first(self.clm_loop,"NM1").element(9),
+            'clm_refs': [{'id_code_qualifier': x.element(1), 'id': x.element(2)}  for x in self.segments_by_name("REF", data=self.clm_loop[:self.index_of_segment(self.clm_loop, 'SVC')])],
             #Claim level service adjustments CAS
             'service_adjustments': functools.reduce(lambda x,y: x+y,
                 [self.populate_adjustment_groups(x)
                  for x in self.segments_by_name("CAS",
                     data = self.clm_loop[1:min(  list(filter(lambda x: x>=0, [self.index_of_segment(self.clm_loop, 'SVC'), len(self.clm_loop)-1]))) ])], []),
             'claim_lines': [self.populate_claim_line(seg, i, min(self.index_of_segment(self.clm_loop, 'SVC', i+1), len(self.clm_loop)-1)) for i,seg in self.segments_by_name_index(segment_name="SVC", data=self.clm_loop)],
-            'reference_cd': self._first(self.clm_loop,"REF").element(1),
-            'reference_num': self._first(self.clm_loop,"REF").element(2),
             'date_references': [{'date_cd': x.element(1), 'date': x.element(2)} for x in self.clm_loop if x.segment_name() == "DTM"]
         }
 
@@ -450,7 +449,7 @@ class Remittance(MedicalClaim):
     #
     # @parma svc - the svc segment for the service rendered
     # @param idx - the index where the svc is found within self.clm_loop
-    # @param svc_end_idx - the last segment associated witht he service 
+    # @param svc_end_idx - the last segment associated with the service 
     #
     def populate_claim_line(self, svc, idx, svc_end_idx):
         return {
@@ -467,7 +466,8 @@ class Remittance(MedicalClaim):
             'remarks': [{'qualifier_cd': x.element(1), 'remark_cd': x.element(2)} for x in self.segments_by_name("LQ", data = self.clm_loop[idx:svc_end_idx])],
             #line level service adjustments
             'service_adjustments': functools.reduce(lambda x,y: x+y,
-                [self.populate_adjustment_groups(x) for x in self.segments_by_name("CAS", data =  self.clm_loop[idx:svc_end_idx])], [])
+                [self.populate_adjustment_groups(x) for x in self.segments_by_name("CAS", data =  self.clm_loop[idx:svc_end_idx])], []),
+            'line_refs': [{'id_code_qualifier': x.element(1), 'id': x.element(2)} for x in  self.segments_by_name("REF", data=self.clm_loop[idx:svc_end_idx])]
         }
 
     #
