@@ -243,9 +243,10 @@ class Claim837i(MedicalClaim):
     # Format for 837I https://www.dhs.wisconsin.gov/publications/p0/p00266.pdf
     
     def _attending_provider(self):
-        return ProviderIdentity(nm1=self._first([x for x in self.claim_loop if x.element(1) == "71"],"NM1"),
+        i, x = ((-1,Segment.empty()) if (temp := [(i,x) for i, x in enumerate(self.claim_loop) if x.element(1) == "71" and x.segment_name() == "NM1"]) == [] else temp[0])
+        return ProviderIdentity(nm1=x,
                                 prv=self._first([x for x in self.claim_loop if x.element(1) == "AT"],"PRV"),
-                                ref=self._first(self.claim_loop, "REF")) # only occurs once post CLM loop providers
+                                ref=(Segment.empty() if i == -1 else self._first(self.claim_loop[i:self.index_of_segment(self.claim_loop, "NM1", i+1)],  "REF")) )
 
     def _operating_provider(self):
         return ProviderIdentity(nm1=self._first([x for x in self.claim_loop if x.element(1) == "72"],"NM1"),
