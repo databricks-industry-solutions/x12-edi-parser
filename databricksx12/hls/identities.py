@@ -49,9 +49,7 @@ class PatientIdentity(Identity):
             self.dob = dmg.element(2)
             self.dob_format = dmg.element(1)
             self.gender_cd = dmg.element(3)
-            self.mrn = ref.element(1)
-            self.id = ref.element(2)
-
+            self.mrn = ref.element(2)
 
 class ClaimIdentity(Identity):
     #

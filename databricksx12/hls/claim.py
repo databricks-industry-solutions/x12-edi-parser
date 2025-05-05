@@ -174,7 +174,7 @@ class MedicalClaim(EDI):
             dmg = self._first(l, "DMG"),            
             pat = self._first(l, "PAT"),
             sbr = self._first(l, "SBR"),
-            ref = self._first(l, "REF")
+            ref = self._first([x for x in l if x.element(1) == "EA"], "REF")
         )
     
     def _populate_patient_loop(self) -> Dict[str, str]:
