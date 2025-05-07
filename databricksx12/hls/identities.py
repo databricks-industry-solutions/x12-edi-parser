@@ -49,16 +49,14 @@ class PatientIdentity(Identity):
             self.dob = dmg.element(2)
             self.dob_format = dmg.element(1)
             self.gender_cd = dmg.element(3)
-            self.mrn = ref.element(1)
-            self.id = ref.element(2)
-
+            self.mrn = ref.element(2)
 
 class ClaimIdentity(Identity):
     #
     # clm, cl1 are individual segments
     # dtp is a loop of 0 or more dates 
     #
-    def __init__(self, clm, dtp, cl1 = Segment.empty(), k3 = Segment.empty(), hi = Segment.empty()):
+    def __init__(self, clm, dtp, cl1 = Segment.empty(), k3 = Segment.empty(), hi = Segment.empty(), ref = []):
         self.claim_id = clm.element(1)
         self.claim_amount = clm.element(2)
         self.facility_type_code = clm.element(5)
@@ -68,6 +66,7 @@ class ClaimIdentity(Identity):
         self.discharge_status_cd = cl1.element(3)
         self.encounter_id = k3.element(1)
         self.drg_cd = hi.element(1)
+        self.clm_refs = [{'id_code_qualifier': x.element(1), 'id': x.element(2)} for x in ref]
         
 
 class DiagnosisIdentity(Identity):
@@ -100,9 +99,7 @@ class ServiceLine(Identity):
     def common(sv, lx, dtp):
         return {
             "claim_line_number": lx.element(1),
-            "service_date": dtp.element(3),
-            "service_time": dtp.element(1),
-            "service_date_format": dtp.element(2)
+            "service_dates": [{'date_cd': s.element(1), 'date_format': s.element(2), 'date': s.element(3)} for s in dtp]
         }
 
     #
@@ -119,9 +116,7 @@ class ServiceLine(Identity):
                         "prcdr_cd_type": sv2.element(2, 0, ""),
                         "modifier_cds": ','.join(filter(lambda x: x!="", [sv2.element(2, 2, ""), sv2.element(2, 3, ""), sv2.element(2, 4,""), sv2.element(2, 5, "")])),
                         "revenue_cd": sv2.element(1),
-                        "service_date": dtp.element(3),
-                        "service_time": dtp.element(1),
-                        "date_format": dtp.element(2)
+                        "service_dates": [{'date_cd': s.element(1), 'date_format': s.element(2), 'date': s.element(3)} for s in dtp]
                     }
                 })
 
@@ -140,10 +135,7 @@ class ServiceLine(Identity):
                         "modifier_cds": ','.join(filter(lambda x: x!="", [sv1.element(1, 2, ""), sv1.element(1, 3, ""), sv1.element(1, 4,""), sv1.element(1, 5, "")])),
                         "place_of_service": sv1.element(5),
                         "dg_cd_pntr": sv1.element(7),
-                        "service_date": dtp.element(3),
-                        "service_time": dtp.element(1),
-                        "date_format": dtp.element(2)
-
+                        "service_dates": [{'date_cd': s.element(1), 'date_format': s.element(2), 'date': s.element(3)} for s in dtp]
                     }
                 })
         
