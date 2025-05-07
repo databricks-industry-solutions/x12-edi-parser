@@ -7,13 +7,19 @@
 
 Working with various x12 EDI transactions in Spark on Databricks.
 
+Thanks to contributions from our partners at [CitiusTech](https://www.citiustech.com/) 834 is now support along with additional insights from 837s. 
+
 # Install
 
 ```python
 pip install git+https://github.com/databricks-industry-solutions/x12-edi-parser
 ```
 
-# Run 
+# Table of Contents
+[Medical Claims - 837i and 837p](#837i-and-837p-sample-data-in-spark)
+[Remittance - 835](835-sample)
+[Enrollment - 834](834-sample) 
+[Exploring Raw EDI Data](Evaluating Raw EDI Data using the parser)
 
 ### 837i and 837p sample data in Spark
 
@@ -139,11 +145,14 @@ claims.select("provider_adjustments").printSchema()
 ![image](images/remittance_2.png?raw=true)
 
 
-## Reading & Parsing Healthcare Transactions
+### 835 sample
 
-Currently supports 837s and 835s. Records in each format type are recommended to be saved separately to avoid any ambiguity and opaqueness, e.g. do not to mix 835, 837i, 837p in df.save() command.  
+```python
 
-## Sample data outside of Spark
+```
+
+
+### Evaluating Raw EDI Data using the parser
 
 ```python
 from databricksx12 import *
@@ -183,7 +192,7 @@ N3*987 65TH PL
 """
 ```
 
-## Raw EDI as a Table 
+#### Raw EDI as a Table 
 
 ```python
 """"
