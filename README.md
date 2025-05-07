@@ -16,10 +16,10 @@ pip install git+https://github.com/databricks-industry-solutions/x12-edi-parser
 ```
 
 # Table of Contents
-[Medical Claims - 837i and 837p](#837i-and-837p-sample-data-in-spark)
-[Remittance - 835](835-sample)
-[Enrollment - 834](834-sample) 
-[Exploring Raw EDI Data](Evaluating Raw EDI Data using the parser)
+[Medical Claims - 837i and 837p](#837i-and-837p-sample-data-in-spark)  
+[Remittance - 835](835-sample)  
+[Enrollment - 834](834-sample)   
+[Exploring Raw EDI Data](Evaluating Raw EDI Data using the parser)  
 
 ### 837i and 837p sample data in Spark
 
