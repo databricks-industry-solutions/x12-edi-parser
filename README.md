@@ -3,9 +3,9 @@
 [![CLOUD](https://img.shields.io/badge/CLOUD-ALL-blue?logo=googlecloud&style=for-the-badge)](https://cloud.google.com/databricks)
 [![POC](https://img.shields.io/badge/POC-10_days-green?style=for-the-badge)](https://databricks.com/try-databricks)
 
-# Business Problem 
+# Parsing EDI formats with python package Ember 
 
-Working with various x12 EDI transactions in Spark on Databricks.  
+Working with various x12 EDI transactions in Spark on Databricks.    
 
 ## Thanks to contributions from our partners at [CitiusTech](https://www.citiustech.com/) 834 is now supported along with additional insights from 837s. 
 
