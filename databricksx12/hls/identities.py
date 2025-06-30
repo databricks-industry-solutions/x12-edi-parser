@@ -75,11 +75,11 @@ class DiagnosisIdentity(Identity):
         self.principal_dx_cd = "" if [s.element(1,1) for s in hi_segments if s.element(1, 0) == "ABK"] == [] else [s.element(1,1) for s in hi_segments if s.element(1, 0) == "ABK"][0]
         self.principal_dx_poa = "" if [s.element(1,1) for s in hi_segments if s.element(1, 0) == "ABK"] == [] else [s.element(1,s.sub_element_len(1)-1) for s in hi_segments if s.element(1,0) == "ABK"][0]
         self.admitting_dx_cd = "" if [s.element(1,1) for s in hi_segments if s.element(1, 0) == "ABJ"] == []	else [s.element(1,1) for s in hi_segments if s.element(1, 0) == "ABJ"][0]
-        self.admitting_dx_poa = "" if [s.element(1,1) for s in hi_segments if s.element(1, 0) == "ABJ"] == []	else [s.element(9) for s in hi_segments if s.element(1,0) == "ABJ"][0]
+        self.admitting_dx_poa = "" if [s.element(1,1) for s in hi_segments if s.element(1, 0) == "ABJ"] == []	else [s.element(1,s.sub_element_len(1)-1) for s in hi_segments if s.element(1,0) == "ABJ"][0]
         self.reason_visit_dx_cd = "" if [s.element(1,1) for s in hi_segments if s.element(1, 0) == "APR"] == [] else [s.element(1,1) for s in hi_segments if s.element(1, 0) == "APR"][0]
-        self.reason_visit_dx_poa = "" if [s.element(1,1) for s in hi_segments if s.element(1, 0) == "APR"] == [] else [s.element(9) for s in hi_segments if s.element(1,0) == "APR"][0]
+        self.reason_visit_dx_poa = "" if [s.element(1,1) for s in hi_segments if s.element(1, 0) == "APR"] == [] else [s.element(1,s.sub_element_len(1)-1) for s in hi_segments if s.element(1,0) == "APR"][0]
         self.external_injury_dx_cd = "" if [s.element(1,1) for s in hi_segments if s.element(1, 0) == "ABN"] == [] else [s.element(1,1) for s in hi_segments if s.element(1, 0) == "ABN"][0]
-        self.external_injury_dx_poa = "" if [s.element(1,1) for s in hi_segments if s.element(1, 0) == "ABN"] == [] else [s.element(1,9) for s in hi_segments if s.element(1,0) == "ABN"][0]
+        self.external_injury_dx_poa = "" if [s.element(1,1) for s in hi_segments if s.element(1, 0) == "ABN"] == [] else [s.element(1,s.sub_element_len(1)-1) for s in hi_segments if s.element(1,0) == "ABN"][0]
         self.other_dx_cds = list(itertools.chain(*[[{'dx_cd': s.element(i,1), 'poa': s.element(i,s.sub_element_len(i)-1)} for i in list(range(1, s.segment_len())) if s.element(i,0) == "ABF"]
             for s in hi_segments if s.element(1, 0) == "ABF"]))
     
