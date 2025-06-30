@@ -208,8 +208,8 @@ class Segment():
     #
     # @returns the number of sub elements in a segment
     #
-    def sub_element_len(self):
-        return len(self.data.split(self.format_cls.SUB_DELIM))
+    def sub_element_len(self, element = 0):
+        return len(self.data.split(self.format_cls.ELEMENT_DELIM)[element].split(self.format_cls.SUB_DELIM))
 
     #
     # First element is the segment name
