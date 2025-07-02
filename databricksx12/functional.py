@@ -37,5 +37,38 @@ class FunctionalGroup(EDI):
     def _reciever(self):
         return self.segments_by_name("GS")[0].element(3)
 
+    def __getstate__(self):
+        """
+        Return state values to be pickled.
+        Called by pickle.dumps() and cloudpickle.dumps()
+        """
+        return {
+            'data': self.data,
+            'format_cls': self.format_cls,
+            'transaction_type': self.transaction_type,
+            'fg': self.fg,
+            'standard_version': self.standard_version,
+            'control_number': self.control_number,
+            'date': self.date,
+            'time': self.time,
+            'sender': self.sender,
+            'receiver': self.receiver,
+            '_strict_transactions': self._strict_transactions
+        }
 
-    
+    def __setstate__(self, state):
+        """
+        Restore state from the unpickled state values.
+        Called by pickle.loads() and cloudpickle.loads()
+        """
+        self.data = state['data']
+        self.format_cls = state['format_cls']
+        self.transaction_type = state['transaction_type']
+        self.fg = state['fg']
+        self.standard_version = state['standard_version']
+        self.control_number = state['control_number']
+        self.date = state['date']
+        self.time = state['time']
+        self.sender = state['sender']
+        self.receiver = state['receiver']
+        self._strict_transactions = state['_strict_transactions']

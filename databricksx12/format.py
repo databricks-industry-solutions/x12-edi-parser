@@ -16,6 +16,27 @@ class Format(dict):
         except:
             return False
 
+    def __getstate__(self):
+        """
+        Return state values to be pickled.
+        Called by pickle.dumps() and cloudpickle.dumps()
+        """
+        return {
+            'SEGMENT_DELIM': self.SEGMENT_DELIM,
+            'ELEMENT_DELIM': self.ELEMENT_DELIM,
+            'SUB_DELIM': self.SUB_DELIM,
+            'class_name': self.__class__.__name__
+        }
+
+    def __setstate__(self, state):
+        """
+        Restore state from the unpickled state values.
+        Called by pickle.loads() and cloudpickle.loads()
+        """
+        self.SEGMENT_DELIM = state['SEGMENT_DELIM']
+        self.ELEMENT_DELIM = state['ELEMENT_DELIM']
+        self.SUB_DELIM = state['SUB_DELIM']
+
 #
 #  https://www.ibm.com/docs/en/sgfmw/5.3.1?topic=gs-edi-delimiters
 #  https://github.com/databrickslabs/dbignite/blob/main/dbignite/readers.py#L1-L9
