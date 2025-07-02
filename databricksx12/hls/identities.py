@@ -56,7 +56,7 @@ class ClaimIdentity(Identity):
     # clm, cl1 are individual segments
     # dtp is a loop of 0 or more dates 
     #
-    def __init__(self, clm, dtp, cl1 = Segment.empty(), k3 = Segment.empty(), hi = Segment.empty(), ref = []):
+    def __init__(self, clm, dtp, cl1 = Segment.empty(), k3 = Segment.empty(), hi = Segment.empty(), ref = [], amt = []):
         self.claim_id = clm.element(1)
         self.claim_amount = clm.element(2)
         self.facility_type_code = clm.element(5)
@@ -67,6 +67,8 @@ class ClaimIdentity(Identity):
         self.encounter_id = k3.element(1)
         self.drg_cd = hi.element(1)
         self.clm_refs = [{'id_code_qualifier': x.element(1), 'id': x.element(2)} for x in ref]
+        self.other_amts = [{'amt_qualifier_cd': a.element(1), 'amt': a.element(2)} for a in amt]
+
         
 
 # POA is the last sub element of the respective segments
@@ -100,18 +102,19 @@ class ServiceLine(Identity):
             setattr(self,k,v)
 
     @staticmethod
-    def common(sv, lx, dtp):
+    def common(sv, lx, dtp, amt):
         return {
             "claim_line_number": lx.element(1),
-            "service_dates": [{'date_cd': s.element(1), 'date_format': s.element(2), 'date': s.element(3)} for s in dtp]
+            "service_dates": [{'date_cd': s.element(1), 'date_format': s.element(2), 'date': s.element(3)} for s in dtp],
+            'other_amts': [{'amt_qualifier_cd': a.element(1), 'amt': a.element(2)} for a in amt]
         }
 
     #
     # Institutional Claims
     #
     @classmethod
-    def from_sv2(cls, sv2, lx, dtp):
-        return cls({**cls.common(sv2, lx, dtp),
+    def from_sv2(cls, sv2, lx, dtp, amt):
+        return cls({**cls.common(sv2, lx, dtp,amt),
                     **{
                         "units": sv2.element(5),
                         "units_measurement": sv2.element(4),
@@ -128,8 +131,8 @@ class ServiceLine(Identity):
     # Professional Claims
     #
     @classmethod
-    def from_sv1(cls, sv1, lx, dtp):
-        return cls({**cls.common(sv1, lx, dtp),
+    def from_sv1(cls, sv1, lx, dtp, amt):
+        return cls({**cls.common(sv1, lx, dtp, amt),
                     **{
                         "units": sv1.element(4),
                         "units_measurement": sv1.element(3),

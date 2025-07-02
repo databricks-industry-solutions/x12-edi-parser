@@ -193,7 +193,9 @@ class MedicalClaim(EDI):
         return ClaimIdentity(clm = self._first(self.claim_loop, "CLM"),
                              dtp = self.segments_by_name("DTP", data=self.claim_loop),
                              k3 = self._first(self.claim_loop, "K3"),
-                             ref = self.segments_by_name("REF", data=self.claim_loop[:(len(self.claim_loop)-1 if (temp := [i for i, x in enumerate(self.claim_loop) if x.segment_name() == "NM1"]) == [] else temp[0]) ])) #ref up until loop 2310
+                             ref = self.segments_by_name("REF", data=self.claim_loop[:(len(self.claim_loop)-1 if (temp := [i for i, x in enumerate(self.claim_loop) if x.segment_name() == "NM1"]) == [] else temp[0]) ]), #ref up until loop 2310
+                             amt = self.segments_by_name("AMT", data=self.claim_loop)) #ref up until loop 2310
+
 
                              
 
@@ -275,7 +277,8 @@ class Claim837i(MedicalClaim):
                              cl1 = self._first(self.claim_loop, "CL1"),
                              k3 = self._first(self.claim_loop, "K3"),
                              hi = self._first([x for x in self.claim_loop if x.segment_name() == "HI" and x.element(1).startswith("DR")], "HI"), #DRG_CD
-                             ref = self.segments_by_name("REF", data=self.claim_loop[:(len(self.claim_loop)-1 if (temp := [i for i, x in enumerate(self.claim_loop) if x.segment_name() == "NM1"]) == [] else temp[0]) ])) #ref up until loop 2310 
+                             ref = self.segments_by_name("REF", data=self.claim_loop[:(len(self.claim_loop)-1 if (temp := [i for i, x in enumerate(self.claim_loop) if x.segment_name() == "NM1"]) == [] else temp[0]) ]), #ref up until loop 2310 
+                             amt = self.segments_by_name("AMT", data=self.claim_loop))
     
     def _populate_sl_loop(self, missing=""):
         return list(
@@ -283,7 +286,8 @@ class Claim837i(MedicalClaim):
                 ServiceLine.from_sv2(
                     sv2 = self._first(s, "SV2"),
                     lx = self._first(s, "LX"),
-                    dtp = self.segments_by_name("DTP", data = s)
+                    dtp = self.segments_by_name("DTP", data = s),
+                    amt = self.segments_by_name("AMT", data=s)
                 ),self.claim_lines()))
 
     
@@ -317,7 +321,8 @@ class Claim837p(MedicalClaim):
                 ServiceLine.from_sv1(
                     sv1 = self._first(s, "SV1"),
                     lx = self._first(s, "LX"),
-                    dtp = self.segments_by_name("DTP", data=s)
+                    dtp = self.segments_by_name("DTP", data=s),
+                    amt = self.segments_by_name("AMT", data=s)
                 ), self.claim_lines()))
 
 #
@@ -461,8 +466,7 @@ class Remittance(MedicalClaim):
             'original_prcdr_cd':svc.element(6),
             'service_date_qualifier_cd': self._first(self.clm_loop, "DTM", idx).element(1),
             'service_date': self._first(self.clm_loop, "DTM", idx).element(2),
-            'amt_qualifier_cd': self._first(self.clm_loop, "AMT", idx).element(1),
-            'service_line_amt': self._first(self.clm_loop, "AMT", idx).element(2),
+            'other_amts': [{'amt_qualifier_cd': a.element(1), 'amt': a.element(2)} for a in self.segments_by_name("AMT", data=self.clm_loop[idx:svc_end_idx]) ],
             'remarks': [{'qualifier_cd': x.element(1), 'remark_cd': x.element(2)} for x in self.segments_by_name("LQ", data = self.clm_loop[idx:svc_end_idx])],
             #line level service adjustments
             'service_adjustments': functools.reduce(lambda x,y: x+y,
