@@ -232,7 +232,6 @@ class MedicalClaim(EDI):
         return list(map(lambda i: self.sl_loop[i[0]:i[1]],
                 self._index_to_tuples([(i) for i,y in enumerate(self.sl_loop) if y.segment_name()=="LX"]+[len(self.sl_loop)])))
 
-    # not sure if this should be here or not, but you get the idea
     def build(self) -> None:
         self.submitter_info = self._populate_submitter_loop()
         self.receiver_info = self._populate_receiver_loop()
@@ -281,8 +280,11 @@ class Claim837i(MedicalClaim):
                              k3 = self._first(self.claim_loop, "K3"),
                              hi = self._first([x for x in self.claim_loop if x.segment_name() == "HI" and x.element(1).startswith("DR")], "HI"), #DRG_CD
                              ref = self.segments_by_name("REF", data=self.claim_loop[:(len(self.claim_loop)-1 if (temp := [i for i, x in enumerate(self.claim_loop) if x.segment_name() == "NM1"]) == [] else temp[0]) ]), #ref up until loop 2310 
-                             amt = self.segments_by_name("AMT", data=self.claim_loop))
-    
+                             amt = self.segments_by_name("AMT", data=self.claim_loop),
+                             principal_hi = self._first([x for x in self.claim_loop if x.segment_name() == "HI" and x.element(1,0) == ("BBR")], "HI"),
+                             other_hi = [x for x in self.claim_loop if x.segment_name() == "HI" and x.element(1,0) == ("BBQ")]
+                             )
+
     def _populate_sl_loop(self, missing=""):
         return list(
             map(lambda s:

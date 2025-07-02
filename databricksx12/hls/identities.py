@@ -56,7 +56,7 @@ class ClaimIdentity(Identity):
     # clm, cl1 are individual segments
     # dtp is a loop of 0 or more dates 
     #
-    def __init__(self, clm, dtp, cl1 = Segment.empty(), k3 = Segment.empty(), hi = Segment.empty(), ref = [], amt = []):
+    def __init__(self, clm, dtp, cl1 = Segment.empty(), k3 = Segment.empty(), hi = Segment.empty(), ref = [], amt = [],  principal_hi = Segment.empty(), other_hi = []):
         self.claim_id = clm.element(1)
         self.claim_amount = clm.element(2)
         self.facility_type_code = clm.element(5)
@@ -68,8 +68,12 @@ class ClaimIdentity(Identity):
         self.drg_cd = hi.element(1)
         self.clm_refs = [{'id_code_qualifier': x.element(1), 'id': x.element(2)} for x in ref]
         self.other_amts = [{'amt_qualifier_cd': a.element(1), 'amt': a.element(2)} for a in amt]
-
-        
+        self.icd10_pcs_cds = { #only 837i
+            'principal_prcdr': {'prcdr_cd': principal_hi.element(1,1), 'date_format': principal_hi.element(1,2), 'date': principal_hi.element(1,3)},
+            'other_cds': list(itertools.chain(*[
+                [{'prcdr_cd': s.element(i,1), 'date_format': s.element(i,2), 'date': s.element(i,3)} for i in list(range(1, s.segment_len()))]
+            for s in other_hi])) 
+        }
 
 # POA is the last sub element of the respective segments
 class DiagnosisIdentity(Identity):
