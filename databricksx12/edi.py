@@ -232,6 +232,10 @@ class EDI():
         """
         return not self.__eq__(other)
 
+    #reprint the EDI file as is
+    def __str__(self):
+        return '\n'.join([s.data for s in self.data])
+
 
 
 class Segment():

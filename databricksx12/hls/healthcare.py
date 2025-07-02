@@ -6,6 +6,7 @@ import itertools
 class HealthcareManager(EDI):
 
     mapping = {
+            "220": MemberEnrollment, #834
             "221": Remittance, # Remittance "835"
             "222": Claim837p,
             "223": Claim837i,
@@ -95,6 +96,8 @@ class HealthcareManager(EDI):
             return trnx.segments_by_name_index(segment_name='CLM', data=data)
         elif transaction_type == '221':
             return trnx.segments_by_name_index(segment_name='CLP', data=data)
+        elif transaction_type == '220':  # 834 Enrollment
+            return trnx.segments_by_name_index(segment_name='INS', data=data)
         return []
             
     @classmethod
@@ -103,6 +106,8 @@ class HealthcareManager(EDI):
             return cls.build_claim(seg, i, cls.mapping.get(transaction_type), data, format_cls)
         elif transaction_type == '221':
             return cls.build_remittance(seg, i, cls.mapping.get(transaction_type), data, format_cls)
+        elif transaction_type == '220':  # 834 Enrollment
+            return cls.build_enrollment(seg, i, cls.mapping.get(transaction_type), data, format_cls)
         return type("", (), dict({'to_json': lambda: {}}))
 
     @classmethod
@@ -113,3 +118,6 @@ class HealthcareManager(EDI):
     def build_remittance(cls, seg, i, trnx_cls, data, format_cls):
         return ClaimBuilder(trnx_cls, [x for x in data if x.segment_name() not in ['SE', 'ST']], format_cls).build_remittance(seg, i-1)
         
+    @classmethod
+    def build_enrollment(cls, seg, i, trnx_cls, data, format_cls):
+        return ClaimBuilder(trnx_cls, [x for x in data if x.segment_name() not in ['SE', 'ST']], format_cls).build_enrollment(seg, i-1)

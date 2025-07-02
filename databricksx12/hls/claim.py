@@ -64,6 +64,11 @@ class ClaimBuilder(EDI):
                              ):]
                             )
 
+    def build_enrollment(self, pay_segment, idx):
+        return self.trnx_cls(
+            enrollment_member = self.data[self.index_of_segment(self.data, "INS"): self.index_of_segment(self.data, "SE")],
+            health_plan_loop=self.data[self.index_of_segment(self.data, "HD"): self.last_index_of_segment(self.data, "DTP")+1]
+        )
     #
     # Determine claim loop: starts at the clm index and ends at LX segment, or CLM segment, or end of data
     #
@@ -114,6 +119,10 @@ class ClaimBuilder(EDI):
         elif self.trnx_cls.NAME == '835':
             return [
                 self.build_remittance(seg, i) for i, seg in self.segments_by_name_index("CLP")
+            ]
+        elif self.trnx_cls.NAME == '834':
+            return [
+                self.build_enrollment(seg, i) for i, seg in self.segments_by_name_index("BGN")
             ]
 
 #
