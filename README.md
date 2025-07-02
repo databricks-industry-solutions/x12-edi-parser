@@ -150,7 +150,7 @@ claims.select("provider_adjustments").printSchema()
 
 Sharing a sample of how to build error handling, transparency, and restartability using EDI over RDDs
 
-```
+```python 
 #helper class to store input/output information from each stage 
 class ProcessingResult:
     """Container for processing results with error handling"""   
