@@ -1,0 +1,60 @@
+JSON_Field_Path,Loop_Name,Segment_Name,Element_Number,Element_Description,Notes
+payment.transaction_handling_cd,Header,BPR,1,Transaction Handling Code,
+payment.monetary_amt,Header,BPR,2,Monetary Amount,Total payment amount
+payment.credit_debit_flag,Header,BPR,3,Credit/Debit Flag Code,
+payment.payment_method_cd,Header,BPR,4,Payment Method Code,
+payment.payment_date,Header,BPR,16,Date,Payment date
+payment.trace_type_cd,Header,TRN,1,Trace Type Code,
+payment.trace_reference_id,Header,TRN,2,Reference Identification,Trace number
+payment.trace_origin_company_id,Header,TRN,3,Originating Company Identifier,
+payer.entity_id_cd,1000A,N1,1,Entity Identifier Code,PR=Payer
+payer.payer_name,1000A,N1,2,Name,Payer name
+payer.payer_street,1000A,N3,1,Address Information,Street address
+payer.payer_city,1000A,N4,1,City Name,City
+payer.payer_state,1000A,N4,2,State or Province Code,State code
+payer.payer_zip,1000A,N4,3,Postal Code,ZIP code
+payer.payer_contact_info.payer_contact_name,1000A,PER,2,Contact Name,Contact person name
+payer.payer_contact_info.payer_contact_function_cd,1000A,PER,1,Contact Function Code,BL=Billing Contact
+payer.payer_contact_info.payer_contact_number,1000A,PER,4,Communication Number,Phone number
+payer.payer_contact_info.payer_email,1000A,PER,6,Communication Number,Email
+payer.payer_primary_id,1000A,REF,2,Reference Identification,Payer ID (if present)
+payer.payer_secondary_id,1000A,REF,2,Reference Identification,Secondary Payer ID (if present)
+payee.payee_name,1000B,N1,2,Name,Payee name
+payee.payee_npi,1000B,N1,4,Identification Code Qualifier,NPI
+payee.payee_id_cd,1000B,N1,5,Identification Code,Payee ID
+payee.payee_tax_id,1000B,REF,2,Reference Identification,Payee Tax ID
+claim.claim_id,2100,CLP,1,Claim Submitter's Identifier,Unique claim identifier
+claim.person_or_organization.entity_id_cd,2100,NM1,1,Entity Identifier Code,QC=Patient, 74=Other, PR=Payer, GB=Other
+claim.person_or_organization.entity_type_qualifier,2100,NM1,2,Entity Type Qualifier,1=Individual, 2=Organization
+claim.person_or_organization.entity_last_or_organization_name,2100,NM1,3,Name Last or Organization Name,
+claim.person_or_organization.entity_first,2100,NM1,4,Name First,
+claim.person_or_organization.id_cd_qualifier,2100,NM1,8,Identification Code Qualifier,MR=Medical Record, PI=Payer ID, etc.
+claim.person_or_organization.id_cd,2100,NM1,9,Identification Code,ID value
+claim.claim_status_cd,2100,CLP,2,Claim Status Code,
+claim.claim_chrg_amt,2100,CLP,3,Monetary Amount,Total claim charge amount
+claim.claim_pay_amt,2100,CLP,4,Monetary Amount,Total paid amount
+claim.patient_pay_amt,2100,CLP,5,Monetary Amount,Patient responsibility amount
+claim.claim_filing_cd,2100,CLP,6,Claim Filing Indicator Code,MC=Medicaid, etc.
+claim.payer_claim_id,2100,CLP,7,Payer Claim Control Number,
+claim.type_of_bill_cd,2100,CLP,8,Facility Type Code,
+claim.claim_freq_cd,2100,CLP,9,Claim Frequency Code,
+claim.drg_cd,2100,CLP,11,Diagnosis Related Group (DRG) Code,
+claim.patient_entity_id_cd,2100,NM1,1,Entity Identifier Code,QC=Patient
+claim.entity_type_qualifier,2100,NM1,2,Entity Type Qualifier,1=Individual, 2=Organization
+claim.patient_last_nm,2100,NM1,4,Name Last,
+claim.patient_first_nm,2100,NM1,5,Name First,
+claim.id_code_qualifier,2100,NM1,8,Identification Code Qualifier,
+claim.patient_id,2100,NM1,9,Identification Code,
+claim.clm_refs.id_code_qualifier,2100,REF,1,Reference Identification Qualifier,
+claim.clm_refs.id,2100,REF,2,Reference Identification,
+claim.service_adjustments.adjustment_grp_cd,2100,CAS,1,Adjustment Group Code,OA, CO, PI, PR, etc.
+claim.service_adjustments.adjustment_reason_cd,2100,CAS,2,Adjustment Reason Code,
+claim.service_adjustments.adjustment_amount,2100,CAS,3,Adjustment Amount,
+claim.claim_lines,2110,SVC,*,Service Line Information,Not shown in this sample
+claim.date_references.date_cd,2100,DTM,1,Date/Time Qualifier,232=Service Date, 233=Adjudication Date
+claim.date_references.date,2100,DTM,2,Date,Date value
+provider_adjustments.provider_adjustment_npi,PLB,PLB,1,NPI,Provider NPI
+provider_adjustments.provider_adjustment_date,PLB,PLB,2,Date,Adjustment date
+provider_adjustments.provider_adjustment_reason_cd,PLB,PLB,3+,Adjustment Reason Code,Repeating pairs
+provider_adjustments.provider_adjustment_id,PLB,PLB,4+,Adjustment Identifier,Repeating pairs
+provider_adjustments.provider_adjustment_amt,PLB,PLB,5+,Adjustment Amount,Repeating pairs 

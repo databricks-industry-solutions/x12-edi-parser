@@ -1,0 +1,126 @@
+JSON_Field_Path,Loop_Name,Segment_Name,Element_Number,Element_Description,Notes
+submitter.type,1000A,NM1,2,Entity Type Qualifier,1=Individual, 2=Organization
+submitter.name,1000A,NM1,3,Name Last or Organization Name,Combined with elements 4,5 for individuals
+submitter.name,1000A,NM1,4,Name First,Used for individuals only
+submitter.name,1000A,NM1,5,Name Middle,Used for individuals only
+submitter.sbmtter_contact_name,1000A,PER,2,Contact Name,Contact person name
+submitter.sbmtter_contacts,1000A,PER,3,Communication Number Qualifier,TE=Telephone, EX=Extension
+submitter.sbmtter_contacts,1000A,PER,4,Communication Number,Phone number
+submitter.sbmtter_contacts,1000A,PER,5,Communication Number Qualifier,Additional contact type
+submitter.sbmtter_contacts,1000A,PER,6,Communication Number,Additional contact number
+receiver.type,1000B,NM1,2,Entity Type Qualifier,1=Individual, 2=Organization
+receiver.name,1000B,NM1,3,Name Last or Organization Name,Organization name for receiver
+subscriber.subsciber_identifier,2000B,NM1,9,Identification Code,Member ID
+subscriber.name,2000B,NM1,3,Name Last,Last name
+subscriber.name,2000B,NM1,4,Name First,First name
+subscriber.name,2000B,NM1,5,Name Middle,Middle name
+subscriber.patient_relationship_cd,2000B,PAT,1,Individual Relationship Code,01=Spouse, 18=Self, 19=Child, G8=Other
+subscriber.subscriber_relationship_cd,2000B,SBR,2,Individual Relationship Code,01=Spouse, 18=Self, 19=Child, G8=Other
+subscriber.street,2000B,N3,1,Address Information,Street address
+subscriber.city,2000B,N4,1,City Name,City
+subscriber.state,2000B,N4,2,State or Province Code,State code
+subscriber.zip,2000B,N4,3,Postal Code,ZIP code
+subscriber.dob,2000B,DMG,2,Date Time Period Format Qualifier,Date of birth
+subscriber.dob_format,2000B,DMG,1,Date Time Period Format Qualifier,D8=Date, D6=Date
+subscriber.gender_cd,2000B,DMG,3,Gender Code,M=Male, F=Female
+subscriber.mrn,2000B,REF,2,Reference Identification,Medical Record Number (when qualifier=EA)
+patient.subsciber_identifier,2000C,NM1,9,Identification Code,Member ID (same as subscriber if SBR.2=18)
+patient.name,2000C,NM1,3,Name Last,Last name
+patient.name,2000C,NM1,4,Name First,First name
+patient.name,2000C,NM1,5,Name Middle,Middle name
+patient.patient_relationship_cd,2000C,PAT,1,Individual Relationship Code,01=Spouse, 18=Self, 19=Child, G8=Other
+patient.subscriber_relationship_cd,2000C,SBR,2,Individual Relationship Code,01=Spouse, 18=Self, 19=Child, G8=Other
+patient.street,2000C,N3,1,Address Information,Street address
+patient.city,2000C,N4,1,City Name,City
+patient.state,2000C,N4,2,State or Province Code,State code
+patient.zip,2000C,N4,3,Postal Code,ZIP code
+patient.dob,2000C,DMG,2,Date Time Period Format Qualifier,Date of birth
+patient.dob_format,2000C,DMG,1,Date Time Period Format Qualifier,D8=Date, D6=Date
+patient.gender_cd,2000C,DMG,3,Gender Code,M=Male, F=Female
+patient.mrn,2000C,REF,2,Reference Identification,Medical Record Number (when qualifier=EA)
+payer.payer_name,2000B,NM1,3,Name Last or Organization Name,Payer organization name (when qualifier=PR)
+payer.payer_identifier,2000B,NM1,9,Identification Code,Payer ID
+payer.payer_identifier_cd,2000B,NM1,8,Identification Code Qualifier,PI=Payor Identification, XV=Centers for Medicare and Medicaid Services Plan ID
+payer.business_entity_type,2000B,NM1,2,Entity Type Qualifier,1=Individual, 2=Organization
+providers.billing.npi,2010AA,NM1,9,Identification Code,National Provider Identifier
+providers.billing.entity_type,2010AA,NM1,2,Entity Type Qualifier,1=Individual, 2=Organization
+providers.billing.name,2010AA,NM1,3,Name Last or Organization Name,Provider name
+providers.billing.name,2010AA,NM1,4,Name First,First name (for individuals)
+providers.billing.name,2010AA,NM1,5,Name Middle,Middle name (for individuals)
+providers.billing.street,2010AA,N3,1,Address Information,Street address
+providers.billing.city,2010AA,N4,1,City Name,City
+providers.billing.state,2010AA,N4,2,State or Province Code,State code
+providers.billing.zip,2010AA,N4,3,Postal Code,ZIP code
+providers.billing.ein_type,2010AA,REF,1,Reference Identification Qualifier,EI=Employer's Identification Number
+providers.billing.ein,2010AA,REF,2,Reference Identification,Employer Identification Number
+providers.billing.taxonomy,2010AA,PRV,3,Provider Specialty Information,Provider taxonomy code
+providers.billing.provider_role,2010AA,PRV,1,Provider Code,BI=Billing Provider
+providers.referring.npi,2310A,NM1,9,Identification Code,National Provider Identifier (when qualifier=DN)
+providers.referring.entity_type,2310A,NM1,2,Entity Type Qualifier,1=Individual, 2=Organization
+providers.referring.name,2310A,NM1,3,Name Last or Organization Name,Provider name
+providers.referring.name,2310A,NM1,4,Name First,First name (for individuals)
+providers.referring.name,2310A,NM1,5,Name Middle,Middle name (for individuals)
+providers.referring.taxonomy,2310A,PRV,3,Provider Specialty Information,Provider taxonomy code (when qualifier=RF)
+providers.referring.provider_role,2310A,PRV,1,Provider Code,RF=Referring Provider
+providers.servicing.npi,2310B,NM1,9,Identification Code,National Provider Identifier (when qualifier=82)
+providers.servicing.entity_type,2310B,NM1,2,Entity Type Qualifier,1=Individual, 2=Organization
+providers.servicing.name,2310B,NM1,3,Name Last or Organization Name,Provider name
+providers.servicing.name,2310B,NM1,4,Name First,First name (for individuals)
+providers.servicing.name,2310B,NM1,5,Name Middle,Middle name (for individuals)
+providers.servicing.taxonomy,2310B,PRV,3,Provider Specialty Information,Provider taxonomy code (when qualifier=PE)
+providers.servicing.provider_role,2310B,PRV,1,Provider Code,PE=Rendering Provider
+providers.service_facility.npi,2310C,NM1,9,Identification Code,National Provider Identifier (when qualifier=77)
+providers.service_facility.entity_type,2310C,NM1,2,Entity Type Qualifier,1=Individual, 2=Organization
+providers.service_facility.name,2310C,NM1,3,Name Last or Organization Name,Facility name
+providers.service_facility.name,2310C,NM1,4,Name First,First name (for individuals)
+providers.service_facility.name,2310C,NM1,5,Name Middle,Middle name (for individuals)
+providers.service_facility.street,2310C,N3,1,Address Information,Street address
+providers.service_facility.city,2310C,N4,1,City Name,City
+providers.service_facility.state,2310C,N4,2,State or Province Code,State code
+providers.service_facility.zip,2310C,N4,3,Postal Code,ZIP code
+providers.service_facility.ein_type,2310C,REF,1,Reference Identification Qualifier,Reference qualifier
+providers.service_facility.ein,2310C,REF,2,Reference Identification,Reference ID
+providers.service_facility.taxonomy,2310C,PRV,3,Provider Specialty Information,Provider taxonomy code
+providers.service_facility.provider_role,2310C,PRV,1,Provider Code,Service Facility
+claim_header.claim_id,2300,CLM,1,Claim Submitter's Identifier,Unique claim identifier
+claim_header.claim_amount,2300,CLM,2,Monetary Amount,Total claim charge amount
+claim_header.facility_type_code,2300,CLM,5,Health Care Service Location Information,Facility type and bill type
+claim_header.claim_dates,2300,DTP,1,Date/Time Qualifier,Date type code
+claim_header.claim_dates,2300,DTP,2,Date Time Period Format Qualifier,Date format
+claim_header.claim_dates,2300,DTP,3,Date Time Period,Date value
+claim_header.admission_type,2300,CL1,1,Admission Type Code,1=Emergency, 2=Urgent, 3=Elective, 4=Newborn, 5=Trauma, 9=Information Not Available
+claim_header.admission_src_cd,2300,CL1,2,Admission Source Code,1=Physician Referral, 2=Clinic Referral, 3=HMO Referral, 4=Transfer from Hospital, 5=Transfer from SNF, 6=Transfer from Another Health Care Facility, 7=Emergency Room, 8=Court/Law Enforcement, 9=Information Not Available
+claim_header.discharge_status_cd,2300,CL1,3,Patient Status Code,01=Discharged to Home or Self Care, 02=Discharged/Transferred to Another Short Term General Hospital for Inpatient Care, etc.
+claim_header.encounter_id,2300,K3,1,File Information,Encounter identifier
+claim_header.drg_cd,2300,HI,1,Health Care Code Information,DRG code (when qualifier starts with DR)
+claim_header.clm_refs,2300,REF,1,Reference Identification Qualifier,Reference qualifier
+claim_header.clm_refs,2300,REF,2,Reference Identification,Reference ID
+claim_header.other_amts,2300,AMT,1,Amount Qualifier Code,Amount qualifier
+claim_header.other_amts,2300,AMT,2,Monetary Amount,Amount value
+claim_lines.claim_line_number,2400,LX,1,Assigned Number,Line item number
+claim_lines.service_dates,2400,DTP,1,Date/Time Qualifier,Date type code
+claim_lines.service_dates,2400,DTP,2,Date Time Period Format Qualifier,Date format
+claim_lines.service_dates,2400,DTP,3,Date Time Period,Date value
+claim_lines.other_amts,2400,AMT,1,Amount Qualifier Code,Amount qualifier
+claim_lines.other_amts,2400,AMT,2,Monetary Amount,Amount value
+claim_lines.units,2400,SV1,4,Unit or Basis for Measurement Code,Units of service
+claim_lines.units_measurement,2400,SV1,3,Unit or Basis for Measurement Code,Unit of measurement
+claim_lines.line_chrg_amt,2400,SV1,2,Monetary Amount,Line charge amount
+claim_lines.prcdr_cd,2400,SV1,1,Product/Service ID,Procedure code
+claim_lines.prcdr_cd_type,2400,SV1,0,Product/Service ID Qualifier,Procedure code type
+claim_lines.modifier_cds,2400,SV1,1,Product/Service ID,Procedure modifiers (sub-elements 2-5)
+claim_lines.place_of_service,2400,SV1,5,Place of Service,Place of service code
+claim_lines.dg_cd_pntr,2400,SV1,7,Diagnosis Code Pointer,Pointer to diagnosis codes
+claim_lines.service_dates,2400,DTP,1,Date/Time Qualifier,Date type code
+claim_lines.service_dates,2400,DTP,2,Date Time Period Format Qualifier,Date format
+claim_lines.service_dates,2400,DTP,3,Date Time Period,Date value
+diagnosis.principal_dx_cd,2300,HI,1,Health Care Code Information,Principal diagnosis code (when qualifier=ABK)
+diagnosis.principal_dx_poa,2300,HI,1,Health Care Code Information,Principal diagnosis POA indicator (last sub-element)
+diagnosis.admitting_dx_cd,2300,HI,1,Health Care Code Information,Admitting diagnosis code (when qualifier=ABJ)
+diagnosis.admitting_dx_poa,2300,HI,1,Health Care Code Information,Admitting diagnosis POA indicator (last sub-element)
+diagnosis.reason_visit_dx_cd,2300,HI,1,Health Care Code Information,Reason for visit diagnosis code (when qualifier=APR)
+diagnosis.reason_visit_dx_poa,2300,HI,1,Health Care Code Information,Reason for visit diagnosis POA indicator (last sub-element)
+diagnosis.external_injury_dx_cd,2300,HI,1,Health Care Code Information,External cause of injury diagnosis code (when qualifier=ABN)
+diagnosis.external_injury_dx_poa,2300,HI,1,Health Care Code Information,External cause of injury diagnosis POA indicator (last sub-element)
+diagnosis.other_dx_cds,2300,HI,1,Health Care Code Information,Other diagnosis codes (when qualifier=ABF)
+diagnosis.other_dx_cds,2300,HI,1,Health Care Code Information,Other diagnosis POA indicators (last sub-element of each diagnosis) 
