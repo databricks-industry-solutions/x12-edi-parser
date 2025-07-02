@@ -12,7 +12,7 @@ Working with various x12 EDI transactions in Spark on Databricks. Supportings
 - **835 (Remittance / payment on claims)**
 
 
-## Thanks to contributions from our partners at [CitiusTech](https://www.citiustech.com/) 834 is now supported along with additional insights from 837s. 
+### Thanks to contributions from our partners at [CitiusTech](https://www.citiustech.com/) 834 is now supported along with additional insights from 837s. 
 
 # Install
 
