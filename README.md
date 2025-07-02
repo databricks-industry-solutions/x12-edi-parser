@@ -6,10 +6,10 @@
 # Business Problem 
 
 Working with various x12 EDI transactions in Spark on Databricks. Supportings
-- 837i (institutional medical claims)
-- 837p (professional medial claims)
-- 834 (Enrollment)
-- 835 (Remittance / payment on claims)
+- **837i (institutional medical claims)**
+- **837p (professional medial claims)**
+- **834 (Enrollment)**
+- **835 (Remittance / payment on claims)**
 
 
 ## Thanks to contributions from our partners at [CitiusTech](https://www.citiustech.com/) 834 is now supported along with additional insights from 837s. 
