@@ -16,16 +16,15 @@ class TestPyspark(PysparkBaseTest):
         assert ( data.select(data.transaction_count).groupBy().sum().collect()[0]["sum(transaction_count)"] == 9) #8 ST/SE transactions
 
     def test_835_plbs(self):
-        hm = HealthcareManager()
         df = self.spark.read.text("sampledata/835/*plb*txt", wholetext=True)
         rdd = (
             df.rdd
             .map(lambda row: EDI(row.value))
-            .map(lambda edi: hm.flatten(edi))
+            .map(lambda edi: HealthcareManager.flatten(edi))
             .flatMap(lambda x: x)
         )
         claims_rdd = (rdd
-            .map(lambda x: hm.flatten_to_json(x))
+            .map(lambda x: HealthcareManager.flatten_to_json(x))
             .map(lambda x: json.dumps(x))
         )
 

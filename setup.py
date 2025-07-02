@@ -9,7 +9,7 @@ with open(path.join(this_directory, "README.md"), encoding="utf-8") as f:
 
 setup(
     name="databricksx12",
-    version="0.0.3",
+    version="0.0.5",
     # python_requires='>=3.9.*',
     python_requires='>=3.9',
     author="Aaron Zavora, Raven Mukherjee",
@@ -24,5 +24,12 @@ setup(
         "Operating System :: OS Independent",
     ],
     packages=['databricksx12', 'databricksx12.hls'],
-    py_modules=['databricksx12']
+    py_modules=['databricksx12'],
+    extras_require={
+        'test': [
+            'pyspark>=3.4.0',
+            'pytest>=7.0.0',
+            'pytest-spark>=0.6.0'
+        ]
+    }
 )

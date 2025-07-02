@@ -1,0 +1,22 @@
+JSON_Field_Path,Loop_Name,Segment_Name,Element_Number,Element_Description,Notes
+enrollment_member.enrollment_member.member_id_code,2000,NM1,9,Identification Code,Member ID
+enrollment_member.enrollment_member.member_identifier_type,2000,NM1,8,Identification Code Qualifier,See IDENTIFIER_TYPE_MAPPING
+enrollment_member.enrollment_member.member_first_name,2000,NM1,4,Name First,First name
+enrollment_member.enrollment_member.member_last_name,2000,NM1,3,Name Last,Last name
+enrollment_member.enrollment_member.member_dob,2000,DMG,2,Date Time Period,Date of birth
+enrollment_member.enrollment_member.member_gender,2000,DMG,3,Gender Code,M=Male, F=Female
+enrollment_member.enrollment_member.contact_phone_number.home_phone,2000,PER,4,Communication Number,Home phone number
+enrollment_member.enrollment_member.contact_phone_number.work_phone,2000,PER,6,Communication Number,Work phone number
+enrollment_member.enrollment_member.address.street_name,2000,N3,1,Address Information,Street address
+enrollment_member.enrollment_member.address.apartment_name,2000,N3,2,Address Information,Apartment/suite
+enrollment_member.enrollment_member.address.city_name,2000,N4,1,City Name,City
+enrollment_member.enrollment_member.address.state_code,2000,N4,2,State or Province Code,State code
+enrollment_member.enrollment_member.address.postal_code,2000,N4,3,Postal Code,ZIP code
+enrollment_member.enrollment_member.Maintenance.benefit_status,2000,INS,1,Benefit Status Code,Y=Active, N=Inactive
+enrollment_member.enrollment_member.Maintenance.maintenance_type_code,2000,INS,3,Maintenance Type Code,See X12 834 spec
+enrollment_member.enrollment_member.Maintenance.maintenance_reason_code,2000,INS,4,Maintenance Reason Code,See X12 834 spec
+enrollment_member.enrollment_member.Maintenance.coverage_start_date,2000,DTP,3,Date Time Period,Coverage start date
+health_plan.coverage_type_code,2300,HD,3,Maintenance Type Code,HLT=Health, DEN=Dental, VIS=Vision
+health_plan.coverage_desc,2300,HD,3,Maintenance Type Code,See COVERAGE_DESC_MAPPING
+health_plan.effective_date,2300,DTP,3,Date Time Period,Effective date
+health_plan.end_date,2300,DTP,4,Date Time Period,End date (if present) 

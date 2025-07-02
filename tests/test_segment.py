@@ -16,7 +16,9 @@ class TestSegment(PysparkBaseTest):
         
     def test_sub_element_length(self):
         assert(len(TestSegment.segments) == 66)
-        assert( set([s.sub_element_len() == len(s.data.split(":")) for s in TestSegment.segments]) == {True} )
+        assert( set([s.sub_element_len(0) == len(s.data.split(s.format_cls.ELEMENT_DELIM)[0].split(":")) for s in TestSegment.segments]) == {True} )
+        assert( set([s.sub_element_len(1) == len(s.data.split(s.format_cls.ELEMENT_DELIM)[1].split(":")) for s in TestSegment.segments]) == {True} )
+        
 
     def test_get_elements(self):
         assert ( TestSegment.segments[0].element(0) == TestSegment.segments[0].element(0, 0) == TestSegment.segments[0].element(0, -1) == 'ISA' )

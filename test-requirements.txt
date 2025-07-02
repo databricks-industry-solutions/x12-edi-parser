@@ -1,0 +1,3 @@
+pyspark==3.4.0
+pytest>=7.0.0
+pytest-spark>=0.6.0
