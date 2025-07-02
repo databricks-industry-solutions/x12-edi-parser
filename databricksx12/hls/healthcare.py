@@ -1,5 +1,5 @@
 from databricksx12.edi import *
-from databricksx12.hls.claim import *
+from databricksx12.hls import *
 import itertools
 
 
