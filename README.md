@@ -154,7 +154,7 @@ Sharing a sample of how to build error handling, transparency, and restartabilit
 #helper class to store input/output information from each stage 
 class ProcessingResult:
     """Container for processing results with error handling"""   
-    def __init__(self, row_id, success, data = None, 
+    def __init__(self, run_id, success, data = None, 
                  error_message = "None", error_func = "None", 
                  processing_timestamp = None):
         self.run_id = run_id
@@ -179,7 +179,7 @@ class ProcessingResult:
             yield self
         else:
             for d in self.data:
-                yield ProcessingResult(self.row_id, self.success, d, self.error_message, self.error_func, self.processing_timestamp)
+                yield ProcessingResult(self.run_id, self.success, d, self.error_message, self.error_func, self.processing_timestamp)
     def to_row(self) -> Row:
         """Convert to PySpark Row"""
         return Row(**self.to_dict())
@@ -191,7 +191,7 @@ def process_edi(processing_result, func, **xargs):
     else:
         try:
             return ProcessingResult(
-                row_id = processing_result.row_id,
+                run_id = processing_result.run_id,
                 success = True,
                 data = func(processing_result.data, **xargs),
                 error_message = "None",
@@ -204,7 +204,7 @@ def process_edi(processing_result, func, **xargs):
             stack_trace = traceback.format_exc()
             
             return ProcessingResult(
-                row_id = processing_result.row_id,
+                run_id = processing_result.run_id,
                 success = False,
                 data = None,
                 error_message = f"{error_message}\nStack trace: {stack_trace}",
