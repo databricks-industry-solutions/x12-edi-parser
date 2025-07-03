@@ -3,9 +3,9 @@
 [![CLOUD](https://img.shields.io/badge/CLOUD-ALL-blue?logo=googlecloud&style=for-the-badge)](https://cloud.google.com/databricks)
 [![POC](https://img.shields.io/badge/POC-10_days-green?style=for-the-badge)](https://databricks.com/try-databricks)
 
-# Business Problem 
+# Databricks Ember 
 
-Working with various x12 EDI transactions in Spark on Databricks. Supporting
+Working with various x12 EDI transactions in Spark on Databrick with databricksx12 / ember python package. Supporting
 - **837i (institutional medical claims)**  
 - **837p (professional medial claims)**
 - **834 (Enrollment)**
@@ -30,10 +30,10 @@ pip install git+https://github.com/databricks-industry-solutions/x12-edi-parser
 
 
 ```python
-from databricksx12 import *
-from databricksx12.hls import *
+from ember import *
+from ember.hls import *
 #This class manages how the different formats are parsed together
-from databricksx12.hls.healthcare import HealthcareManager as hm
+from ember.hls.healthcare import HealthcareManager as hm
 import json
 from pyspark.sql.functions import input_file_name
 
@@ -238,9 +238,9 @@ run_metadata = result.map(lambda x: x.to_row()).toDF()
 ## Small sampling of data 
 
 ```python
-from databricksx12 import *
-from databricksx12.hls import *
-from databricksx12.hls.healthcare import HealthcareManager as hm
+from ember import *
+from ember.hls import *
+from ember.hls.healthcare import HealthcareManager as hm
 import json
 
 edi =  EDI(open("sampledata/837/CHPW_Claimdata.txt", "rb").read().decode("utf-8"))

@@ -1,8 +1,8 @@
 from .test_spark_base import *
 from .test_pyspark import *
-from databricksx12.hls import *
-from databricksx12.hls.healthcare import HealthcareManager as hm
-from databricksx12 import *
+from ember.hls import *
+from ember.hls.healthcare import HealthcareManager as hm
+from ember import *
 import unittest, re
 from functools import reduce
 from operator import add

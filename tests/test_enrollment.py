@@ -1,8 +1,8 @@
 import unittest, os, json
 from .test_spark_base import *
-from databricksx12.hls.healthcare import HealthcareManager as hm
-from databricksx12.edi import EDI, Segment
-from databricksx12.hls.enrollment import MemberEnrollment
+from ember.hls.healthcare import HealthcareManager as hm
+from ember.edi import EDI, Segment
+from ember.hls.enrollment import MemberEnrollment
 
 
 class TestEnrollment(PysparkBaseTest):
