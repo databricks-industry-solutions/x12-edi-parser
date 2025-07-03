@@ -3,7 +3,7 @@
 [![CLOUD](https://img.shields.io/badge/CLOUD-ALL-blue?logo=googlecloud&style=for-the-badge)](https://cloud.google.com/databricks)
 [![POC](https://img.shields.io/badge/POC-10_days-green?style=for-the-badge)](https://databricks.com/try-databricks)
 
-# Databricks Ember 
+# Databricks Ember for EDI Formats
 
 Working with various x12 EDI transactions in Spark on Databrick with databricksx12 / ember python package. Supporting
 - **837i (institutional medical claims)**  
