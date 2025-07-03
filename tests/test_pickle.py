@@ -1,8 +1,8 @@
 import unittest, pickle, tempfile, os, glob
-from databricksx12.edi import EDI, Segment
-from databricksx12.format import *
-from databricksx12.transaction import Transaction
-from databricksx12.functional import FunctionalGroup
+from ember.edi import EDI, Segment
+from ember.format import *
+from ember.transaction import Transaction
+from ember.functional import FunctionalGroup
 import itertools
 
 

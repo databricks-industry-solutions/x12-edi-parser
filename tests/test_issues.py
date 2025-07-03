@@ -1,7 +1,7 @@
 from .test_spark_base import *
 from .test_pyspark import *
-from databricksx12.hls.healthcare import HealthcareManager as hm
-from databricksx12 import *
+from ember.hls.healthcare import HealthcareManager as hm
+from ember import *
 import unittest, re
 from os import listdir
 from os.path import isfile, join

@@ -1,6 +1,6 @@
 from .test_spark_base import *
-from databricksx12.edi import *
-from databricksx12.hls import *
+from ember.edi import *
+from ember.hls import *
 import json
 
 class TestPyspark(PysparkBaseTest):

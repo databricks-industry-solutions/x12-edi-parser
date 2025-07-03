@@ -1,6 +1,6 @@
 import unittest, re
 from .test_spark_base import *
-from databricksx12.edi import *
+from ember.edi import *
 
 class TestEDI(PysparkBaseTest):
 
