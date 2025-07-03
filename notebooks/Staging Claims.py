@@ -12,10 +12,10 @@
 from databricksx12 import *
 from databricksx12.hls import *
 import json, os
+from databricksx12.hls.healthcare import HealthcareManager as hm
 from pyspark.sql.functions import input_file_name
 
 #hm manages the parsing of different formats
-hm = HealthcareManager()
 df = spark.read.text("file:///" + os.getcwd() + "/../sampledata/837/*txt", wholetext = True)
 
 rdd = (
