@@ -72,9 +72,9 @@ result_df.cache()
 result_df.count()
 
 #Save off parsed information
-claims_df = spark.read.json(result_df.rdd.map(lambda x: x.edi_json))
+claims = spark.read.json(result_df.rdd.map(lambda x: x.edi_json))
 
-#claims_df.write.mode(...).saveAsTable()
+#claims.write.mode(...).saveAsTable()
 ```
 
 #### Splitting with RDDs (not recommended)
