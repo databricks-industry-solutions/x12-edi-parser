@@ -29,12 +29,62 @@ pip install git+https://github.com/databricks-industry-solutions/x12-edi-parser
 > All types of EDI formats can be procesed with the same code below. However, it is recommended to build dataframes and save by resource type (837i/837p, 835, 834) to avoid confusion over empty values on a row.
 
 
+#### Using mapInArrow (recommended, fastest processing)
+
 ```python
 from ember import *
 from ember.hls import *
 #This class manages how the different formats are parsed together
 from ember.hls.healthcare import HealthcareManager as hm
-import json
+import json, itertools
+from typing import Iterator
+
+
+# operates over a partition of data
+# @param assumes DF column name "value" has EDI string data
+def process_batch(batch): 
+  return [json.dumps(d) for d in itertools.chain(*map(process_edi_string, batch.column("value")))]
+
+#row processing function, converts String to json() data of claims info
+def process_edi_string(edi_string): 
+  try:
+    return [claim.to_json() for claim in hm.from_edi(EDI(edi_string.as_py(), strict_transactions=False))]
+  except Exception as e:
+    return [{"is_error": "true", "error": str(e), "error_data": edi_string.as_py()}]
+
+# Operates over multiple batches in a partition
+def process_edi_batches_to_json(batches: Iterator[pa.RecordBatch]) -> Iterator[pa.RecordBatch]:
+    # The function receives an ITERATOR of batches, so we loop through it
+    all_json_strings_from_batch = itertools.chain(*map(process_batch,batches))
+    # After processing all rows, if we have results, create and yield a new batch
+    if all_json_strings_from_batch:
+        json_array = pa.array(all_json_strings_from_batch, type=pa.string())
+        yield pa.RecordBatch.from_arrays([json_array], names=['edi_json'])
+
+#running with a DF      
+#df = ... column name "value" contains raw string of  EDI file
+df.mapInArrow(process_edi_batches_to_json, StructType([StructField("edi_json", StringType(), True)]))
+
+#reuse result 
+result_df.cache()
+
+#Claim count extracted from data
+result_df.count()
+
+#Save off parsed information
+claims_df = spark.read.json(result_df.rdd.map(lambda x: x.edi_json))
+
+#claims_df.write.mode(...).saveAsTable()
+```
+
+#### Splitting with RDDs (not recommended)
+
+```python
+from ember import *
+from ember.hls import *
+#This class manages how the different formats are parsed together
+from ember.hls.healthcare import HealthcareManager as hm
+import json, itertools
 from pyspark.sql.functions import input_file_name
 
 df = spark.read.text("sampledata/837/*txt", wholetext = True)
