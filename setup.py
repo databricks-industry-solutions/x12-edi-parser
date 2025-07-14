@@ -9,7 +9,7 @@ with open(path.join(this_directory, "README.md"), encoding="utf-8") as f:
 
 setup(
     name="databricksx12",
-    version="0.0.5",
+    version="0.0.6",
     # python_requires='>=3.9.*',
     python_requires='>=3.9',
     author="Aaron Zavora, Raven Mukherjee",
