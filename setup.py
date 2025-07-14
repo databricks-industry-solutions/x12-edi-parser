@@ -27,8 +27,8 @@ setup(
     package_dir={
         'databricksx12': 'databricksx12',
         'ember': 'src/databricksx12' 
-    }
-    py_modules=['databricksx12'],
+    },
+    py_modules=['databricksx12', 'ember'],
     extras_require={
         'test': [
             'pyspark>=3.4.0',
