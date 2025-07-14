@@ -9,7 +9,7 @@ with open(path.join(this_directory, "README.md"), encoding="utf-8") as f:
 
 setup(
     name="databricksx12",
-    version="0.0.5",
+    version="0.0.6",
     # python_requires='>=3.9.*',
     python_requires='>=3.9',
     author="Aaron Zavora, Raven Mukherjee",
@@ -23,8 +23,12 @@ setup(
         "License :: Other/Proprietary License",
         "Operating System :: OS Independent",
     ],
-    packages=['databricksx12', 'databricksx12.hls'],
-    py_modules=['databricksx12'],
+    packages=['databricksx12', 'databricksx12.hls', 'ember', 'ember.hls'],
+    package_dir={
+        'databricksx12': 'databricksx12',
+        'ember': 'databricksx12' 
+    },
+    py_modules=['databricksx12', 'ember'],
     extras_require={
         'test': [
             'pyspark>=3.4.0',
