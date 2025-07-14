@@ -20,23 +20,8 @@ class Transaction(EDI):
         self.format_cls = delim_cls
         self.transaction_type = transaction_type
 
-    def __getstate__(self):
-        """
-        Return state values to be pickled.
-        Called by pickle.dumps() and cloudpickle.dumps()
-        """
-        return {
-            'data': self.data,
-            'format_cls': self.format_cls,
-            'transaction_type': self.transaction_type
-        }
+    
+class TransactionManager(EDI):
 
-    def __setstate__(self, state):
-        """
-        Restore state from the unpickled state values.
-        Called by pickle.loads() and cloudpickle.loads()
-        """
-        self.data = state['data']
-        self.format_cls = state['format_cls']
-        self.transaction_type = state['transaction_type']
-
+    def __init__(self, transactions, transaction_class_mapping):
+        pass

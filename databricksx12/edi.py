@@ -34,7 +34,10 @@ class EDI():
 
     @staticmethod
     def extract_delim(data):
-        return Format(ELEMENT_DELIM= data[3:4], SEGMENT_DELIM = data[105:106], SUB_DELIM = data[104:105])
+        SEGMENT_DELIM = "~"
+        ELEMENT_DELIM = "*"
+        SUB_DELIM = ":"
+        return Format(ELEMENT_DELIM= ELEMENT_DELIM, SEGMENT_DELIM = SEGMENT_DELIM, SUB_DELIM = SUB_DELIM)
 
     #
     # Returns total count of segments
@@ -173,69 +176,6 @@ class EDI():
     def header(self):
         return self.data[0]
 
-    def __getstate__(self):
-        """
-        Return state values to be pickled.
-        Called by pickle.dumps() and cloudpickle.dumps()
-        """
-        return {
-            'format_cls': self.format_cls,
-            'data': self.data,
-            'isa': self.isa,
-            'sender_qualifier_id': self.sender_qualifier_id,
-            'recipient_qualifier_id': self.recipient_qualifier_id,
-            'standard_version': self.standard_version,
-            'date': self.date,
-            'time': self.time,
-            'control_number': self.control_number,
-            '_strict_transactions': self._strict_transactions
-        }
-
-    def __setstate__(self, state):
-        """
-        Restore state from the unpickled state values.
-        Called by pickle.loads() and cloudpickle.loads()
-        """
-        self.format_cls = state['format_cls']
-        self.data = state['data']
-        self.isa = state['isa']
-        self.sender_qualifier_id = state['sender_qualifier_id']
-        self.recipient_qualifier_id = state['recipient_qualifier_id']
-        self.standard_version = state['standard_version']
-        self.date = state['date']
-        self.time = state['time']
-        self.control_number = state['control_number']
-        self._strict_transactions = state['_strict_transactions']
-
-    def __eq__(self, other):
-        """
-        Equality evaluation for EDI objects.
-        Two EDI objects are equal if all segments in their data field are equal.
-        """
-        if not isinstance(other, EDI):
-            return False
-        
-        # Check if the number of segments is the same
-        if len(self.data) != len(other.data):
-            return False
-        
-        # Compare each segment
-        for i, segment in enumerate(self.data):
-            if segment != other.data[i]:
-                return False
-        
-        return True
-
-    def __ne__(self, other):
-        """
-        Inequality evaluation for EDI objects.
-        """
-        return not self.__eq__(other)
-
-    #reprint the EDI file as is
-    def __str__(self):
-        return '\n'.join([s.data for s in self.data])
-
 
 
 class Segment():
@@ -271,8 +211,8 @@ class Segment():
     #
     # @returns the number of sub elements in a segment
     #
-    def sub_element_len(self, element = 0):
-        return len(self.data.split(self.format_cls.ELEMENT_DELIM)[element].split(self.format_cls.SUB_DELIM))
+    def sub_element_len(self):
+        return len(self.data.split(self.format_cls.SUB_DELIM))
 
     #
     # First element is the segment name
@@ -290,40 +230,8 @@ class Segment():
     def empty(cls):
         return cls(data="")
 
-    def __getstate__(self):
-        """
-        Return state values to be pickled.
-        Called by pickle.dumps() and cloudpickle.dumps()
-        """
-        return {
-            'data': self.data,
-            'format_cls': self.format_cls
-        }
-
-    def __setstate__(self, state):
-        """
-        Restore state from the unpickled state values.
-        Called by pickle.loads() and cloudpickle.loads()
-        """
-        self.data = state['data']
-        self.format_cls = state['format_cls']
-
-    def __eq__(self, other):
-        """
-        Equality evaluation for Segment objects.
-        Two Segment objects are equal if their data field (string) is equal.
-        """
-        if not isinstance(other, Segment):
-            return False
-        
-        return self.data == other.data
-
-    def __ne__(self, other):
-        """
-        Inequality evaluation for Segment objects.
-        """
-        return not self.__eq__(other)
-
+    def is_empty(self):
+        return None
 
 #
 # Manage relationship heirarchy within EDI
@@ -374,3 +282,12 @@ class EDIManager():
         else:
             return EDIManager.class_metadata(data)
 
+
+"""
+from databricksx12.edi import *
+x =  EDIManager(EDI(open("sampledata/837/CHPW_Claimdata.txt", "rb").read().decode("utf-8")))
+
+import json
+print(json.dumps(x.flatten(x.data), indent=4))
+
+"""

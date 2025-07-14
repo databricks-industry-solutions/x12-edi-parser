@@ -1,6 +1,6 @@
 from databricksx12.edi import Segment
 from typing import List, Dict
-import itertools
+
 from collections import defaultdict
 from functools import reduce
 
@@ -49,14 +49,16 @@ class PatientIdentity(Identity):
             self.dob = dmg.element(2)
             self.dob_format = dmg.element(1)
             self.gender_cd = dmg.element(3)
-            self.mrn = ref.element(2)
+            self.mrn = ref.element(1)
+            self.id = ref.element(2)
+
 
 class ClaimIdentity(Identity):
     #
     # clm, cl1 are individual segments
     # dtp is a loop of 0 or more dates 
     #
-    def __init__(self, clm, dtp, cl1 = Segment.empty(), k3 = Segment.empty(), hi = Segment.empty(), ref = [], amt = [],  principal_hi = Segment.empty(), other_hi = []):
+    def __init__(self, clm, dtp, cl1 = Segment.empty(), k3 = Segment.empty(), hi = Segment.empty()):
         self.claim_id = clm.element(1)
         self.claim_amount = clm.element(2)
         self.facility_type_code = clm.element(5)
@@ -66,28 +68,17 @@ class ClaimIdentity(Identity):
         self.discharge_status_cd = cl1.element(3)
         self.encounter_id = k3.element(1)
         self.drg_cd = hi.element(1)
-        self.clm_refs = [{'id_code_qualifier': x.element(1), 'id': x.element(2)} for x in ref]
-        self.other_amts = [{'amt_qualifier_cd': a.element(1), 'amt': a.element(2)} for a in amt]
-        self.icd10_pcs_cds = { #only 837i
-            'principal_prcdr': {'prcdr_cd': principal_hi.element(1,1), 'date_format': principal_hi.element(1,2), 'date': principal_hi.element(1,3)},
-            'other_cds': list(itertools.chain(*[
-                [{'prcdr_cd': s.element(i,1), 'date_format': s.element(i,2), 'date': s.element(i,3)} for i in list(range(1, s.segment_len()))]
-            for s in other_hi])) 
-        }
+        
 
-# POA is the last sub element of the respective segments
 class DiagnosisIdentity(Identity):
     def __init__(self, hi_segments):
         self.principal_dx_cd = "" if [s.element(1,1) for s in hi_segments if s.element(1, 0) == "ABK"] == [] else [s.element(1,1) for s in hi_segments if s.element(1, 0) == "ABK"][0]
-        self.principal_dx_poa = "" if [s.element(1,1) for s in hi_segments if s.element(1, 0) == "ABK"] == [] else [s.element(1,s.sub_element_len(1)-1) for s in hi_segments if s.element(1,0) == "ABK"][0]
         self.admitting_dx_cd = "" if [s.element(1,1) for s in hi_segments if s.element(1, 0) == "ABJ"] == []	else [s.element(1,1) for s in hi_segments if s.element(1, 0) == "ABJ"][0]
-        self.admitting_dx_poa = "" if [s.element(1,1) for s in hi_segments if s.element(1, 0) == "ABJ"] == []	else [s.element(1,s.sub_element_len(1)-1) for s in hi_segments if s.element(1,0) == "ABJ"][0]
         self.reason_visit_dx_cd = "" if [s.element(1,1) for s in hi_segments if s.element(1, 0) == "APR"] == [] else [s.element(1,1) for s in hi_segments if s.element(1, 0) == "APR"][0]
-        self.reason_visit_dx_poa = "" if [s.element(1,1) for s in hi_segments if s.element(1, 0) == "APR"] == [] else [s.element(1,s.sub_element_len(1)-1) for s in hi_segments if s.element(1,0) == "APR"][0]
         self.external_injury_dx_cd = "" if [s.element(1,1) for s in hi_segments if s.element(1, 0) == "ABN"] == [] else [s.element(1,1) for s in hi_segments if s.element(1, 0) == "ABN"][0]
-        self.external_injury_dx_poa = "" if [s.element(1,1) for s in hi_segments if s.element(1, 0) == "ABN"] == [] else [s.element(1,s.sub_element_len(1)-1) for s in hi_segments if s.element(1,0) == "ABN"][0]
-        self.other_dx_cds = list(itertools.chain(*[[{'dx_cd': s.element(i,1), 'poa': s.element(i,s.sub_element_len(i)-1)} for i in list(range(1, s.segment_len())) if s.element(i,0) == "ABF"]
-            for s in hi_segments if s.element(1, 0) == "ABF"]))
+        self.other_dx_cds = ','.join([
+            ','.join([s.element(i,1) for i in list(range(1, s.segment_len())) if s.element(i,0) == "ABF"])
+            for s in hi_segments if s.element(1, 0) == "ABF"])
     
 class Submitter_Receiver_Identity(Identity):
     def __init__(self, nm1=Segment.empty(), per= Segment.empty()):
@@ -106,19 +97,20 @@ class ServiceLine(Identity):
             setattr(self,k,v)
 
     @staticmethod
-    def common(sv, lx, dtp, amt):
+    def common(sv, lx, dtp):
         return {
             "claim_line_number": lx.element(1),
-            "service_dates": [{'date_cd': s.element(1), 'date_format': s.element(2), 'date': s.element(3)} for s in dtp],
-            'other_amts': [{'amt_qualifier_cd': a.element(1), 'amt': a.element(2)} for a in amt]
+            "service_date": dtp.element(3),
+            "service_time": dtp.element(1),
+            "service_date_format": dtp.element(2)
         }
 
     #
     # Institutional Claims
     #
     @classmethod
-    def from_sv2(cls, sv2, lx, dtp, amt):
-        return cls({**cls.common(sv2, lx, dtp,amt),
+    def from_sv2(cls, sv2, lx, dtp):
+        return cls({**cls.common(sv2, lx, dtp),
                     **{
                         "units": sv2.element(5),
                         "units_measurement": sv2.element(4),
@@ -127,7 +119,10 @@ class ServiceLine(Identity):
                         "prcdr_cd_type": sv2.element(2, 0, ""),
                         "modifier_cds": ','.join(filter(lambda x: x!="", [sv2.element(2, 2, ""), sv2.element(2, 3, ""), sv2.element(2, 4,""), sv2.element(2, 5, "")])),
                         "revenue_cd": sv2.element(1),
-                        "service_dates": [{'date_cd': s.element(1), 'date_format': s.element(2), 'date': s.element(3)} for s in dtp]
+                        "service_date": dtp.element(3),
+                        "service_time": dtp.element(1),
+                        "date_format": dtp.element(2),
+                        "dg_cd_pntr": sv2.element(7),
                     }
                 })
 
@@ -135,8 +130,8 @@ class ServiceLine(Identity):
     # Professional Claims
     #
     @classmethod
-    def from_sv1(cls, sv1, lx, dtp, amt):
-        return cls({**cls.common(sv1, lx, dtp, amt),
+    def from_sv1(cls, sv1, lx, dtp):
+        return cls({**cls.common(sv1, lx, dtp),
                     **{
                         "units": sv1.element(4),
                         "units_measurement": sv1.element(3),
@@ -146,7 +141,10 @@ class ServiceLine(Identity):
                         "modifier_cds": ','.join(filter(lambda x: x!="", [sv1.element(1, 2, ""), sv1.element(1, 3, ""), sv1.element(1, 4,""), sv1.element(1, 5, "")])),
                         "place_of_service": sv1.element(5),
                         "dg_cd_pntr": sv1.element(7),
-                        "service_dates": [{'date_cd': s.element(1), 'date_format': s.element(2), 'date': s.element(3)} for s in dtp]
+                        "service_date": dtp.element(3),
+                        "service_time": dtp.element(1),
+                        "date_format": dtp.element(2)
+
                     }
                 })
         
