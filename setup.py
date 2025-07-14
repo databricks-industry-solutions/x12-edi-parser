@@ -23,7 +23,11 @@ setup(
         "License :: Other/Proprietary License",
         "Operating System :: OS Independent",
     ],
-    packages=['databricksx12', 'databricksx12.hls'],
+    packages=['databricksx12', 'databricksx12.hls', 'ember', 'ember.hls'],
+    package_dir={
+        'databricksx12': 'databricksx12',
+        'ember': 'src/databricksx12' 
+    }
     py_modules=['databricksx12'],
     extras_require={
         'test': [
