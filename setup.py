@@ -26,7 +26,7 @@ setup(
     packages=['databricksx12', 'databricksx12.hls', 'ember', 'ember.hls'],
     package_dir={
         'databricksx12': 'databricksx12',
-        'ember': 'src/databricksx12' 
+        'ember': 'databricksx12' 
     },
     py_modules=['databricksx12', 'ember'],
     extras_require={
