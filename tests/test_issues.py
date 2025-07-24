@@ -55,8 +55,11 @@ class TestIssues(PysparkBaseTest):
         assert(len(data[1].to_json()['claim']['service_adjustments']) == 1)
         assert(len(data[2].to_json()['claim']['service_adjustments']) == 2)
 
-    def test_issue45_poa(self):
-        pass
+    def test_sl_bleed(self):
+        edi = EDI(open('sampledata/837/837p.txt', 'rb').read().decode("utf-8"))
+        data = hm.from_edi(edi)
+        assert len([x for x in data[0].sl_loop if x.segment_name() == "SV1"]) == 1
+        assert len([x for x in data[1].sl_loop if x.segment_name() == "SV1"]) == 1
         
 
 if __name__ == '__main__':
