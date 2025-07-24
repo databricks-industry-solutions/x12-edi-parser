@@ -89,12 +89,14 @@ class ClaimBuilder(EDI):
     # fetch the indices of LX and CLM segments that are beyond the current clm index
     #
     def get_service_line_loop(self, clm_idx):
-        sl_start_indexes = list(map(lambda x: x[0], filter(lambda x: x[0] > clm_idx, self.segments_by_name_index("LX"))))
-        tx_end_indexes = list(map(lambda x: x[0], filter(lambda x: x[0] > clm_idx, self.segments_by_name_index("SE"))))
-        if sl_start_indexes:
-            sl_end_idx = min(tx_end_indexes + [len(self.data)])
-            return self.data[min(sl_start_indexes):sl_end_idx]
-        return []
+        sl_starts = list(map(lambda x: x[0], filter(lambda x: x[0] > clm_idx, self.segments_by_name_index("LX"))))
+        if not sl_starts:
+            return []
+        sl_start = min(sl_starts)
+        clm_idxs = list(map(lambda x: x[0],filter(lambda x: x[0] > clm_idx, self.segments_by_name_index("CLM"))))
+        se_idxs = list(map(lambda x: x[0], filter(lambda x: x[0] > clm_idx, self.segments_by_name_index("SE"))))
+        sl_end = min(clm_idxs + se_idxs + [len(self.data)])
+        return self.data[sl_start:sl_end]
 
     def get_submitter_receiver_loop(self, clm_idx):
         bht_start_indexes = list(map(lambda x: x[0], filter(lambda x: x[0] < clm_idx, self.segments_by_name_index("BHT"))))
