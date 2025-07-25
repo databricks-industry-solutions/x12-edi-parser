@@ -12,12 +12,14 @@ class Remittance(MedicalClaim):
                  payer_loop,
                  payee_loop,
                  clm_loop,
-                 trx_summary_loop):
+                 trx_summary_loop,
+                 header_number_loop):
         self.trx_header_loop = trx_header_loop
         self.payer_loop = payer_loop
         self.payee_loop = payee_loop
         self.clm_loop = clm_loop
         self.trx_summary_loop = trx_summary_loop
+        self.header_number_loop = header_number_loop 
         self.build()
 
     def build(self):
@@ -26,7 +28,12 @@ class Remittance(MedicalClaim):
         self.payee_info = self.populate_payee_loop()
         self.clm_info = self.populate_claim_loop()
         self.plb_info = self.populate_plb_loop()
+        self.header_info = self.populate_header_loop()
 
+    def populate_header_loop(self): 
+        return {
+            'provider_id': self._first(self.header_number_loop, 'TS3').element(1)
+        }
     #
     # Assuming npi, date, then repeating <reason cd:id, adj amount>
     #
@@ -160,7 +167,8 @@ class Remittance(MedicalClaim):
             **{'payer': self.payer_info},
             **{'payee': self.payee_info},
             **{'claim': self.clm_info},
-            **{'provider_adjustments': self.plb_info}
+            **{'provider_adjustments': self.plb_info},
+            **{'header_info': self.header_info}
         }
     
     

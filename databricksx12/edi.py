@@ -19,6 +19,13 @@ class EDI():
         self.format_cls = (self.extract_delim(data) if delim_cls is None else delim_cls)
         self.data = [Segment(x, self.format_cls) for x in data.split(self.format_cls.SEGMENT_DELIM)[:-1]]
 
+        self._segment_index = {}
+        for i, segment in enumerate(self.data):
+            name = segment.segment_name()
+            if name not in self._segment_index:
+                self._segment_index[name] = []
+            self._segment_index[name].append(i)
+
         self.isa = (self.segments_by_name("ISA")[0] if len(self.segments_by_name("ISA")) > 0 else Segment.empty())
         self.sender_qualifier_id = self.isa.element(5) + self.isa.element(6)
         self.recipient_qualifier_id = self.isa.element(7) + self.isa.element(8)
@@ -46,9 +53,18 @@ class EDI():
     # Returns all segments matching segment_name
     #
     def segments_by_name(self, segment_name, range_start=-1, range_end=None, data = None):
-        if data is None:
-            data = self.data
-        return [x for i,x in enumerate(data) if x.segment_name() == segment_name and range_start <= i <= (range_end or len(data))]
+        if data is not None:
+            return [x for i,x in enumerate(data) if x.segment_name() == segment_name and range_start <= i <= (range_end or len(data))]
+
+        if segment_name not in self._segment_index:
+            return []
+        
+        indices = self._segment_index[segment_name]
+        
+        end = range_end or len(self.data)
+        filtered_indices = [i for i in indices if range_start <= i <= end]
+        
+        return [self.data[i] for i in filtered_indices]
 
     #
     # Returns a tuple of all segments matching segment_name and their index
@@ -148,7 +164,7 @@ class EDI():
                 )
 
 
-    def to_json(self, exclude=["data", "raw_data", "isa", "format_cls", "fg","_strict_transactions"]):
+    def to_json(self, exclude=["_segment_index", "data", "raw_data", "isa", "format_cls", "fg","_strict_transactions", "st", "se"]):
         return {str(self.__class__.__name__ + "." + attr): getattr(self, attr) for attr in dir(self) if not callable(getattr(self, attr)) and not attr.startswith("__") and attr not in exclude}
 
     """
@@ -246,6 +262,9 @@ class Segment():
     def __init__(self, data, delim_cls = AnsiX12Delim):
         self.data = data.lstrip("\r").lstrip("\n").lstrip("\r\n")
         self.format_cls = delim_cls
+        self._elements = self.data.split(self.format_cls.ELEMENT_DELIM)
+        self._name = self._elements[0] if self._elements else ""
+
 
     #
     # @param element - numeric value of the field (starting at 0)
@@ -255,10 +274,10 @@ class Segment():
     #
     def element(self, element, sub_element=-1, dne=""):
         try:
-            return ( self.data.split(self.format_cls.ELEMENT_DELIM)[element]
-                     if sub_element == -1 else
-                     self.data.split(self.format_cls.ELEMENT_DELIM)[element].split(self.format_cls.SUB_DELIM)[sub_element]
-                    )
+            if sub_element == -1:
+                return self._elements[element]
+            else:
+                return self._elements[element].split(self.format_cls.SUB_DELIM)[sub_element]
         except:
             return dne
 
@@ -266,19 +285,19 @@ class Segment():
     # @returns number of elements in a segment 
     #
     def segment_len(self):
-        return len(self.data.split(self.format_cls.ELEMENT_DELIM))
+        return len(self._elements)
 
     #
     # @returns the number of sub elements in a segment
     #
     def sub_element_len(self, element = 0):
-        return len(self.data.split(self.format_cls.ELEMENT_DELIM)[element].split(self.format_cls.SUB_DELIM))
+        return len(self._elements[element].split(self.format_cls.SUB_DELIM))
 
     #
     # First element is the segment name
     #
     def segment_name(self):
-        return self.data.split(self.format_cls.ELEMENT_DELIM)[0]
+        return self._name
 
     #
     # Filter this segment for element/sub_element values
@@ -307,6 +326,8 @@ class Segment():
         """
         self.data = state['data']
         self.format_cls = state['format_cls']
+        self._elements = self.data.split(self.format_cls.ELEMENT_DELIM)
+        self._name = self._elements[0] if self._elements else ""
 
     def __eq__(self, other):
         """
@@ -356,8 +377,8 @@ class EDIManager():
     #  @returns a python dictionary representing metadata found in EDI/FunctionalGroup/Transaction classes
     #
     @staticmethod
-    def class_metadata(cls_obj, exclude=['data', 'raw_data', 'isa', 'format_cls', 'fg', '_strict_transactions']):
-        return {str(cls_obj.__class__.__name__ + "." + attr): getattr(cls_obj, attr) for attr in dir(cls_obj) if not callable(getattr(cls_obj, attr)) and not attr.startswith("__") and attr not in exclude}
+    def class_metadata(cls_obj):
+        return cls_obj.to_json()
 
     #
     # Flatten data from EDI to represent 

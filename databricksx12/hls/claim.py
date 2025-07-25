@@ -45,6 +45,7 @@ class ClaimBuilder(EDI):
     #  trx_header_loop = 0000
     #  payer_loop = 1000A
     #  payee_loop = 1000B
+    #  header_number_loop = 2000
     #  clm_payment_loop = 2100
     #  srv_payment_loop = 2110
     def build_remittance(self, pay_segment, idx):
@@ -62,6 +63,7 @@ class ClaimBuilder(EDI):
                                 self.last_index_of_segment(self.data, "CLP"),
                                 self.last_index_of_segment(self.data, "SVC")
                              ):]
+                             ,header_number_loop = self.data[self.index_of_segment(self.data, "LX"):idx]
                             )
 
     def build_enrollment(self, pay_segment, idx):
