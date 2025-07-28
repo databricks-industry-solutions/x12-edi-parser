@@ -35,7 +35,7 @@ class MemberEnrollment(MedicalClaim):
         current_plan = None
 
         for seg in self.health_plan_segments:
-            seg_type = seg.segment_name()
+            seg_type = seg._name
 
             if seg_type == "HD":
                 if current_plan:

@@ -21,7 +21,7 @@ class EDI():
 
         self._segment_index = {}
         for i, segment in enumerate(self.data):
-            name = segment.segment_name()
+            name = segment._name
             if name not in self._segment_index:
                 self._segment_index[name] = []
             self._segment_index[name].append(i)
@@ -54,7 +54,7 @@ class EDI():
     #
     def segments_by_name(self, segment_name, range_start=-1, range_end=None, data = None):
         if data is not None:
-            return [x for i,x in enumerate(data) if x.segment_name() == segment_name and range_start <= i <= (range_end or len(data))]
+            return [x for i,x in enumerate(data) if x._name == segment_name and range_start <= i <= (range_end or len(data))]
 
         if segment_name not in self._segment_index:
             return []
@@ -72,14 +72,14 @@ class EDI():
     def segments_by_name_index(self, segment_name, range_start=-1, range_end = None, data = None):
         if data is None:
             data = self.data
-        return [(i,x) for i,x in enumerate(data) if x.segment_name() == segment_name and range_start <= i <= (range_end or len(data))]
+        return [(i,x) for i,x in enumerate(data) if x._name == segment_name and range_start <= i <= (range_end or len(data))]
 
     #
     # Return the first occurence index of the specified segment
     #
     def index_of_segment(self, segments, segment_name, search_start_idx=0):
         try:
-            return min([(i) for i,x in enumerate(segments) if x.segment_name() == segment_name and i >=search_start_idx])
+            return min([(i) for i,x in enumerate(segments) if x._name == segment_name and i >=search_start_idx])
         except:
             return -1 #not found
 
@@ -88,7 +88,7 @@ class EDI():
     #
     def last_index_of_segment(self, segments, segment_name, search_start_idx = 0):
         try:
-            return max([(i) for i,x in enumerate(segments) if x.segment_name() == segment_name and i >=search_start_idx])
+            return max([(i) for i,x in enumerate(segments) if x._name == segment_name and i >=search_start_idx])
         except:
             return -1
 
@@ -129,14 +129,16 @@ class EDI():
     #
     def functional_segments(self):
         from databricksx12.functional import FunctionalGroup
-        return [FunctionalGroup(self.segments_by_position(self.last_index_of_segment(self.data[:a], "GS", 0),b+1), self.format_cls, strict_transactions=self._strict_transactions) for a,b in self._functional_group_locations()]
+        return [FunctionalGroup(self.segments_by_position(a, b + 1), self.format_cls, strict_transactions=self._strict_transactions) for a,b in self._functional_group_locations()]
                         
 
     def _functional_group_locations(self):
-        return list(map(self._functional_segments_trx_list, [(i, int(y.element(1))) for i, y in self.segments_by_name_index("GE")]))
+        gs_indices = self._segment_index.get("GS", [])
+        ge_indices = self._segment_index.get("GE", [])
+        return list(zip(gs_indices, ge_indices))
 
     def _valid_se01(self):
-        if self._strict_transactions and set([self.data[i].segment_name() for i,j in self._transaction_locations()]) != {'ST'}:
+        if self._strict_transactions and set([self.data[i]._name for i,j in self._transaction_locations()]) != {'ST'}:
             raise Exception("SE01 segment(s) do not match to the beginning ST segment. File won't parse correctly. Is the file altered?\nTo Continue anyway, rerun with EDI(... strict_transactions=False)")
         return True
     
@@ -144,26 +146,14 @@ class EDI():
     # Find all locations of a transaction
     #
     def _transaction_locations(self):
-        return [(i - int(x.element(1))+1,i+1) for i,x in  self.segments_by_name_index("SE")] if self._strict_transactions else list(zip([i for i,x in self.segments_by_name_index("ST")], [i+1 for i, x in self.segments_by_name_index("SE")]))
+        if self._strict_transactions:
+            se_indices = self._segment_index.get("SE", [])
+            return [(i - int(self.data[i].element(1)) + 1, i) for i in se_indices]
+        else:
+            st_indices = self._segment_index.get("ST", [])
+            se_indices = self._segment_index.get("SE", [])
+            return list(zip(st_indices, se_indices))
     
-    #
-    # Fold left, given a
-    #   @param functional_group = tuple (i,x)
-    #   @param where i = start location in file of trailer segment
-    #   @param where x = number of transactions in the functional group
-    #
-    #   @return a tuple of the start/end locations of the transactions
-    #
-    def _functional_segments_trx_list(self, functional_group):
-        l = ()
-        f = lambda trxs, x, fg: x if len(trxs) <= fg[1] and x[1] <= fg[0] else []
-        return functools.reduce(lambda a,b: (min(a[0], b[0]), max(a[1], b[1])),
-                    filter(
-                        lambda y: y != [], [l := f(l, x, functional_group) for x in self._transaction_locations()]
-                    )
-                )
-
-
     def to_json(self, exclude=["_segment_index", "data", "raw_data", "isa", "format_cls", "fg","_strict_transactions", "st", "se"]):
         return {str(self.__class__.__name__ + "." + attr): getattr(self, attr) for attr in dir(self) if not callable(getattr(self, attr)) and not attr.startswith("__") and attr not in exclude}
 
@@ -176,7 +166,7 @@ class EDI():
           *Row data with split functionality to easily access row members 
     """
     def toRows(self):
-        return [{"segment_name": x.segment_name()
+        return [{"segment_name": x._name
                  ,"segment_length": x.segment_len()
                  ,"row_number": i
                  ,"row_data": x.data
@@ -294,16 +284,10 @@ class Segment():
         return len(self._elements[element].split(self.format_cls.SUB_DELIM))
 
     #
-    # First element is the segment name
-    #
-    def segment_name(self):
-        return self._name
-
-    #
     # Filter this segment for element/sub_element values
     #
     def filter(self, value, element, sub_element, dne=""):
-        return self if value == self.get_element(element, sub_element, dne) else None
+        return self if value == self.element(element, sub_element, dne) else None
 
     @classmethod
     def empty(cls):

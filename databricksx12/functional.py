@@ -9,7 +9,7 @@ class FunctionalGroup(EDI):
 
         self._segment_index = {}
         for i, segment in enumerate(self.data):
-            name = segment.segment_name()
+            name = segment._name
             if name not in self._segment_index:
                 self._segment_index[name] = []
             self._segment_index[name].append(i)
@@ -33,7 +33,7 @@ class FunctionalGroup(EDI):
     #
     def transaction_segments(self):
         from databricksx12.transaction import Transaction
-        return [Transaction(self.segments_by_position(a,b), self.format_cls, self.transaction_type) for a,b in self._transaction_locations()]
+        return [Transaction(self.segments_by_position(a,b + 1), self.format_cls, self.transaction_type) for a,b in self._transaction_locations()]
 
 
     #

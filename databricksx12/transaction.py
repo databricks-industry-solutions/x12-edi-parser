@@ -22,7 +22,7 @@ class Transaction(EDI):
 
         self._segment_index = {}
         for i, segment in enumerate(self.data):
-            name = segment.segment_name()
+            name = segment._name
             if name not in self._segment_index:
                 self._segment_index[name] = []
             self._segment_index[name].append(i)

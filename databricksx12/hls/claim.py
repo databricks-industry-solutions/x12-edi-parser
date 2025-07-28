@@ -156,7 +156,7 @@ class MedicalClaim(EDI):
     # Return first segment found of name == name otherwise Segment.empty()
     #
     def _first(self, segments, name, start_index = 0):
-        return ([x for x in segments[start_index:] if x.segment_name() == name][0]  if len([x for x in segments[start_index:] if x.segment_name() == name]) > 0 else Segment.empty())
+        return ([x for x in segments[start_index:] if x._name == name][0]  if len([x for x in segments[start_index:] if x._name == name]) > 0 else Segment.empty())
         
     def _populate_providers(self):
         return {"billing": self._billing_provider()}
@@ -168,7 +168,7 @@ class MedicalClaim(EDI):
                                 ref=self._first(self.billing_loop, "REF"))
 
     def _populate_diagnosis(self):
-        return DiagnosisIdentity([x for x in self.claim_loop if x.segment_name() == "HI"])
+        return DiagnosisIdentity([x for x in self.claim_loop if x._name == "HI"])
     
     def _populate_submitter_loop(self) -> Dict[str, str]:
         return Submitter_Receiver_Identity(nm1=self._first([x for x in self.sender_receiver_loop if x.element(1) == "41"],"NM1"),
@@ -205,7 +205,7 @@ class MedicalClaim(EDI):
         return ClaimIdentity(clm = self._first(self.claim_loop, "CLM"),
                              dtp = self.segments_by_name("DTP", data=self.claim_loop),
                              k3 = self._first(self.claim_loop, "K3"),
-                             ref = self.segments_by_name("REF", data=self.claim_loop[:(len(self.claim_loop)-1 if (temp := [i for i, x in enumerate(self.claim_loop) if x.segment_name() == "NM1"]) == [] else temp[0]) ]), #ref up until loop 2310
+                             ref = self.segments_by_name("REF", data=self.claim_loop[:(len(self.claim_loop)-1 if (temp := [i for i, x in enumerate(self.claim_loop) if x._name == "NM1"]) == [] else temp[0]) ]), #ref up until loop 2310
                              amt = self.segments_by_name("AMT", data=self.claim_loop)) #ref up until loop 2310
 
 
@@ -232,7 +232,7 @@ class MedicalClaim(EDI):
         }
 
     def _service_facility_provider(self):
-        i, nm1 = ((-1,Segment.empty()) if (temp := [(i,x) for i, x in enumerate(self.claim_loop) if x.element(1) == "77" and x.segment_name() == "NM1"]) == [] else temp[0])
+        i, nm1 = ((-1,Segment.empty()) if (temp := [(i,x) for i, x in enumerate(self.claim_loop) if x.element(1) == "77" and x._name == "NM1"]) == [] else temp[0])
         return ProviderIdentity(nm1=nm1,
                                 n3=self._first([x for x in self.claim_loop[i+1:i+3]],"N3"),
                                 n4=self._first([x for x in self.claim_loop[i+1:i+3]],"N4"),
@@ -243,7 +243,7 @@ class MedicalClaim(EDI):
     #
     def claim_lines(self):
         return list(map(lambda i: self.sl_loop[i[0]:i[1]],
-                self._index_to_tuples([(i) for i,y in enumerate(self.sl_loop) if y.segment_name()=="LX"]+[len(self.sl_loop)])))
+                self._index_to_tuples([(i) for i,y in enumerate(self.sl_loop) if y._name=="LX"]+[len(self.sl_loop)])))
 
     def build(self) -> None:
         self.submitter_info = self._populate_submitter_loop()
@@ -265,7 +265,7 @@ class Claim837i(MedicalClaim):
     # Format for 837I https://www.dhs.wisconsin.gov/publications/p0/p00266.pdf
     
     def _attending_provider(self):
-        i, nm1 = ((-1,Segment.empty()) if (temp := [(i,x) for i, x in enumerate(self.claim_loop) if x.element(1) == "71" and x.segment_name() == "NM1"]) == [] else temp[0])
+        i, nm1 = ((-1,Segment.empty()) if (temp := [(i,x) for i, x in enumerate(self.claim_loop) if x.element(1) == "71" and x._name == "NM1"]) == [] else temp[0])
         return ProviderIdentity(nm1=nm1,
                                 prv=self._first([x for x in self.claim_loop if x.element(1) == "AT"],"PRV"),
                                 ref=(Segment.empty() if i == -1 else self._first(self.claim_loop[i:self.index_of_segment(self.claim_loop, "NM1", i+1)],  "REF")) )
@@ -291,11 +291,11 @@ class Claim837i(MedicalClaim):
                              dtp = self.segments_by_name("DTP", data = self.claim_loop),
                              cl1 = self._first(self.claim_loop, "CL1"),
                              k3 = self._first(self.claim_loop, "K3"),
-                             hi = self._first([x for x in self.claim_loop if x.segment_name() == "HI" and x.element(1).startswith("DR")], "HI"), #DRG_CD
-                             ref = self.segments_by_name("REF", data=self.claim_loop[:(len(self.claim_loop)-1 if (temp := [i for i, x in enumerate(self.claim_loop) if x.segment_name() == "NM1"]) == [] else temp[0]) ]), #ref up until loop 2310 
+                             hi = self._first([x for x in self.claim_loop if x._name == "HI" and x.element(1).startswith("DR")], "HI"), #DRG_CD
+                             ref = self.segments_by_name("REF", data=self.claim_loop[:(len(self.claim_loop)-1 if (temp := [i for i, x in enumerate(self.claim_loop) if x._name == "NM1"]) == [] else temp[0]) ]), #ref up until loop 2310 
                              amt = self.segments_by_name("AMT", data=self.claim_loop),
-                             principal_hi = self._first([x for x in self.claim_loop if x.segment_name() == "HI" and x.element(1,0) == ("BBR")], "HI"),
-                             other_hi = [x for x in self.claim_loop if x.segment_name() == "HI" and x.element(1,0) == ("BBQ")]
+                             principal_hi = self._first([x for x in self.claim_loop if x._name == "HI" and x.element(1,0) == ("BBR")], "HI"),
+                             other_hi = [x for x in self.claim_loop if x._name == "HI" and x.element(1,0) == ("BBQ")]
                              )
 
     def _populate_sl_loop(self, missing=""):

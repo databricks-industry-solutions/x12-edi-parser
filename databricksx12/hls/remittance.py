@@ -90,7 +90,7 @@ class Remittance(MedicalClaim):
             }
 
     def populate_claim_loop(self):
-        end_clp_index = ([i for i,z in enumerate([y.segment_name() for y in self.clm_loop[1:]]) if z == "CLP"] + [len(self.clm_loop)])[0]
+        end_clp_index = ([i for i,z in enumerate([y._name for y in self.clm_loop[1:]]) if z == "CLP"] + [len(self.clm_loop)])[0]
         return {
             'claim_id': self._first(self.clm_loop,"CLP").element(1),
             'person_or_organization': self._populate_names(self.clm_loop[:end_clp_index]),
@@ -116,7 +116,7 @@ class Remittance(MedicalClaim):
                  for x in self.segments_by_name("CAS",
                     data = self.clm_loop[1:min(  list(filter(lambda x: x>=0, [self.index_of_segment(self.clm_loop, 'SVC'), len(self.clm_loop)-1]))) ])], []),
             'claim_lines': [self.populate_claim_line(seg, i, min(self.index_of_segment(self.clm_loop, 'SVC', i+1), len(self.clm_loop)-1)) for i,seg in self.segments_by_name_index(segment_name="SVC", data=self.clm_loop)],
-            'date_references': [{'date_cd': x.element(1), 'date': x.element(2)} for x in self.clm_loop if x.segment_name() == "DTM"]
+            'date_references': [{'date_cd': x.element(1), 'date': x.element(2)} for x in self.clm_loop if x._name == "DTM"]
         }
 
     def _populate_names(self, loop):
@@ -129,7 +129,7 @@ class Remittance(MedicalClaim):
                 "id_cd_qualifier": x.element(8),
                 "id_cd": x.element(9)
             }
-                 for x in loop if x.segment_name()== "NM1"]
+                 for x in loop if x._name== "NM1"]
 
     
     #
