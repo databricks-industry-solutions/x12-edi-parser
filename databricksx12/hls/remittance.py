@@ -12,12 +12,14 @@ class Remittance(MedicalClaim):
                  payer_loop,
                  payee_loop,
                  clm_loop,
-                 trx_summary_loop):
+                 trx_summary_loop,
+                 header_number_loop):
         self.trx_header_loop = trx_header_loop
         self.payer_loop = payer_loop
         self.payee_loop = payee_loop
         self.clm_loop = clm_loop
         self.trx_summary_loop = trx_summary_loop
+        self.header_number_loop = header_number_loop 
         self.build()
 
     def build(self):
@@ -26,7 +28,12 @@ class Remittance(MedicalClaim):
         self.payee_info = self.populate_payee_loop()
         self.clm_info = self.populate_claim_loop()
         self.plb_info = self.populate_plb_loop()
+        self.header_info = self.populate_header_loop()
 
+    def populate_header_loop(self): 
+        return {
+            'provider_id': self._first(self.header_number_loop, 'TS3').element(1)
+        }
     #
     # Assuming npi, date, then repeating <reason cd:id, adj amount>
     #
@@ -83,7 +90,7 @@ class Remittance(MedicalClaim):
             }
 
     def populate_claim_loop(self):
-        end_clp_index = ([i for i,z in enumerate([y.segment_name() for y in self.clm_loop[1:]]) if z == "CLP"] + [len(self.clm_loop)])[0]
+        end_clp_index = ([i for i,z in enumerate([y._name for y in self.clm_loop[1:]]) if z == "CLP"] + [len(self.clm_loop)])[0]
         return {
             'claim_id': self._first(self.clm_loop,"CLP").element(1),
             'person_or_organization': self._populate_names(self.clm_loop[:end_clp_index]),
@@ -109,7 +116,7 @@ class Remittance(MedicalClaim):
                  for x in self.segments_by_name("CAS",
                     data = self.clm_loop[1:min(  list(filter(lambda x: x>=0, [self.index_of_segment(self.clm_loop, 'SVC'), len(self.clm_loop)-1]))) ])], []),
             'claim_lines': [self.populate_claim_line(seg, i, min(self.index_of_segment(self.clm_loop, 'SVC', i+1), len(self.clm_loop)-1)) for i,seg in self.segments_by_name_index(segment_name="SVC", data=self.clm_loop)],
-            'date_references': [{'date_cd': x.element(1), 'date': x.element(2)} for x in self.clm_loop if x.segment_name() == "DTM"]
+            'date_references': [{'date_cd': x.element(1), 'date': x.element(2)} for x in self.clm_loop if x._name == "DTM"]
         }
 
     def _populate_names(self, loop):
@@ -122,7 +129,7 @@ class Remittance(MedicalClaim):
                 "id_cd_qualifier": x.element(8),
                 "id_cd": x.element(9)
             }
-                 for x in loop if x.segment_name()== "NM1"]
+                 for x in loop if x._name== "NM1"]
 
     
     #
@@ -160,7 +167,8 @@ class Remittance(MedicalClaim):
             **{'payer': self.payer_info},
             **{'payee': self.payee_info},
             **{'claim': self.clm_info},
-            **{'provider_adjustments': self.plb_info}
+            **{'provider_adjustments': self.plb_info},
+            **{'header_info': self.header_info}
         }
     
     

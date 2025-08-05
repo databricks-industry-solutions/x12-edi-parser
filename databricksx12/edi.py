@@ -19,6 +19,13 @@ class EDI():
         self.format_cls = (self.extract_delim(data) if delim_cls is None else delim_cls)
         self.data = [Segment(x, self.format_cls) for x in data.split(self.format_cls.SEGMENT_DELIM)[:-1]]
 
+        self._segment_index = {}
+        for i, segment in enumerate(self.data):
+            name = segment._name
+            if name not in self._segment_index:
+                self._segment_index[name] = []
+            self._segment_index[name].append(i)
+
         self.isa = (self.segments_by_name("ISA")[0] if len(self.segments_by_name("ISA")) > 0 else Segment.empty())
         self.sender_qualifier_id = self.isa.element(5) + self.isa.element(6)
         self.recipient_qualifier_id = self.isa.element(7) + self.isa.element(8)
@@ -46,9 +53,18 @@ class EDI():
     # Returns all segments matching segment_name
     #
     def segments_by_name(self, segment_name, range_start=-1, range_end=None, data = None):
-        if data is None:
-            data = self.data
-        return [x for i,x in enumerate(data) if x.segment_name() == segment_name and range_start <= i <= (range_end or len(data))]
+        if data is not None:
+            return [x for i,x in enumerate(data) if x._name == segment_name and range_start <= i <= (range_end or len(data))]
+
+        if segment_name not in self._segment_index:
+            return []
+        
+        indices = self._segment_index[segment_name]
+        
+        end = range_end or len(self.data)
+        filtered_indices = [i for i in indices if range_start <= i <= end]
+        
+        return [self.data[i] for i in filtered_indices]
 
     #
     # Returns a tuple of all segments matching segment_name and their index
@@ -56,14 +72,14 @@ class EDI():
     def segments_by_name_index(self, segment_name, range_start=-1, range_end = None, data = None):
         if data is None:
             data = self.data
-        return [(i,x) for i,x in enumerate(data) if x.segment_name() == segment_name and range_start <= i <= (range_end or len(data))]
+        return [(i,x) for i,x in enumerate(data) if x._name == segment_name and range_start <= i <= (range_end or len(data))]
 
     #
     # Return the first occurence index of the specified segment
     #
     def index_of_segment(self, segments, segment_name, search_start_idx=0):
         try:
-            return min([(i) for i,x in enumerate(segments) if x.segment_name() == segment_name and i >=search_start_idx])
+            return min([(i) for i,x in enumerate(segments) if x._name == segment_name and i >=search_start_idx])
         except:
             return -1 #not found
 
@@ -72,7 +88,7 @@ class EDI():
     #
     def last_index_of_segment(self, segments, segment_name, search_start_idx = 0):
         try:
-            return max([(i) for i,x in enumerate(segments) if x.segment_name() == segment_name and i >=search_start_idx])
+            return max([(i) for i,x in enumerate(segments) if x._name == segment_name and i >=search_start_idx])
         except:
             return -1
 
@@ -113,14 +129,16 @@ class EDI():
     #
     def functional_segments(self):
         from databricksx12.functional import FunctionalGroup
-        return [FunctionalGroup(self.segments_by_position(self.last_index_of_segment(self.data[:a], "GS", 0),b+1), self.format_cls, strict_transactions=self._strict_transactions) for a,b in self._functional_group_locations()]
+        return [FunctionalGroup(self.segments_by_position(a, b + 1), self.format_cls, strict_transactions=self._strict_transactions) for a,b in self._functional_group_locations()]
                         
 
     def _functional_group_locations(self):
-        return list(map(self._functional_segments_trx_list, [(i, int(y.element(1))) for i, y in self.segments_by_name_index("GE")]))
+        gs_indices = self._segment_index.get("GS", [])
+        ge_indices = self._segment_index.get("GE", [])
+        return list(zip(gs_indices, ge_indices))
 
     def _valid_se01(self):
-        if self._strict_transactions and set([self.data[i].segment_name() for i,j in self._transaction_locations()]) != {'ST'}:
+        if self._strict_transactions and set([self.data[i]._name for i,j in self._transaction_locations()]) != {'ST'}:
             raise Exception("SE01 segment(s) do not match to the beginning ST segment. File won't parse correctly. Is the file altered?\nTo Continue anyway, rerun with EDI(... strict_transactions=False)")
         return True
     
@@ -128,27 +146,15 @@ class EDI():
     # Find all locations of a transaction
     #
     def _transaction_locations(self):
-        return [(i - int(x.element(1))+1,i+1) for i,x in  self.segments_by_name_index("SE")] if self._strict_transactions else list(zip([i for i,x in self.segments_by_name_index("ST")], [i+1 for i, x in self.segments_by_name_index("SE")]))
+        if self._strict_transactions:
+            se_indices = self._segment_index.get("SE", [])
+            return [(i - int(self.data[i].element(1)) + 1, i) for i in se_indices]
+        else:
+            st_indices = self._segment_index.get("ST", [])
+            se_indices = self._segment_index.get("SE", [])
+            return list(zip(st_indices, se_indices))
     
-    #
-    # Fold left, given a
-    #   @param functional_group = tuple (i,x)
-    #   @param where i = start location in file of trailer segment
-    #   @param where x = number of transactions in the functional group
-    #
-    #   @return a tuple of the start/end locations of the transactions
-    #
-    def _functional_segments_trx_list(self, functional_group):
-        l = ()
-        f = lambda trxs, x, fg: x if len(trxs) <= fg[1] and x[1] <= fg[0] else []
-        return functools.reduce(lambda a,b: (min(a[0], b[0]), max(a[1], b[1])),
-                    filter(
-                        lambda y: y != [], [l := f(l, x, functional_group) for x in self._transaction_locations()]
-                    )
-                )
-
-
-    def to_json(self, exclude=["data", "raw_data", "isa", "format_cls", "fg","_strict_transactions"]):
+    def to_json(self, exclude=["_segment_index", "data", "raw_data", "isa", "format_cls", "fg","_strict_transactions", "st", "se"]):
         return {str(self.__class__.__name__ + "." + attr): getattr(self, attr) for attr in dir(self) if not callable(getattr(self, attr)) and not attr.startswith("__") and attr not in exclude}
 
     """
@@ -160,7 +166,7 @@ class EDI():
           *Row data with split functionality to easily access row members 
     """
     def toRows(self):
-        return [{"segment_name": x.segment_name()
+        return [{"segment_name": x._name
                  ,"segment_length": x.segment_len()
                  ,"row_number": i
                  ,"row_data": x.data
@@ -246,6 +252,9 @@ class Segment():
     def __init__(self, data, delim_cls = AnsiX12Delim):
         self.data = data.lstrip("\r").lstrip("\n").lstrip("\r\n")
         self.format_cls = delim_cls
+        self._elements = self.data.split(self.format_cls.ELEMENT_DELIM)
+        self._name = self._elements[0] if self._elements else ""
+
 
     #
     # @param element - numeric value of the field (starting at 0)
@@ -255,10 +264,10 @@ class Segment():
     #
     def element(self, element, sub_element=-1, dne=""):
         try:
-            return ( self.data.split(self.format_cls.ELEMENT_DELIM)[element]
-                     if sub_element == -1 else
-                     self.data.split(self.format_cls.ELEMENT_DELIM)[element].split(self.format_cls.SUB_DELIM)[sub_element]
-                    )
+            if sub_element == -1:
+                return self._elements[element]
+            else:
+                return self._elements[element].split(self.format_cls.SUB_DELIM)[sub_element]
         except:
             return dne
 
@@ -266,25 +275,19 @@ class Segment():
     # @returns number of elements in a segment 
     #
     def segment_len(self):
-        return len(self.data.split(self.format_cls.ELEMENT_DELIM))
+        return len(self._elements)
 
     #
     # @returns the number of sub elements in a segment
     #
     def sub_element_len(self, element = 0):
-        return len(self.data.split(self.format_cls.ELEMENT_DELIM)[element].split(self.format_cls.SUB_DELIM))
-
-    #
-    # First element is the segment name
-    #
-    def segment_name(self):
-        return self.data.split(self.format_cls.ELEMENT_DELIM)[0]
+        return len(self._elements[element].split(self.format_cls.SUB_DELIM))
 
     #
     # Filter this segment for element/sub_element values
     #
     def filter(self, value, element, sub_element, dne=""):
-        return self if value == self.get_element(element, sub_element, dne) else None
+        return self if value == self.element(element, sub_element, dne) else None
 
     @classmethod
     def empty(cls):
@@ -307,6 +310,8 @@ class Segment():
         """
         self.data = state['data']
         self.format_cls = state['format_cls']
+        self._elements = self.data.split(self.format_cls.ELEMENT_DELIM)
+        self._name = self._elements[0] if self._elements else ""
 
     def __eq__(self, other):
         """
@@ -356,8 +361,8 @@ class EDIManager():
     #  @returns a python dictionary representing metadata found in EDI/FunctionalGroup/Transaction classes
     #
     @staticmethod
-    def class_metadata(cls_obj, exclude=['data', 'raw_data', 'isa', 'format_cls', 'fg', '_strict_transactions']):
-        return {str(cls_obj.__class__.__name__ + "." + attr): getattr(cls_obj, attr) for attr in dir(cls_obj) if not callable(getattr(cls_obj, attr)) and not attr.startswith("__") and attr not in exclude}
+    def class_metadata(cls_obj):
+        return cls_obj.to_json()
 
     #
     # Flatten data from EDI to represent 

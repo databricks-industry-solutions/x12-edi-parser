@@ -5,6 +5,15 @@ class FunctionalGroup(EDI):
     def __init__(self, segments, delim_cls = AnsiX12Delim, strict_transactions = True):
         self.data = segments
         self.format_cls = delim_cls
+        self._strict_transactions = strict_transactions
+
+        self._segment_index = {}
+        for i, segment in enumerate(self.data):
+            name = segment._name
+            if name not in self._segment_index:
+                self._segment_index[name] = []
+            self._segment_index[name].append(i)
+
         self.transaction_type = self._transaction_type()
         self.fg = (self.segments_by_name("GS")[0] if len(self.segments_by_name("GS")) > 0 else Segment.empty())
         self.standard_version = self.fg.element(8)
@@ -13,8 +22,10 @@ class FunctionalGroup(EDI):
         self.time =  self.fg.element(5)
         self.sender = self._sender()
         self.receiver = self._reciever()
-        self._strict_transactions = strict_transactions
-        
+
+    def gs(self):
+        return self.segments_by_name("GS")[0]
+
     #
     # Return all segments associated with each transaction
     #  [ trx1[SEGMENT1, ... SEGMENTN], trx2[SEGMENT1, ... SEGMENTN] ... ]
@@ -22,7 +33,7 @@ class FunctionalGroup(EDI):
     #
     def transaction_segments(self):
         from databricksx12.transaction import Transaction
-        return [Transaction(self.segments_by_position(a,b), self.format_cls, self.transaction_type) for a,b in self._transaction_locations()]
+        return [Transaction(self.segments_by_position(a,b + 1), self.format_cls, self.transaction_type) for a,b in self._transaction_locations()]
 
 
     #

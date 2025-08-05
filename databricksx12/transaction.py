@@ -18,6 +18,19 @@ class Transaction(EDI):
     def __init__(self,segments, delim_cls = AnsiX12Delim, transaction_type=None):
         self.data = segments
         self.format_cls = delim_cls
+        self._strict_transactions = True
+
+        self._segment_index = {}
+        for i, segment in enumerate(self.data):
+            name = segment._name
+            if name not in self._segment_index:
+                self._segment_index[name] = []
+            self._segment_index[name].append(i)
+
+        self.st = self.segments_by_name("ST")[0]
+        self.se = self.segments_by_name("SE")[0]
+        self.transaction_set_code = self.st.element(1)
+        self.control_number = self.st.element(2)
         self.transaction_type = transaction_type
 
     def __getstate__(self):
@@ -26,9 +39,14 @@ class Transaction(EDI):
         Called by pickle.dumps() and cloudpickle.dumps()
         """
         return {
-            'data': self.data,
             'format_cls': self.format_cls,
-            'transaction_type': self.transaction_type
+            'data': self.data,
+            'transaction_type': self.transaction_type,
+            'st': self.st,
+            'se': self.se,
+            'transaction_set_code': self.transaction_set_code,
+            'control_number': self.control_number,
+            '_strict_transactions': self._strict_transactions
         }
 
     def __setstate__(self, state):
@@ -36,7 +54,11 @@ class Transaction(EDI):
         Restore state from the unpickled state values.
         Called by pickle.loads() and cloudpickle.loads()
         """
-        self.data = state['data']
         self.format_cls = state['format_cls']
+        self.data = state['data']
         self.transaction_type = state['transaction_type']
-
+        self.st = state['st']
+        self.se = state['se']
+        self.transaction_set_code = state['transaction_set_code']
+        self.control_number = state['control_number']
+        self._strict_transactions = state['_strict_transactions']

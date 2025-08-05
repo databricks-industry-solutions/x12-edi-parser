@@ -35,7 +35,7 @@ class HealthcareManager(EDI):
     @classmethod
     def from_transaction(cls, trnx):
         return ClaimBuilder(cls.mapping.get(trnx.transaction_type),
-                            [x for x in trnx.data if x.segment_name() not in ['ST', 'SE']], trnx.format_cls).build()
+                            [x for x in trnx.data if x._name not in ['ST', 'SE']], trnx.format_cls).build()
 
     #
     # Convert all data to json data
@@ -112,12 +112,12 @@ class HealthcareManager(EDI):
 
     @classmethod
     def build_claim(cls, seg, i, trnx_cls, data, format_cls):
-        return ClaimBuilder(trnx_cls, [x for x in data if x.segment_name() not in ['SE', 'ST']], format_cls).build_claim(seg, i-1)
+        return ClaimBuilder(trnx_cls, [x for x in data if x._name not in ['SE', 'ST']], format_cls).build_claim(seg, i-1)
 
     @classmethod
     def build_remittance(cls, seg, i, trnx_cls, data, format_cls):
-        return ClaimBuilder(trnx_cls, [x for x in data if x.segment_name() not in ['SE', 'ST']], format_cls).build_remittance(seg, i-1)
+        return ClaimBuilder(trnx_cls, [x for x in data if x._name not in ['SE', 'ST']], format_cls).build_remittance(seg, i-1)
         
     @classmethod
     def build_enrollment(cls, seg, i, trnx_cls, data, format_cls):
-        return ClaimBuilder(trnx_cls, [x for x in data if x.segment_name() not in ['SE', 'ST']], format_cls).build_enrollment(seg, i-1)
+        return ClaimBuilder(trnx_cls, [x for x in data if x._name not in ['SE', 'ST']], format_cls).build_enrollment(seg, i-1)
