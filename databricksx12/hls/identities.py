@@ -87,7 +87,7 @@ class DiagnosisIdentity(Identity):
         self.external_injury_dx_cd = "" if [s.element(1,1) for s in hi_segments if s.element(1, 0) == "ABN"] == [] else [s.element(1,1) for s in hi_segments if s.element(1, 0) == "ABN"][0]
         self.external_injury_dx_poa = "" if [s.element(1,1) for s in hi_segments if s.element(1, 0) == "ABN"] == [] else [s.element(1,s.sub_element_len(1)-1) for s in hi_segments if s.element(1,0) == "ABN"][0]
         self.other_dx_cds = list(itertools.chain(*[[{'dx_cd': s.element(i,1), 'poa': s.element(i,s.sub_element_len(i)-1)} for i in list(range(1, s.segment_len())) if s.element(i,0) == "ABF"]
-            for s in hi_segments if s.element(1, 0) == "ABF"]))
+            for s in hi_segments]))
     
 class Submitter_Receiver_Identity(Identity):
     def __init__(self, nm1=Segment.empty(), per= Segment.empty()):
