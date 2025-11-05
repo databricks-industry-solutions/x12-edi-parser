@@ -1,5 +1,3 @@
-from .base import SupplyChainTransaction
-
 class Invoice(self):
     NAME = "810"
 

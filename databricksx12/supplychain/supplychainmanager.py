@@ -1,5 +1,4 @@
 from ember.edi import EDIManager
-from ember.transaction import Transaction
 from ember.supplychain import *
 # Import other supply chain transaction classes here as they are created
 # from .invoice import Invoice_810
@@ -17,8 +16,8 @@ class SupplyChainManager(EDIManager):
     # Maps transaction set codes to their corresponding parser classes.
     # The transaction_type is derived from the GS01 and ST01 segments.
     TRANSACTION_SET_MAPPING = {
-        "832": PurchaseOrder_850,
-        "810": Invoice,
+        "832": PurchaseOrder,
+        "810": Invoice
     }
 
     @classmethod
