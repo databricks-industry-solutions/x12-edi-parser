@@ -83,3 +83,10 @@ class FunctionalGroup(EDI):
         self.sender = state['sender']
         self.receiver = state['receiver']
         self._strict_transactions = state['_strict_transactions']
+
+        self._segment_index = {}
+        for i, segment in enumerate(self.data):
+            name = segment._name
+            if name not in self._segment_index:
+                self._segment_index[name] = []
+            self._segment_index[name].append(i)

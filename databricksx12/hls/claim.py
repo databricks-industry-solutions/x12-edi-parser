@@ -1,8 +1,9 @@
 from databricksx12.edi import EDI, AnsiX12Delim, Segment
 from databricksx12.hls.loop import Loop
 from databricksx12.hls.identities import *
-from typing import List, Dict
+from typing import List, Dict, override
 from collections import defaultdict
+import json
 
 
 #
@@ -214,6 +215,10 @@ class MedicalClaim(EDI):
     def _populate_payer_info(self):
         return PayerIdentity(self._first([x for x in self.subscriber_loop if x.element(1) == "PR"], "NM1"))
     
+    @override
+    def __str__(self):
+        return json.dumps(self.to_json(), indent=4)
+
     """
     Overall Asks
     - Coordination of Benefits flag -- > self.benefits_assign_flag in Claim Identity
