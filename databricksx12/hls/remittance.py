@@ -1,4 +1,5 @@
 from databricksx12.hls.claim import MedicalClaim
+from databricksx12.hls.identities import RemittanceIdentity, RemittanceClaimIdentity, RemittanceServiceLineIdentity
 import functools
 #
 # 835 payment information
@@ -31,14 +32,19 @@ class Remittance(MedicalClaim):
         self.header_info = self.populate_header_loop()
 
     def populate_header_loop(self): 
-        return {
-            'provider_id': self._first(self.header_number_loop, 'TS3').element(1)
-        }
+        identity = RemittanceIdentity(segments=self.header_number_loop)
+        result = identity.to_dict()
+        # Add backward compatibility field
+        result['provider_id'] = self._first(self.header_number_loop, 'TS3').element(1)
+        return result
     #
     # Assuming npi, date, then repeating <reason cd:id, adj amount>
     #
     def populate_plb_loop(self):
-        return functools.reduce(lambda x, y: x+y, [
+        identity = RemittanceIdentity(segments=self.trx_summary_loop)
+        result = identity.to_dict()
+        # Add backward compatibility fields
+        plb_data = functools.reduce(lambda x, y: x+y, [
             [{
                 'provider_adjustment_npi': p.element(1),
                 'provider_adjustment_date': p.element(2),
@@ -48,76 +54,93 @@ class Remittance(MedicalClaim):
             }
              for i in list(range(3,p.segment_len(), 2))]
             for p in self.segments_by_name("PLB", data=self.trx_summary_loop)], [])
+        result['plb_adjustments'] = plb_data
+        return result
 
     def populate_payer_loop(self):
-        return {
-            'entity_id_cd': self._first(self.payer_loop, "N1").element(1),
-            'payer_name': self._first(self.payer_loop, "N1").element(2),
-            'payer_street': self._first(self.payer_loop, "N3").element(1),
-            'payer_city': self._first(self.payer_loop, "N4").element(1),
-            'payer_state': self._first(self.payer_loop, "N4").element(2),
-            'payer_zip': self._first(self.payer_loop, "N4").element(3),
-            'payer_contact_info': [
-                {
-                    'payer_contact_name': c.element(2),
-                    'payer_contact_function_cd': c.element(1),
-                    'payer_contact_number': c.element(6),
-                    'payer_email': c.element(4)
-                }
-                for c in self.segments_by_name("PER", data = self.payer_loop)],
-            'payer_primary_id': self._first(self.payer_loop, "REF").element(1),
-            'payer_secondary_id': self._first(self.payer_loop, "REF").element(2)
-        }
+        identity = RemittanceIdentity(segments=self.payer_loop)
+        result = identity.to_dict()
+        # Add backward compatibility fields
+        result['entity_id_cd'] = self._first(self.payer_loop, "N1").element(1)
+        result['payer_name'] = self._first(self.payer_loop, "N1").element(2)
+        result['payer_street'] = self._first(self.payer_loop, "N3").element(1)
+        result['payer_city'] = self._first(self.payer_loop, "N4").element(1)
+        result['payer_state'] = self._first(self.payer_loop, "N4").element(2)
+        result['payer_zip'] = self._first(self.payer_loop, "N4").element(3)
+        result['payer_contact_info'] = [
+            {
+                'payer_contact_name': c.element(2),
+                'payer_contact_function_cd': c.element(1),
+                'payer_contact_number': c.element(6),
+                'payer_email': c.element(4)
+            }
+            for c in self.segments_by_name("PER", data = self.payer_loop)]
+        ref_seg = self._first(self.payer_loop, "REF")
+        result['payer_primary_id'] = ref_seg.element(1) if ref_seg else ""
+        result['payer_secondary_id'] = ref_seg.element(2) if ref_seg else ""
+        return result
 
     def populate_payee_loop(self):
-        return {
-            'payee_name': self._first(self.payee_loop, "N1").element(2),
-            'payee_npi': self._first(self.payee_loop, "N1").element(3),
-            'payee_id_cd': self._first(self.payee_loop, "N1").element(4),
-            'payee_tax_id': self._first(self.payee_loop, "REF").element(2)
-        }
+        identity = RemittanceIdentity(segments=self.payee_loop)
+        result = identity.to_dict()
+        # Add backward compatibility fields
+        n1_seg = self._first(self.payee_loop, "N1")
+        result['payee_name'] = n1_seg.element(2) if n1_seg else ""
+        result['payee_npi'] = n1_seg.element(3) if n1_seg else ""
+        result['payee_id_cd'] = n1_seg.element(4) if n1_seg else ""
+        ref_seg = self._first(self.payee_loop, "REF")
+        result['payee_tax_id'] = ref_seg.element(2) if ref_seg else ""
+        return result
     
     def populate_trx_loop(self):
-        return {
-            'transaction_handling_cd': self._first(self.trx_header_loop,"BPR").element(1),
-            'monetary_amt': self._first(self.trx_header_loop,"BPR").element(2),
-            'credit_debit_flag': self._first(self.trx_header_loop,"BPR").element(3),
-            'payment_method_cd': self._first(self.trx_header_loop,"BPR").element(4),
-            'payment_date': self._first(self.trx_header_loop,"BPR").element(16),
-            'trace_type_cd': self._first(self.trx_header_loop,"TRN").element(1),
-            'trace_reference_id': self._first(self.trx_header_loop,"TRN").element(2),            
-            'trace_origin_company_id':  self._first(self.trx_header_loop,"TRN").element(3)
-            }
+        identity = RemittanceIdentity(segments=self.trx_header_loop)
+        result = identity.to_dict()
+        # Add backward compatibility fields
+        bpr_seg = self._first(self.trx_header_loop,"BPR")
+        trn_seg = self._first(self.trx_header_loop,"TRN")
+        result['transaction_handling_cd'] = bpr_seg.element(1) if bpr_seg else ""
+        result['monetary_amt'] = bpr_seg.element(2) if bpr_seg else ""
+        result['credit_debit_flag'] = bpr_seg.element(3) if bpr_seg else ""
+        result['payment_method_cd'] = bpr_seg.element(4) if bpr_seg else ""
+        result['payment_date'] = bpr_seg.element(16) if bpr_seg else ""
+        result['trace_type_cd'] = trn_seg.element(1) if trn_seg else ""
+        result['trace_reference_id'] = trn_seg.element(2) if trn_seg else ""
+        result['trace_origin_company_id'] = trn_seg.element(3) if trn_seg else ""
+        return result
 
     def populate_claim_loop(self):
+        identity = RemittanceClaimIdentity(segments=self.clm_loop)
+        result = identity.to_dict()
+        # Add backward compatibility fields
         end_clp_index = ([i for i,z in enumerate([y._name for y in self.clm_loop[1:]]) if z == "CLP"] + [len(self.clm_loop)])[0]
-        return {
-            'claim_id': self._first(self.clm_loop,"CLP").element(1),
-            'person_or_organization': self._populate_names(self.clm_loop[:end_clp_index]),
-            'claim_status_cd': self._first(self.clm_loop,"CLP").element(2),
-            'claim_chrg_amt': self._first(self.clm_loop,"CLP").element(3),
-            'claim_pay_amt': self._first(self.clm_loop,"CLP").element(4),
-            'patient_pay_amt': self._first(self.clm_loop,"CLP").element(5),
-            'claim_filing_cd': self._first(self.clm_loop,"CLP").element(6),
-            'payer_claim_id': self._first(self.clm_loop,"CLP").element(7),
-            'type_of_bill_cd': self._first(self.clm_loop,"CLP").element(8),
-            'claim_freq_cd': self._first(self.clm_loop,"CLP").element(9),
-            'drg_cd': self._first(self.clm_loop,"CLP").element(11),
-            'patient_entity_id_cd': self._first(self.clm_loop,"NM1").element(1),
-            'entity_type_qualifier': self._first(self.clm_loop,"NM1").element(2),
-            'patient_last_nm': self._first(self.clm_loop,"NM1").element(4),
-            'patient_first_nm': self._first(self.clm_loop,"NM1").element(5),
-            'id_code_qualifier': self._first(self.clm_loop,"NM1").element(8),
-            'patient_id': self._first(self.clm_loop,"NM1").element(9),
-            'clm_refs': [{'id_code_qualifier': x.element(1), 'id': x.element(2)}  for x in self.segments_by_name("REF", data=self.clm_loop[:self.index_of_segment(self.clm_loop, 'SVC')])],
-            #Claim level service adjustments CAS
-            'service_adjustments': functools.reduce(lambda x,y: x+y,
-                [self.populate_adjustment_groups(x)
-                 for x in self.segments_by_name("CAS",
-                    data = self.clm_loop[1:min(  list(filter(lambda x: x>=0, [self.index_of_segment(self.clm_loop, 'SVC'), len(self.clm_loop)-1]))) ])], []),
-            'claim_lines': [self.populate_claim_line(seg, i, min(self.index_of_segment(self.clm_loop, 'SVC', i+1), len(self.clm_loop)-1)) for i,seg in self.segments_by_name_index(segment_name="SVC", data=self.clm_loop)],
-            'date_references': [{'date_cd': x.element(1), 'date': x.element(2)} for x in self.clm_loop if x._name == "DTM"]
-        }
+        clp_seg = self._first(self.clm_loop,"CLP")
+        nm1_seg = self._first(self.clm_loop,"NM1")
+        result['claim_id'] = clp_seg.element(1) if clp_seg else ""
+        result['person_or_organization'] = self._populate_names(self.clm_loop[:end_clp_index])
+        result['claim_status_cd'] = clp_seg.element(2) if clp_seg else ""
+        result['claim_chrg_amt'] = clp_seg.element(3) if clp_seg else ""
+        result['claim_pay_amt'] = clp_seg.element(4) if clp_seg else ""
+        result['patient_pay_amt'] = clp_seg.element(5) if clp_seg else ""
+        result['claim_filing_cd'] = clp_seg.element(6) if clp_seg else ""
+        result['payer_claim_id'] = clp_seg.element(7) if clp_seg else ""
+        result['type_of_bill_cd'] = clp_seg.element(8) if clp_seg else ""
+        result['claim_freq_cd'] = clp_seg.element(9) if clp_seg else ""
+        result['drg_cd'] = clp_seg.element(11) if clp_seg else ""
+        result['patient_entity_id_cd'] = nm1_seg.element(1) if nm1_seg else ""
+        result['entity_type_qualifier'] = nm1_seg.element(2) if nm1_seg else ""
+        result['patient_last_nm'] = nm1_seg.element(4) if nm1_seg else ""
+        result['patient_first_nm'] = nm1_seg.element(5) if nm1_seg else ""
+        result['id_code_qualifier'] = nm1_seg.element(8) if nm1_seg else ""
+        result['patient_id'] = nm1_seg.element(9) if nm1_seg else ""
+        result['clm_refs'] = [{'id_code_qualifier': x.element(1), 'id': x.element(2)}  for x in self.segments_by_name("REF", data=self.clm_loop[:self.index_of_segment(self.clm_loop, 'SVC')])]
+        #Claim level service adjustments CAS
+        result['service_adjustments'] = functools.reduce(lambda x,y: x+y,
+            [self.populate_adjustment_groups(x)
+             for x in self.segments_by_name("CAS",
+                data = self.clm_loop[1:min(  list(filter(lambda x: x>=0, [self.index_of_segment(self.clm_loop, 'SVC'), len(self.clm_loop)-1]))) ])], [])
+        result['claim_lines'] = [self.populate_claim_line(seg, i, min(self.index_of_segment(self.clm_loop, 'SVC', i+1), len(self.clm_loop)-1)) for i,seg in self.segments_by_name_index(segment_name="SVC", data=self.clm_loop)]
+        result['date_references'] = [{'date_cd': x.element(1), 'date': x.element(2)} for x in self.clm_loop if x._name == "DTM"]
+        return result
 
     def _populate_names(self, loop):
         return [
@@ -138,7 +161,14 @@ class Remittance(MedicalClaim):
     # @param svc_end_idx - the last segment associated with the service 
     #
     def populate_claim_line(self, svc, idx, svc_end_idx):
-        return {
+        # 1. Greedy Extraction
+        # Capture unmapped segments like REF (Line Item Control), AMT (Allowed Amount), LQ (Remark)
+        raw_segments = self.clm_loop[idx:svc_end_idx]
+        identity = RemittanceServiceLineIdentity(segments=raw_segments)
+        greedy_data = identity.to_dict()
+
+        # 2. Explicit Mapping (Keep existing business logic)
+        explicit_data = {
             'prcdr_cd':svc.element(1),
             'chrg_amt':svc.element(2),
             'paid_amt':svc.element(3),
@@ -154,6 +184,9 @@ class Remittance(MedicalClaim):
                 [self.populate_adjustment_groups(x) for x in self.segments_by_name("CAS", data =  self.clm_loop[idx:svc_end_idx])], []),
             'line_refs': [{'id_code_qualifier': x.element(1), 'id': x.element(2)} for x in  self.segments_by_name("REF", data=self.clm_loop[idx:svc_end_idx])]
         }
+
+        # 3. Merge (Explicit overwrites greedy if keys collide)
+        return {**greedy_data, **explicit_data}
 
     #
     # group adjustment logic
