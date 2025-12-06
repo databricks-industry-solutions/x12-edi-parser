@@ -53,7 +53,7 @@ if df.rdd.getNumPartitions() < spark.sparkContext.defaultParallelism:
 
 # 2. Parse EDI content using mapInArrow
 # Returns a DataFrame with columns: [pk, edi_content, edi_json]
-result_df = from_edi(df)
+result_df = df.mapInArrow(from_edi, output_schema)
 
 # 3. Flatten the JSON structure
 # This explodes the nested JSON into rows per claim/transaction
