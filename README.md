@@ -57,9 +57,6 @@ result_df = df.mapInArrow(from_edi, output_schema)
 
 # 3. Flatten the JSON structure
 # This explodes the nested JSON into rows per claim/transaction
-from pyspark.sql.functions import col, explode, from_json
-
-# If you want to use the helper function (if available in your environment):
 final_df = flatten_edi(result_df)
 
 # And finally save off the content 
@@ -72,9 +69,7 @@ final_df.write.mode("append").saveAsTable("...")
 |------|---------------------|
 | `pk` | The primary key from the input DataFrame, preserved for lineage. |
 | `edi_content` | The original raw EDI content for the file. |
-| `FunctionalGroup` | Struct containing metadata about the EDI Functional Group (e.g., GS segment details). |
-| `Transaction` | Struct containing metadata about the specific EDI Transaction (e.g., ST segment details). |
-| `Claim` | The fully parsed and structured claim data (or remittance/enrollment data) derived from the transaction. |
+| `edi_json` | A String representation of the parsed content to be consumed by spark.read.json  |
 
 ##### Final Output (`final_df`)
 
@@ -82,9 +77,10 @@ final_df.write.mode("append").saveAsTable("...")
 |------|---------------------|
 | `pk` | The primary key from the input DataFrame, preserved for lineage. |
 | `edi_content` | The original raw EDI content for the file. |
-| `FunctionalGroup` | Struct containing metadata about the EDI Functional Group (e.g., GS segment details). |
-| `Transaction` | Struct containing metadata about the specific EDI Transaction (e.g., ST segment details). |
-| `Claim` | The fully parsed and structured claim data (or remittance/enrollment data) derived from the transaction. |
+| `EDI.*` | Struct containing metadata about the EDI ISA Segment |
+| `FunctionalGroup.*` | Struct containing metadata about the EDI Functional Group (e.g., GS segment details). |
+| `Transaction.*` | Struct containing metadata about the specific EDI Transaction (e.g., ST segment details). |
+| `*` | The fully parsed and structured view of claims information (837, 835, 834). One row per claim |
 
 #### Splitting with RDDs (not recommended)
 
