@@ -15,6 +15,8 @@ Working with various x12 EDI transactions in Spark on Databrick with databricksx
 
 ### Thanks to contributions from our partners at [CitiusTech](https://www.citiustech.com/) 834 is now supported along with additional insights from 837s. 
 
+### Thanks to recommendations from our partners at [V4C](https://www.v4c.ai/) for further contributions and extending the functionality of the parser. 
+
 # Install
 
 ```python
@@ -31,51 +33,58 @@ pip install git+https://github.com/databricks-industry-solutions/x12-edi-parser
 
 #### Using mapInArrow (recommended, fastest processing)
 
+mapInArrow() is wrapped [here](./ember/hls/mapinarrow_functions.py). This example shows a simplified way of running the code. 
+
+##### Input DataFrame
+
+| Name | Description/Purpose |
+|------|---------------------|
+| `value` | **Required**. A string column containing the raw EDI file content. |
+| `pk` | **Optional**. A primary key column (string, integer, etc.) to track lineage or file metadata. If provided, it is preserved in the output. |
+
 ```python
-from ember import *
-from ember.hls import *
-#This class manages how the different formats are parsed together
-from ember.hls.healthcare import HealthcareManager as hm
-import json, itertools
-from typing import Iterator
+from ember.hls.mapinarrow_functions import from_edi, output_schema
 
+# Assuming 'df' is your dataframe with 'value' (and optional 'pk') columns
+# 1. Check to make sure you're using the entire cluster
+if df.rdd.getNumPartitions() < spark.sparkContext.defaultParallelism:
+    print("Warning: you're not using the entire cluster. Repartitioning to increase parallelism")
+    df = df.repartition(spark.sparkContext.defaultParallelism * 5)
 
-# operates over a partition of data
-# @param assumes DF column name "value" has EDI string data
-def process_batch(batch): 
-  return [json.dumps(d) for d in itertools.chain(*map(process_edi_string, batch.column("value")))]
+# 2. Parse EDI content using mapInArrow
+# Returns a DataFrame with columns: [pk, edi_content, edi_json]
+result_df = df.mapInArrow(from_edi, output_schema)
 
-#row processing function, converts String to json() data of claims info
-def process_edi_string(edi_string): 
-  try:
-    return [claim.to_json() for claim in hm.from_edi(EDI(edi_string.as_py(), strict_transactions=False))]
-  except Exception as e:
-    return [{"is_error": "true", "error": str(e), "error_data": edi_string.as_py()}]
+# 3. Flatten the JSON structure
+# This explodes the nested JSON into rows per claim/transaction
+from pyspark.sql.functions import col, explode, from_json
 
-# Operates over multiple batches in a partition
-def process_edi_batches_to_json(batches: Iterator[pa.RecordBatch]) -> Iterator[pa.RecordBatch]:
-    # The function receives an ITERATOR of batches, so we loop through it
-    all_json_strings_from_batch = itertools.chain(*map(process_batch,batches))
-    # After processing all rows, if we have results, create and yield a new batch
-    if all_json_strings_from_batch:
-        json_array = pa.array(all_json_strings_from_batch, type=pa.string())
-        yield pa.RecordBatch.from_arrays([json_array], names=['edi_json'])
+# If you want to use the helper function (if available in your environment):
+final_df = flatten_edi(result_df)
 
-#running with a DF      
-#df = ... column name "value" contains raw string of  EDI file
-df.mapInArrow(process_edi_batches_to_json, StructType([StructField("edi_json", StringType(), True)]))
-
-#reuse result 
-result_df.cache()
-
-#Claim count extracted from data
-result_df.count()
-
-#Save off parsed information
-claims = spark.read.json(result_df.rdd.map(lambda x: x.edi_json))
-
-#claims.write.mode(...).saveAsTable()
+# And finally save off the content 
+final_df.write.mode("append").saveAsTable("...")
 ```
+
+##### First Output (`result_df`)
+
+| Name | Description/Purpose |
+|------|---------------------|
+| `pk` | The primary key from the input DataFrame, preserved for lineage. |
+| `edi_content` | The original raw EDI content for the file. |
+| `FunctionalGroup` | Struct containing metadata about the EDI Functional Group (e.g., GS segment details). |
+| `Transaction` | Struct containing metadata about the specific EDI Transaction (e.g., ST segment details). |
+| `Claim` | The fully parsed and structured claim data (or remittance/enrollment data) derived from the transaction. |
+
+##### Final Output (`final_df`)
+
+| Name | Description/Purpose |
+|------|---------------------|
+| `pk` | The primary key from the input DataFrame, preserved for lineage. |
+| `edi_content` | The original raw EDI content for the file. |
+| `FunctionalGroup` | Struct containing metadata about the EDI Functional Group (e.g., GS segment details). |
+| `Transaction` | Struct containing metadata about the specific EDI Transaction (e.g., ST segment details). |
+| `Claim` | The fully parsed and structured claim data (or remittance/enrollment data) derived from the transaction. |
 
 #### Splitting with RDDs (not recommended)
 
@@ -194,95 +203,6 @@ claims.select("provider_adjustments").printSchema()
 ```
 
 ![image](images/remittance_2.png?raw=true)
-
-
-## Error trapping and restartability 
-
-Sharing a sample of how to build error handling, transparency, and restartability using EDI over RDDs
-
-```python 
-#helper class to store input/output information from each stage 
-class ProcessingResult:
-    """Container for processing results with error handling"""   
-    def __init__(self, run_id, success, data = None, 
-                 error_message = "None", error_func = "None", 
-                 processing_timestamp = None):
-        self.run_id = run_id
-        self.success = success
-        self.data = data
-        self.error_message = error_message
-        self.error_func = error_func
-        self.processing_timestamp = processing_timestamp or [datetime.now().isoformat()] #track timestamps for each step of processing
-    
-    def to_dict(self):
-        """Convert to dictionary for DataFrame serialization"""
-        return {
-            "run_id": self.run_id,
-            "success": self.success,
-            "error_message": self.error_message,
-            "error_func": self.error_func,
-            "processing_timestamp": self.processing_timestamp
-        }
-    #for flatMap() calls
-    def __iter__(self): 
-        if not isinstance(self.data, list):
-            yield self
-        else:
-            for d in self.data:
-                yield ProcessingResult(self.run_id, self.success, d, self.error_message, self.error_func, self.processing_timestamp)
-    def to_row(self) -> Row:
-        """Convert to PySpark Row"""
-        return Row(**self.to_dict())
-
-#function to consistently execute on each stage 
-def process_edi(processing_result, func, **xargs):
-    if not processing_result.success: #if a command has failed return immediately
-        return processing_result 
-    else:
-        try:
-            return ProcessingResult(
-                run_id = processing_result.run_id,
-                success = True,
-                data = func(processing_result.data, **xargs),
-                error_message = "None",
-                error_func = "None",
-                processing_timestamp = processing_result.processing_timestamp + [(str(func) + ":" + datetime.now().isoformat())]
-            )
-        
-        except Exception as e:
-            error_message = str(e)
-            stack_trace = traceback.format_exc()
-            
-            return ProcessingResult(
-                run_id = processing_result.run_id,
-                success = False,
-                data = None,
-                error_message = f"{error_message}\nStack trace: {stack_trace}",
-                error_func = str(func),
-                processing_timestamp = datetime.now().isoformat()
-            )
-#sample execution
-df = ...
-result = (
-    df.
-        rdd.
-        map(lambda row: #build EDI
-          process_edi(
-            ProcessingResult(run_id=<distinct run identifier/filename>
-                ,success=True,
-                data=row.value,  #column name of EDI data in df
-                error_message=None, 
-                error_func=None), EDI, strict_transactions=False)).
-        flatMap(lambda pr: process_edi(pr, hm.flatten)). #build Healthcare specific configurations
-        repartition(<# of cluster CPUs or higher>).
-        map(lambda pr: process_edi(pr, hm.flatten_to_json)). #parse data 
-        map(lambda pr: process_edi(pr, json.dumps)) #dump as json format
-)
-
-claims_data = spark.read.json((result.filter(lambda x: x.success).map(lambda x: x.data)))
-run_metadata = result.map(lambda x: x.to_row()).toDF()
-
-```
 
 
 ## Small sampling of data 

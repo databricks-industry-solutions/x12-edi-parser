@@ -43,6 +43,34 @@ class EDI():
     def extract_delim(data):
         return Format(ELEMENT_DELIM= data[3:4], SEGMENT_DELIM = data[105:106], SUB_DELIM = data[104:105])
 
+    @staticmethod
+    def _extract_segments(self, segment_list):
+        """
+        Extract all segments dynamically and store them in self.segments dictionary.
+        Format: self.segments['SEGMENT_NAME'] = [list of element lists]
+        Example: self.segments['REF'] = [['1W', '123'], ['SY', '999']]
+        """
+        self.segments = {}
+        for seg in segment_list:
+            if seg and hasattr(seg, '_name') and seg._name:  # Skip empty segments
+                seg_name = seg._name
+                # Extract all elements from the segment
+                elements = []
+                seg_len = seg.segment_len()
+                for i in range(seg_len):
+                    element_value = seg.element(i)
+                    # Check if element has sub-elements
+                    if element_value and hasattr(seg, 'format_cls') and seg.format_cls and seg.format_cls.SUB_DELIM in element_value:
+                        sub_elements = element_value.split(seg.format_cls.SUB_DELIM)
+                        elements.append(sub_elements)
+                    else:
+                        elements.append(element_value)
+                
+                # Store in segments dictionary
+                if seg_name not in self.segments:
+                    self.segments[seg_name] = []
+                self.segments[seg_name].append(elements)
+
     #
     # Returns total count of segments
     #

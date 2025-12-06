@@ -1,11 +1,18 @@
 import pyarrow as pa
 from ember.hls.healthcare import HealthcareManager as hm
+from ember import *
+from ember.hls import *
 import json, itertools
 from typing import Iterator
 from pyspark.sql import Row
 from pyspark.sql.functions import explode, col
 from pyspark.sql.types import StructType, StructField, StringType, BooleanType, MapType, ArrayType
 
+#
+# TODO
+#  (2) add in _extract_segments column of data
+#  (3) update readme
+#
 
 #
 # Function to run on mapInArrow(from_edi...)
