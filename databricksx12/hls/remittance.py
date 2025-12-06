@@ -29,6 +29,14 @@ class Remittance(MedicalClaim):
         self.clm_info = self.populate_claim_loop()
         self.plb_info = self.populate_plb_loop()
         self.header_info = self.populate_header_loop()
+        self.loop_segments_info  = {
+            'trx_header_loop': self._extract_segments(self.trx_header_loop),
+            'payer_loop': self._extract_segments(self.payer_loop),
+            'payee_loop': self._extract_segments(self.payee_loop),
+            'clm_loop': self._extract_segments(self.clm_loop ),
+            'trx_summary_loop': self._extract_segments(self.trx_summary_loop ),
+            'header_number_loop': self._extract_segments(self.header_number_loop)
+        }
 
     def populate_header_loop(self): 
         return {
@@ -168,7 +176,9 @@ class Remittance(MedicalClaim):
             **{'payee': self.payee_info},
             **{'claim': self.clm_info},
             **{'provider_adjustments': self.plb_info},
-            **{'header_info': self.header_info}
+            **{'header_info': self.header_info},
+            **{'input_loop_segments': self.loop_segments_info} #the input loops
+
         }
     
     

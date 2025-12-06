@@ -268,13 +268,13 @@ class MedicalClaim(EDI):
         self.diagnosis_info = self._populate_diagnosis()
         self.payer_info = self._populate_payer_info()
         self.loop_segments_info =  {
-                'sender_receiver_loop': self._extract_segments(self.sender_receiver_loop),
-                'billing_loop': self._extract_segments(self.billing_loop),
-                'subscriber_loop': self._extract_segments(self.subscriber_loop),
-                'patient_loop': self._extract_segments(self.patient_loop ),
-                'claim_loop': self._extract_segments(self.claim_loop ),
-                'sl_loop': self._extract_segments(self.sl_loop)
-            }
+            'sender_receiver_loop': self._extract_segments(self.sender_receiver_loop),
+            'billing_loop': self._extract_segments(self.billing_loop),
+            'subscriber_loop': self._extract_segments(self.subscriber_loop),
+            'patient_loop': self._extract_segments(self.patient_loop ),
+            'claim_loop': self._extract_segments(self.claim_loop ),
+            'sl_loop': self._extract_segments(self.sl_loop)
+        }
 
 class Claim837i(MedicalClaim):
 
