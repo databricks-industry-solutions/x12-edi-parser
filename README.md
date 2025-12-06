@@ -33,7 +33,7 @@ pip install git+https://github.com/databricks-industry-solutions/x12-edi-parser
 
 #### Using mapInArrow (recommended, fastest processing)
 
-mapInArrow() is wrapped [here](./ember/hls/mapinarrow_functions.py). This example shows a simplified way of running the code. 
+mapInArrow() is wrapped [here](./databricksx12/hls/mapinarrow_functions.py). This example shows a simplified way of running the code. 
 
 ##### Input DataFrame
 
