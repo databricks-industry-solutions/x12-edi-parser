@@ -76,7 +76,7 @@ class ClaimBuilder(EDI):
     # Need to end the subscriber list at the start of the clm
     #
     def get_subscriber_loop(self, subscriber_loop_plus): 
-        return subscriber_loop_plus[0: (self.segments_by_name_index(subscriber_loop_plus, "CLM") if self.segments_by_name_index(subscriber_loop_plus, "CLM") > 0 else len(subscriber_loop_plus))]
+        return subscriber_loop_plus[0:(self.index_of_segment(subscriber_loop_plus, "CLM") if self.index_of_segment(subscriber_loop_plus, "CLM") > 0 else len(subscriber_loop_plus)-1)]
     #
     # Determine claim loop: starts at the clm index and ends at LX segment, or CLM segment, or end of data
     #
