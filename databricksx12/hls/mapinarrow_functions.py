@@ -48,7 +48,7 @@ output_schema = StructType([
 def flatten_edi(from_edi_df): 
    return (
     spark.read.json(
-        result_df.rdd.map(lambda x: {**{'pk': x.pk}, **{'edi_content': x.edi_content}, **{'edi_json': json.loads(x.edi_json)}}))
+        from_edi_df.rdd.map(lambda x: {**{'pk': x.pk}, **{'edi_content': x.edi_content}, **{'edi_json': json.loads(x.edi_json)}}))
             .withColumn("FunctionalGroup", explode(col("edi_json.FunctionalGroup")))
             .withColumn("Transaction", explode(col("FunctionalGroup.Transactions")))
             .withColumn("Claim", explode(col("Transaction.Claims")))

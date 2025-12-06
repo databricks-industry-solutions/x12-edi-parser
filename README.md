@@ -63,7 +63,7 @@ final_df = flatten_edi(result_df)
 final_df.write.mode("append").saveAsTable("...")
 ```
 
-##### First Output (`result_df`)
+##### First Output (`result_df`). Also see the (html notebook)[https://databricks-industry-solutions.github.io/x12-edi-parser/#x12-edi-parser_1.html] for sample output values
 
 | Name | Description/Purpose |
 |------|---------------------|
