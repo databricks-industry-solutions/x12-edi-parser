@@ -80,7 +80,7 @@ final_df.write.mode("append").saveAsTable("...")
 | `EDI.*` | Struct containing metadata about the EDI ISA Segment |
 | `FunctionalGroup.*` | Struct containing metadata about the EDI Functional Group (e.g., GS segment details). |
 | `Transaction.*` | Struct containing metadata about the specific EDI Transaction (e.g., ST segment details). |
-| `*` | The fully parsed and structured view of claims information (837, 835, 834). One row per claim |
+| `*` | The fully parsed and structured view of claims information (837, 835, 834). One row per claim. See (data dictionaries)[./doc] to see all fields parsed out |
 
 #### Splitting with RDDs (not recommended)
 
