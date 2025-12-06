@@ -59,8 +59,8 @@ class EDI():
                 for i in range(seg_len):
                     element_value = seg.element(i)
                     # Check if element has sub-elements
-                    if element_value and hasattr(seg, 'format_cls') and self.format_cls and self.format_cls.SUB_DELIM in element_value:
-                        sub_elements = element_value.split(self.format_cls.SUB_DELIM)
+                    if element_value and hasattr(seg, 'format_cls') and seg.format_cls and seg.format_cls.SUB_DELIM in element_value:
+                        sub_elements = element_value.split(seg.format_cls.SUB_DELIM)
                         elements.append(sub_elements)
                     else:
                         elements.append(element_value)

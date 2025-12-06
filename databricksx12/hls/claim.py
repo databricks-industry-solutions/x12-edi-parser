@@ -231,7 +231,8 @@ class MedicalClaim(EDI):
             **{'providers': {k:v.to_dict() for k,v in self.provider_info.items()}}, #returns a dictionary of k=provider type
             **{'claim_header': self.claim_info.to_dict()},
             **{'claim_lines': [x.to_dict() for x in self.sl_info]}, #List
-            **{'diagnosis': self.diagnosis_info.to_dict()}
+            **{'diagnosis': self.diagnosis_info.to_dict()},
+            **{'input_loop_segments': self.loop_segments_info} #the input loops
         }
 
     def _service_facility_provider(self):
@@ -260,6 +261,14 @@ class MedicalClaim(EDI):
         self.provider_info = self._populate_providers()
         self.diagnosis_info = self._populate_diagnosis()
         self.payer_info = self._populate_payer_info()
+        self.loop_segments_info =  {
+                'sender_receiver_loop': self._extract_segments(self.sender_receiver_loop),
+                'billing_loop': self._extract_segments(self.billing_loop),
+                'subscriber_loop': self._extract_segments(self.subscriber_loop),
+                'patient_loop': self._extract_segments(self.patient_loop ),
+                'claim_loop': self._extract_segments(self.claim_loop ),
+                'sl_loop': self._extract_segments(self.sl_loop)
+            }
 
 class Claim837i(MedicalClaim):
 
