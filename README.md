@@ -43,7 +43,7 @@ mapInArrow() is wrapped [here](./databricksx12/hls/mapinarrow_functions.py). Thi
 | `pk` | **Optional**. A primary key column (string, integer, etc.) to track lineage or file metadata. If provided, it is preserved in the output. |
 
 ```python
-from ember.hls.mapinarrow_functions import from_edi, output_schema
+from ember.hls.mapinarrow_functions import *
 
 # Assuming 'df' is your dataframe with 'value' (and optional 'pk') columns
 # 1. Check to make sure you're using the entire cluster
@@ -53,11 +53,11 @@ if df.rdd.getNumPartitions() < spark.sparkContext.defaultParallelism:
 
 # 2. Parse EDI content using mapInArrow
 # Returns a DataFrame with columns: [pk, edi_content, edi_json]
-result_df = df.mapInArrow(from_edi, output_schema)
+result_df = from_edi(df)
 
 # 3. Flatten the JSON structure
 # This explodes the nested JSON into rows per claim/transaction
-final_df = flatten_edi(result_df)
+final_df = flatten_edi(result_df, spark)
 
 # And finally save off the content 
 final_df.write.mode("append").saveAsTable("...")
