@@ -32,7 +32,7 @@ class ClaimBuilder(EDI):
         return self.trnx_cls(
             sender_receiver_loop=self.get_submitter_receiver_loop(idx),
             billing_loop=self.loop.get_loop_segments(idx, "2000A"),
-            subscriber_loop=self.loop.get_loop_segments(idx, "2000B"),
+            subscriber_loop=self.get_subscriber_loop(self.loop.get_loop_segments(idx, "2000B")),
             patient_loop=self.loop.get_loop_segments(idx, "2000C"),
             claim_loop=self.get_claim_loop(idx),
             sl_loop=self.get_service_line_loop(idx),  # service line loop
@@ -71,6 +71,12 @@ class ClaimBuilder(EDI):
             enrollment_member = self.data[self.index_of_segment(self.data, "INS"): self.index_of_segment(self.data, "SE")],
             health_plan_loop=self.data[self.index_of_segment(self.data, "HD"): self.last_index_of_segment(self.data, "DTP")+1]
         )
+
+    #
+    # Need to end the subscriber list at the start of the clm
+    #
+    def get_subscriber_loop(self, subscriber_loop_plus): 
+        return subscriber_loop_plus[0: (self.segments_by_name_index(subscriber_loop_plus, "CLM") if self.segments_by_name_index(subscriber_loop_plus, "CLM") > 0 else len(subscriber_loop_plus))]
     #
     # Determine claim loop: starts at the clm index and ends at LX segment, or CLM segment, or end of data
     #
