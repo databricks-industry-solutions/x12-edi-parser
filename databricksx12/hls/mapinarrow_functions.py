@@ -45,7 +45,7 @@ output_schema = StructType([
 #
 # Accept output from_edi() result and produce a json_df that can be saved as a table
 #
-def flatten_edi(from_edi_df): 
+def flatten_edi(from_edi_df, spark): 
    return (
     spark.read.json(
         from_edi_df.rdd.map(lambda x: {**{'pk': x.pk}, **{'edi_content': x.edi_content}, **{'edi_json': json.loads(x.edi_json)}}))
