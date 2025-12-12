@@ -32,7 +32,7 @@ class ClaimBuilder(EDI):
         return self.trnx_cls(
             sender_receiver_loop=self.get_submitter_receiver_loop(idx),
             billing_loop=self.loop.get_loop_segments(idx, "2000A"),
-            subscriber_loop=self.loop.get_loop_segments(idx, "2000B"),
+            subscriber_loop=self.get_subscriber_loop(self.loop.get_loop_segments(idx, "2000B")),
             patient_loop=self.loop.get_loop_segments(idx, "2000C"),
             claim_loop=self.get_claim_loop(idx),
             sl_loop=self.get_service_line_loop(idx),  # service line loop
@@ -71,6 +71,12 @@ class ClaimBuilder(EDI):
             enrollment_member = self.data[self.index_of_segment(self.data, "INS"): self.index_of_segment(self.data, "SE")],
             health_plan_loop=self.data[self.index_of_segment(self.data, "HD"): self.last_index_of_segment(self.data, "DTP")+1]
         )
+
+    #
+    # Need to end the subscriber list at the start of the clm
+    #
+    def get_subscriber_loop(self, subscriber_loop_plus): 
+        return subscriber_loop_plus[0:(self.index_of_segment(subscriber_loop_plus, "CLM") if self.index_of_segment(subscriber_loop_plus, "CLM") > 0 else len(subscriber_loop_plus)-1)]
     #
     # Determine claim loop: starts at the clm index and ends at LX segment, or CLM segment, or end of data
     #
@@ -231,7 +237,8 @@ class MedicalClaim(EDI):
             **{'providers': {k:v.to_dict() for k,v in self.provider_info.items()}}, #returns a dictionary of k=provider type
             **{'claim_header': self.claim_info.to_dict()},
             **{'claim_lines': [x.to_dict() for x in self.sl_info]}, #List
-            **{'diagnosis': self.diagnosis_info.to_dict()}
+            **{'diagnosis': self.diagnosis_info.to_dict()},
+            **{'input_loop_segments': self.loop_segments_info} #the input loops
         }
 
     def _service_facility_provider(self):
@@ -260,6 +267,14 @@ class MedicalClaim(EDI):
         self.provider_info = self._populate_providers()
         self.diagnosis_info = self._populate_diagnosis()
         self.payer_info = self._populate_payer_info()
+        self.loop_segments_info =  {
+            'sender_receiver_loop': self._extract_segments(self.sender_receiver_loop),
+            'billing_loop': self._extract_segments(self.billing_loop),
+            'subscriber_loop': self._extract_segments(self.subscriber_loop),
+            'patient_loop': self._extract_segments(self.patient_loop ),
+            'claim_loop': self._extract_segments(self.claim_loop ),
+            'sl_loop': self._extract_segments(self.sl_loop)
+        }
 
 class Claim837i(MedicalClaim):
 
