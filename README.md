@@ -30,6 +30,7 @@ pip install git+https://github.com/databricks-industry-solutions/x12-edi-parser
 > [!NOTE]
 > All types of EDI formats can be procesed with the same code below. However, it is recommended to build dataframes and save by resource type (837i/837p, 835, 834) to avoid confusion over empty values on a row.
 
+The old README instructions can be found (here)[./doc/archive/preMapInArrowREADME]
 
 #### Using mapInArrow (recommended, fastest processing)
 
