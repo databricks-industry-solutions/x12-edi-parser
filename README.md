@@ -242,6 +242,11 @@ N3*987 65TH PL
 """
 ```
 
+## Other issues to be aware of
+
+1. Legacy EDI format 4010 not supported (deprecated in 2012 in favor of 5010). This can be determined by data in the ISA (first segment) and results in no claim content able to be found
+
+2. File encodings: not all EDI transactions are in UTF-8 format which is the default when running spark.read.text. The expected encodings for spark can be set with spark.read.option('encoding', '<your encoding>').text(...). Other encodings include 'US-ASCII', 'ISO-8859-1', 'utf-8-sig', 'utf-16be', etc. 
 
 ## Project support 
 
