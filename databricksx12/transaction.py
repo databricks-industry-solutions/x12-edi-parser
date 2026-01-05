@@ -20,12 +20,7 @@ class Transaction(EDI):
         self.format_cls = delim_cls
         self._strict_transactions = True
 
-        self._segment_index = {}
-        for i, segment in enumerate(self.data):
-            name = segment._name
-            if name not in self._segment_index:
-                self._segment_index[name] = []
-            self._segment_index[name].append(i)
+        self._build_segment_index()
 
         self.st = self.segments_by_name("ST")[0]
         self.se = self.segments_by_name("SE")[0]
@@ -61,4 +56,7 @@ class Transaction(EDI):
         self.se = state['se']
         self.transaction_set_code = state['transaction_set_code']
         self.control_number = state['control_number']
-        self._strict_transactions = state['_strict_transactions']
+        self._strict_transactions = state.get('_strict_transactions', True)
+        
+        # Rebuild the segment index
+        self._build_segment_index()

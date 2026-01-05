@@ -323,7 +323,8 @@ class Claim837i(MedicalClaim):
                     sv2 = self._first(s, "SV2"),
                     lx = self._first(s, "LX"),
                     dtp = self.segments_by_name("DTP", data = s),
-                    amt = self.segments_by_name("AMT", data=s)
+                    amt = self.segments_by_name("AMT", data=s),
+                    lin = self.segments_by_name("LIN", data=s)
                 ),self.claim_lines()))
 
     
@@ -356,5 +357,6 @@ class Claim837p(MedicalClaim):
                     sv1 = self._first(s, "SV1"),
                     lx = self._first(s, "LX"),
                     dtp = self.segments_by_name("DTP", data=s),
-                    amt = self.segments_by_name("AMT", data=s)
+                    amt = self.segments_by_name("AMT", data=s),
+                    lin = self.segments_by_name("LIN", data=s)
                 ), self.claim_lines()))

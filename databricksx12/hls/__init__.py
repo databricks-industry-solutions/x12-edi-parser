@@ -3,3 +3,4 @@ from .enrollment import *
 from .loop import *
 from .remittance import *
 from .healthcare import *
+from .mapinarrow_functions import *

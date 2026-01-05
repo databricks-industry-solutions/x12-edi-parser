@@ -7,12 +7,7 @@ class FunctionalGroup(EDI):
         self.format_cls = delim_cls
         self._strict_transactions = strict_transactions
 
-        self._segment_index = {}
-        for i, segment in enumerate(self.data):
-            name = segment._name
-            if name not in self._segment_index:
-                self._segment_index[name] = []
-            self._segment_index[name].append(i)
+        self._build_segment_index()
 
         self.transaction_type = self._transaction_type()
         self.fg = (self.segments_by_name("GS")[0] if len(self.segments_by_name("GS")) > 0 else Segment.empty())
@@ -83,10 +78,4 @@ class FunctionalGroup(EDI):
         self.sender = state['sender']
         self.receiver = state['receiver']
         self._strict_transactions = state['_strict_transactions']
-
-        self._segment_index = {}
-        for i, segment in enumerate(self.data):
-            name = segment._name
-            if name not in self._segment_index:
-                self._segment_index[name] = []
-            self._segment_index[name].append(i)
+        self._build_segment_index()

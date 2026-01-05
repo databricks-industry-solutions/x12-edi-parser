@@ -9,9 +9,7 @@ from pyspark.sql.functions import explode, col
 from pyspark.sql.types import StructType, StructField, StringType, BooleanType, MapType, ArrayType
 
 #
-# TODO
-#  (2) add in _extract_segments column of data
-#  (3) update readme
+# Helper functions to execute effeciently in Spark
 #
 
 #
