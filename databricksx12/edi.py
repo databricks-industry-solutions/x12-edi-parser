@@ -19,12 +19,7 @@ class EDI():
         self.format_cls = (self.extract_delim(data) if delim_cls is None else delim_cls)
         self.data = [Segment(x, self.format_cls) for x in data.split(self.format_cls.SEGMENT_DELIM)[:-1]]
 
-        self._segment_index = {}
-        for i, segment in enumerate(self.data):
-            name = segment._name
-            if name not in self._segment_index:
-                self._segment_index[name] = []
-            self._segment_index[name].append(i)
+        self._build_segment_index()
 
         self.isa = (self.segments_by_name("ISA")[0] if len(self.segments_by_name("ISA")) > 0 else Segment.empty())
         self.sender_qualifier_id = self.isa.element(5) + self.isa.element(6)
@@ -37,6 +32,15 @@ class EDI():
         #@param to toggle between using SE01 to parse transactions (True) or to manually search for the preceding ST segment (False)
         self._strict_transactions = strict_transactions
         self._valid_se01()
+
+
+    def _build_segment_index(self):
+        self._segment_index = {}
+        for i, segment in enumerate(self.data):
+            name = segment._name
+            if name not in self._segment_index:
+                self._segment_index[name] = []
+            self._segment_index[name].append(i)
 
 
     @staticmethod
@@ -240,6 +244,7 @@ class EDI():
         self.time = state['time']
         self.control_number = state['control_number']
         self._strict_transactions = state['_strict_transactions']
+        self._build_segment_index()
 
     def __eq__(self, other):
         """
