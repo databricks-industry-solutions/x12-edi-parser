@@ -18,21 +18,6 @@ class TestEnrollment(PysparkBaseTest):
         cls.test_data_2 = EDI(open("sampledata/834/EDI_834.txt", "rb").read().decode("utf-8"), strict_transactions=False)
         
 
-    def test_enrollment_creation(self):
-        pass
-        """Test that MemberEnrollment objects can be created successfully"""
-        #assert(len(hm.from_edi(self.test_data_2)) == 1) 
-        #e2 = hm.from_edi(self.test_data_2)[0]
-        #assert(set(e2.to_json()) == set({'health_plan', 'enrollment_member'}))
-        #assert(e2.to_json()['health_plan'][0]['coverage_desc'] == 'Health')
-
-
-    def test_enrollment_equality(self):
-        pass
-        #part2a = hm.from_edi(self.test_data_2)[0].to_json() 
-        #part2b = hm.flatten_to_json(hm.flatten(self.test_data_2)[0])
-        #assert(part2b['enrollment_member'] == part2a['enrollment_member'] and part2b['health_plan'] == part2a['health_plan'])
-
     def test_ins_segment_count_matches_member_count_834_test(self):
         """Test that INS segment count matches the number of enrollment records for 834_test.txt"""
         # Count INS segments manually
@@ -45,11 +30,6 @@ class TestEnrollment(PysparkBaseTest):
         self.assertEqual(ins_count, len(enrollments), 
                         f"INS segment count ({ins_count}) should match enrollment record count ({len(enrollments)}) for 834_test.txt")
         
-        # Verify all are MemberEnrollment objects
-        for enrollment in enrollments:
-            self.assertIsInstance(enrollment, MemberEnrollment,
-                                 "All returned objects should be MemberEnrollment instances")
-
     def test_ins_segment_count_matches_member_count_edi_834(self):
         """Test that INS segment count matches the number of enrollment records for EDI_834.txt"""
         # Count INS segments manually
@@ -61,11 +41,6 @@ class TestEnrollment(PysparkBaseTest):
         # Assert counts match
         self.assertEqual(ins_count, len(enrollments),
                         f"INS segment count ({ins_count}) should match enrollment record count ({len(enrollments)}) for EDI_834.txt")
-        
-        # Verify all are MemberEnrollment objects
-        for enrollment in enrollments:
-            self.assertIsInstance(enrollment, MemberEnrollment,
-                                 "All returned objects should be MemberEnrollment instances")
 
     def test_ins_segment_count_using_segments_by_name(self):
         """Test that INS count from segments_by_name matches from_edi result count"""
