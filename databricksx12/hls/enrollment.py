@@ -22,56 +22,74 @@ class MemberEnrollment(MedicalClaim):
         "VIS": "Vision"
     }
 
-    def __init__(self, enrollment_member,
-                 health_plan_loop):
-        self.raw_segments = enrollment_member
-        self.health_plan_segments = health_plan_loop
-
+    def __init__(self, member_detail_loop):
+        self.member_detail_loop = member_detail_loop
         self.enrollment_data = self.build_enrollment_data()
-        self.health_plan_loop = self.build_health_plan()
 
-    def build_health_plan(self):
-        plans = []
-        current_plan = None
-
-        for seg in self.health_plan_segments:
-            seg_type = seg._name
-
-            if seg_type == "HD":
-                if current_plan:
-                    plans.append(current_plan)
-                current_plan = {
-                    "coverage_type_code": seg.element(3),
-                    "coverage_desc": self.COVERAGE_DESC_MAPPING.get(seg.element(3), "Unknown"),
-                }
-            elif seg_type == "DTP" and current_plan:
-                current_plan["effective_date"] = seg.element(3)
-                current_plan["end_date"] = seg.element(4)
-
-        if current_plan:
-            plans.append(current_plan)
-
-        return plans
-    
-    def build_enrollment_data(self):
-        segments = self.raw_segments
-        nm1 = self._first(segments, "NM1")
-        dmg = self._first(segments, "DMG")
-        per = self._first(segments, "PER")
-        n3 = self._first(segments, "N3")
-        n4 = self._first(segments, "N4")
-        ins = self._first(segments, "INS")
-        dtp = self._first(segments, "DTP")
+    def build_plan_elections(self, segments):
+        # Build local index for O(1) lookups
+        segment_index = {}
+        for x in segments:
+            if x._name not in segment_index:
+                segment_index[x._name] = []
+            segment_index[x._name].append(x)
+            
+        def get_dtp(qualifier):
+            found = [x for x in segment_index.get("DTP", []) if x.element(1) == qualifier]
+            return found[0] if found else Segment.empty()
+            
+        dtp_348 = get_dtp("348")
+        dtp_349 = get_dtp("349")
+        dtp_344 = get_dtp("344")
+        dtp_345 = get_dtp("345")
+        
+        cob = segment_index.get("COB", [Segment.empty()])[0]
 
         return {
-            "enrollment_member": {
+            'coverage_type_code': segments[0].element(3), #first segment is always HD
+            'coverage_desc':  self.COVERAGE_DESC_MAPPING.get(segments[0].element(3), "Unknown"),
+            'coverage_start_dt': dtp_348.element(3),
+            'coverage_start_dt_format': dtp_348.element(2),
+            'coverage_end_dt': dtp_349.element(3),
+            'coverage_end_dt_format': dtp_349.element(2),
+            'cob_payer_responsible_cd': cob.element(1),
+            'cob_policy_number': cob.element(2),   
+            'cob_indicator_cd': cob.element(3), 
+            'cob_service_type_cd': cob.element(4), 
+            'cob_start_dt': dtp_344.element(3),
+            'cob_start_dt_format': dtp_344.element(2),
+            'cob_end_dt': dtp_345.element(3),
+            'cob_end_dt_format': dtp_345.element(2),
+        }
+    
+    def build_enrollment_data(self):
+        # Build local index for O(1) lookups
+        segment_index = {}
+        for x in self.member_detail_loop:
+            if x._name not in segment_index:
+                segment_index[x._name] = []
+            segment_index[x._name].append(x)
+            
+        def get_first(name):
+            return segment_index.get(name, [Segment.empty()])[0]
+
+        nm1 = get_first("NM1")
+        dmg = get_first("DMG")
+        per = get_first("PER")
+        n3 = get_first("N3")
+        n4 = get_first("N4")
+        ins = get_first("INS")
+        dtp = get_first("DTP")
+        
+        hd_idx = [i for i, seg in self.segments_by_name_index("HD", data=self.member_detail_loop)] + [len(self.member_detail_loop)]
+        
+        return {
                 "member_id_code": nm1.element(9),
                 "member_identifier_type": self.IDENTIFIER_TYPE_MAPPING.get(nm1.element(8), nm1.element(8)),
                 "member_first_name": nm1.element(4),
                 "member_last_name": nm1.element(3),
                 "member_dob": dmg.element(2),
                 "member_gender": dmg.element(3),
-
                 "contact_phone_number": {
                     "home_phone": per.element(4),
                     "work_phone": per.element(6)
@@ -88,12 +106,13 @@ class MemberEnrollment(MedicalClaim):
                     "maintenance_type_code": ins.element(3),
                     "maintenance_reason_code": ins.element(4),
                     "coverage_start_date" : dtp.element(3)
-                }
-            },
-        }
+                },
+                "health_coverage_elections": [
+                    self.build_plan_elections(self.member_detail_loop[t[0]:t[1]]) for t in zip(hd_idx, hd_idx[1:])
+                ]
+            }
 
     def to_json(self):
         return {
-        'enrollment_member': self.enrollment_data,
-        'health_plan': self.health_plan_loop
+            'enrollment_member': self.enrollment_data
         }

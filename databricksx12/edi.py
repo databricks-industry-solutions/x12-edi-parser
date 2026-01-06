@@ -111,16 +111,24 @@ class EDI():
     #
     def index_of_segment(self, segments, segment_name, search_start_idx=0):
         try:
-            return min([(i) for i,x in enumerate(segments) if x._name == segment_name and i >=search_start_idx])
-        except:
+            # Optimized: Avoid building a full list of indices. Use a generator.
+            # Using enumerate starting from search_start_idx to get correct absolute index
+            return next(i for i, x in enumerate(segments[search_start_idx:], start=search_start_idx) if x._name == segment_name)
+        except StopIteration:
             return -1 #not found
+        except:
+            return -1
 
     #
     # Return the last occurence index of the specified segment
     #
     def last_index_of_segment(self, segments, segment_name, search_start_idx = 0):
         try:
-            return max([(i) for i,x in enumerate(segments) if x._name == segment_name and i >=search_start_idx])
+            # Optimized: Search backwards from the end
+            for i in range(len(segments) - 1, search_start_idx - 1, -1):
+                if segments[i]._name == segment_name:
+                    return i
+            return -1
         except:
             return -1
 
