@@ -53,23 +53,41 @@ if df.rdd.getNumPartitions() < spark.sparkContext.defaultParallelism:
     df = df.repartition(spark.sparkContext.defaultParallelism * 5)
 
 # 2. Parse EDI content using mapInArrow
-# Returns a DataFrame with columns: [pk, edi_content, edi_json]
-result_df = df.mapInArrow(from_edi, output_schema)
+# OPTION A: Without original EDI content (RECOMMENDED - reduces memory usage and avoids Arrow 2GB buffer limits)
+result_df = df.mapInArrow(
+    lambda batches: from_edi(batches, include_original_edi_content=False),
+    schema=get_output_schema(include_original_edi_content=False)
+)
+
+# OPTION B: With original EDI content (only if needed for validation/debugging)
+# result_df = df.mapInArrow(
+#     lambda batches: from_edi(batches, include_original_edi_content=True),
+#     schema=get_output_schema(include_original_edi_content=True)
+# )
 
 # 3. Flatten the JSON structure
 # This explodes the nested JSON into rows per claim/transaction
+# flatten_edi() automatically handles whether edi_content column is present or not
 final_df = flatten_edi(result_df, spark)
 
 # And finally save off the content 
 final_df.write.mode("append").saveAsTable("...")
 ```
 
+> [!TIP]
+> **Performance Optimization**: By default, `include_original_edi_content=False` omits the original EDI content from the output, which:
+> - **Significantly reduces memory usage** (EDI files can be 100KB-several MB per record)
+> - **Prevents Arrow's 2GB buffer limit errors** on large files
+> - **Improves processing speed** by reducing data transfer between workers
+> 
+> Only set `include_original_edi_content=True` if you need the original EDI for validation, auditing, or reprocessing purposes.
+
 ##### First Output (`result_df`). Also see the (html notebook)[https://databricks-industry-solutions.github.io/x12-edi-parser/#x12-edi-parser_1.html] for sample output values
 
 | Name | Description/Purpose |
 |------|---------------------|
 | `pk` | The primary key from the input DataFrame, preserved for lineage. |
-| `edi_content` | The original raw EDI content for the file. |
+| `edi_content` | **Optional**. The original raw EDI content for the file. Only included if `include_original_edi_content=True`. Omitting this column significantly reduces memory usage and helps avoid Arrow's 2GB buffer limit for large files. |
 | `edi_json` | A String representation of the parsed content to be consumed by spark.read.json  |
 
 ##### Final Output (`final_df`)
@@ -77,7 +95,7 @@ final_df.write.mode("append").saveAsTable("...")
 | Name | Description/Purpose |
 |------|---------------------|
 | `pk` | The primary key from the input DataFrame, preserved for lineage. |
-| `edi_content` | The original raw EDI content for the file. |
+| `edi_content` | **Optional**. The original raw EDI content for the file. Only included if `include_original_edi_content=True` was used in the previous step. |
 | `EDI.*` | Struct containing metadata about the EDI ISA Segment |
 | `FunctionalGroup.*` | Struct containing metadata about the EDI Functional Group (e.g., GS segment details). |
 | `Transaction.*` | Struct containing metadata about the specific EDI Transaction (e.g., ST segment details). |
