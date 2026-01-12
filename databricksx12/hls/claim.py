@@ -67,9 +67,11 @@ class ClaimBuilder(EDI):
                             )
 
     def build_enrollment(self, pay_segment, idx):
+        ins_next_idx = self.index_of_segment(self.data, "INS", idx+1)
+        end_idx = ins_next_idx if ins_next_idx > 0 else self.index_of_segment(self.data, "SE")
+        
         return self.trnx_cls(
-            enrollment_member = self.data[self.index_of_segment(self.data, "INS"): self.index_of_segment(self.data, "SE")],
-            health_plan_loop=self.data[self.index_of_segment(self.data, "HD"): self.last_index_of_segment(self.data, "DTP")+1]
+            member_detail_loop = self.data[idx:end_idx]
         )
 
     #
@@ -123,16 +125,120 @@ class ClaimBuilder(EDI):
     #
     def build(self):
         if self.trnx_cls.NAME in ['837I', '837P']:
-            return [
-                self.build_claim(seg, i) for i, seg in self.segments_by_name_index("CLM")
-            ]
+            # Optimized: Pre-build indices for all segment types needed
+            clm_list = list(self.segments_by_name_index("CLM"))
+            lx_indices = [i for i, seg in self.segments_by_name_index("LX")]
+            se_indices = [i for i, seg in self.segments_by_name_index("SE")]
+            bht_indices = [i for i, seg in self.segments_by_name_index("BHT")]
+            hl_indices = [(i, seg) for i, seg in self.segments_by_name_index("HL")]
+            
+            # Pre-compute HL indices with element(3) == '20' for submitter/receiver loop
+            hl_20_indices = [i for i, seg in hl_indices if seg.element(3) == '20']
+            
+            claims = []
+            for idx_pos, (clm_idx, clm_seg) in enumerate(clm_list):
+                # Pre-compute values for this claim
+                next_clm_idx = clm_list[idx_pos + 1][0] if idx_pos + 1 < len(clm_list) else len(self.data)
+                
+                # Find indices after current claim
+                lx_after = [i for i in lx_indices if i > clm_idx]
+                se_after = [i for i in se_indices if i > clm_idx]
+                clm_after = [i for i, _ in clm_list if i > clm_idx]
+                
+                # Get submitter/receiver loop (shared across all claims in transaction)
+                bht_before = [i for i in bht_indices if i < clm_idx]
+                hl_20_before = [i for i in hl_20_indices if i < clm_idx]
+                if bht_before and hl_20_before:
+                    sender_receiver_loop = self.data[max(bht_before):max(hl_20_before)]
+                else:
+                    sender_receiver_loop = []
+                
+                # Get claim loop end
+                if lx_after:
+                    clm_end_idx = min(lx_after)
+                elif clm_after:
+                    clm_end_idx = min(clm_after + [len(self.data)])
+                else:
+                    clm_end_idx = len(self.data)
+                claim_loop = self.data[clm_idx:clm_end_idx]
+                
+                # Get service line loop
+                if lx_after:
+                    sl_start = min(lx_after)
+                    sl_end = min(clm_after + se_after + [len(self.data)])
+                    sl_loop = self.data[sl_start:sl_end]
+                else:
+                    sl_loop = []
+                
+                claims.append(
+                    self.trnx_cls(
+                        sender_receiver_loop=sender_receiver_loop,
+                        billing_loop=self.loop.get_loop_segments(clm_idx, "2000A"),
+                        subscriber_loop=self.get_subscriber_loop(self.loop.get_loop_segments(clm_idx, "2000B")),
+                        patient_loop=self.loop.get_loop_segments(clm_idx, "2000C"),
+                        claim_loop=claim_loop,
+                        sl_loop=sl_loop,
+                    )
+                )
+            return claims
+            
         elif self.trnx_cls.NAME == '835':
-            return [
-                self.build_remittance(seg, i) for i, seg in self.segments_by_name_index("CLP")
-            ]
+            # Optimized: Pre-build indices for all segment types needed
+            clp_indices = [i for i, seg in self.segments_by_name_index("CLP")]
+            n1_indices = [i for i, seg in self.segments_by_name_index("N1")]
+            lx_indices = [i for i, seg in self.segments_by_name_index("LX")]
+            svc_indices = [i for i, seg in self.segments_by_name_index("SVC")]
+            se_indices = [i for i, seg in self.segments_by_name_index("SE")]
+            
+            # Pre-compute common values used by all remittances
+            n1_first = n1_indices[0] if n1_indices else len(self.data)
+            n1_second = n1_indices[1] if len(n1_indices) > 1 else len(self.data)
+            lx_first = lx_indices[0] if lx_indices else len(self.data)
+            lx_last = lx_indices[-1] if lx_indices else 0
+            clp_last = clp_indices[-1] if clp_indices else 0
+            svc_last = svc_indices[-1] if svc_indices else 0
+            
+            # Pre-build lookup for "next CLP after current index"
+            clp_indices_set = set(clp_indices)
+            
+            remittances = []
+            for idx_pos, idx in enumerate(clp_indices):
+                # Find next CLP index
+                next_clp = clp_indices[idx_pos + 1] if idx_pos + 1 < len(clp_indices) else -1
+                
+                # Find next LX after current idx
+                next_lx = next((lx for lx in lx_indices if lx > idx), -1)
+                
+                # Find next SE after current idx
+                next_se = next((se for se in se_indices if se > idx), -1)
+                
+                # Calculate clm_loop end
+                clm_end = min(filter(lambda x: x > 0, [next_lx, next_clp, next_se, len(self.data)]))
+                
+                remittances.append(
+                    self.trnx_cls(
+                        trx_header_loop=self.data[0:n1_first],
+                        payer_loop=self.data[n1_first:n1_second],
+                        payee_loop=self.data[n1_second:lx_first],
+                        clm_loop=self.data[idx:clm_end],
+                        trx_summary_loop=self.data[max(0, lx_last, clp_last, svc_last):],
+                        header_number_loop=self.data[lx_first:idx]
+                    )
+                )
+            return remittances
+            
         elif self.trnx_cls.NAME == '834':
+            # Optimized: Pre-build index of all INS positions, then slice between them
+            ins_indices = [i for i, seg in self.segments_by_name_index("INS")]
+            se_idx = self.index_of_segment(self.data, "SE")
+            
+            # Add SE index as the end boundary
+            ins_indices.append(se_idx if se_idx > 0 else len(self.data))
+            
+            # Build enrollments by slicing between consecutive INS positions
             return [
-                self.build_enrollment(seg, i) for i, seg in self.segments_by_name_index("BGN")
+                self.trnx_cls(member_detail_loop=self.data[ins_indices[i]:ins_indices[i+1]])
+                for i in range(len(ins_indices) - 1)
             ]
 
 #
@@ -162,7 +268,11 @@ class MedicalClaim(EDI):
     # Return first segment found of name == name otherwise Segment.empty()
     #
     def _first(self, segments, name, start_index = 0):
-        return ([x for x in segments[start_index:] if x._name == name][0]  if len([x for x in segments[start_index:] if x._name == name]) > 0 else Segment.empty())
+        # Optimized: Iterate once, check name, and return immediately
+        for x in (segments[start_index:] if start_index > 0 else segments):
+            if x._name == name:
+                return x
+        return Segment.empty()
         
     def _populate_providers(self):
         return {"billing": self._billing_provider()}

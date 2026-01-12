@@ -125,19 +125,51 @@ class Loop(EDI):
     #
     # Go from child to parent searching for the specified hl_code
     #
-    def traverse_loops(self, hl_code, loop):
+    def traverse_loops(self, hl_code, loop, visited=None):
+        # Prevent infinite recursion by tracking visited loops
+        if visited is None:
+            visited = set()
+        
+        # Get a unique identifier for this loop (using start_idx)
+        loop_id = loop.get('start_idx')
+        
+        # Check if we've already visited this loop (circular reference)
+        if loop_id in visited:
+            return None
+        
+        visited.add(loop_id)
+        
+        # Check for depth limit (safety measure)
+        if len(visited) > 100:  # Reasonable max depth for HL hierarchies
+            return None
+        
         if loop['hl_code'] == hl_code:
             return loop 
         elif loop['parent_id'] == "":
             return None
         else:
-            return self.traverse_loops(hl_code, self.determine_parent(loop))
+            parent = self.determine_parent(loop)
+            if parent is None:
+                return None
+            return self.traverse_loops(hl_code, parent, visited)
 
     #
     # parent is either the parent_id or the previous HL segment if there was a child indicator section
     #
     def determine_parent(self, loop):
-        return loop['parent_id'] if loop['subordinate_ind'] == 0 else self.loop_hierarchy.get(self.determine_previous_hl(loop['start_idx'])[0])
+        if loop['subordinate_ind'] == 0:
+            # Return the loop object directly from hierarchy, not just the ID
+            parent_id = loop['parent_id']
+            return self.loop_hierarchy.get(parent_id) if parent_id else None
+        else:
+            # Get the previous HL segment
+            prev_hl = self.determine_previous_hl(loop['start_idx'])
+            if prev_hl is None:
+                return None
+            # prev_hl is a tuple: (id, start_idx, parent_id, hl_code, child_code)
+            # Extract the ID (first element) and look it up in the hierarchy
+            prev_hl_id = prev_hl[0]
+            return self.loop_hierarchy.get(prev_hl_id)
         
     #
     #  returns the HL segment 
