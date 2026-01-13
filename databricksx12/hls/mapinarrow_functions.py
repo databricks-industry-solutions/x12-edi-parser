@@ -59,21 +59,15 @@ def from_edi(batches: Iterator[pa.RecordBatch], include_original_edi_content: bo
             json_str = json.dumps(result)
             
             # Check if the JSON string is too large (approaching 2GB limit)
-            # Arrow has a 2GB limit per string, so warn at 1GB
-            if len(json_str) > 1_000_000_000:  # 1GB
+            # Arrow has a 2GB limit per string, so warn at 2GB
+            if len(json_str) > 2_000_000_000:  # 2GB
                 return json.dumps({
-                    "error": "EDI JSON output too large",
+                    "error": "EDI JSON too large for mapInArrow",
                     "size_bytes": len(json_str),
                     "edi_preview": edi_string[:1000]
                 })
             
             return json_str
-        except RecursionError as e:
-            return json.dumps({
-                "error": "Recursion error in EDI parsing (possible circular loop reference)",
-                "message": str(e),
-                "edi_preview": edi_string[:1000] if edi_string else ""
-            })
         except Exception as e:
             return json.dumps({
                 "error": f"Failed to parse EDI: {type(e).__name__}",
