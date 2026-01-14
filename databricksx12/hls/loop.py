@@ -80,17 +80,22 @@ class Loop(EDI):
         """
         Return all start indexes         
         """
-        return {
-            x[0]: {
-                "start_idx": x[1],
-                "end_idx": self._determine_end_index(x[1]),
-                "parent_id": x[2],
-                "hl_code": x[3],
-                "child_code": x[4],
-                "subordinate_ind": self.subordinate_child_indicator(x[1]) #true if previous HL04=1 
+        # Optimization: build hierarchy in a single pass.
+        # start_indexes are already ordered by position, so end_idx is the next start_idx.
+        start_indexes = self._start_indexes
+        hierarchy = {}
+        for idx, (hl_id, start_idx, parent_id, hl_code, child_code) in enumerate(start_indexes):
+            next_start = start_indexes[idx + 1][1] if idx + 1 < len(start_indexes) else len(self.data)
+            prev_child_code = start_indexes[idx - 1][4] if idx > 0 else 0
+            hierarchy[hl_id] = {
+                "start_idx": start_idx,
+                "end_idx": next_start,
+                "parent_id": parent_id,
+                "hl_code": hl_code,
+                "child_code": child_code,
+                "subordinate_ind": prev_child_code  # true if previous HL04=1
             }
-            for x in self._start_indexes
-        }
+        return hierarchy
 
     #
     # Return a tuple of all HL segments, start index, id, parent id, child code, and hl_code
