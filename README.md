@@ -30,8 +30,6 @@ pip install git+https://github.com/databricks-industry-solutions/x12-edi-parser
 > [!NOTE]
 > All types of EDI formats can be procesed with the same code below. However, it is recommended to build dataframes and save by resource type (837i/837p, 835, 834) to avoid confusion over empty values on a row.
 
-The old README instructions can be found (here)[./doc/archive/preMapInArrowREADME]
-
 #### Using mapInArrow (recommended, fastest processing)
 
 mapInArrow() is wrapped [here](./databricksx12/hls/mapinarrow_functions.py). Two functions are available:
@@ -39,7 +37,7 @@ mapInArrow() is wrapped [here](./databricksx12/hls/mapinarrow_functions.py). Two
 | Function | Best For | Output | 2GB Risk |
 |----------|----------|--------|----------|
 | `from_edi` | Small/medium files (<100MB EDI) | 1 row per file, then use Spark `explode()` | ⚠️ Possible if JSON >2GB |
-| `from_edi_exploded` | Large files or many claims | 1 row per claim (no `explode()` needed) | ✅ Safe (claims are ~5KB each) |
+| `from_edi_exploded` | Large files or many claims | 1 row per claim (no `explode()` needed) | ✅ Safe (files are ~5KB each) |
 
 > [!WARNING]
 > Apache Arrow has a **2GB limit per string value**. When processing very large EDI files, the parsed JSON can exceed this limit and cause: `Cannot grow BufferHolder by size X because the size after growing exceeds size limitation 2147483632`. Use `from_edi_exploded` for large files.
