@@ -24,7 +24,8 @@ Usage Examples:
         from_edi_exploded,
         schema=get_exploded_schema()
     )
-    # Output: One row per claim with claim_json column (no Spark explode() needed)
+    # Output: One row per claim with edi_json column (same structure as from_edi)
+    # Each edi_json contains EDI/FunctionalGroup/Transaction metadata + single claim
 """
 
 import pyarrow as pa
@@ -185,11 +186,15 @@ def flatten_edi(from_edi_df, spark):
 #
 def from_edi_exploded(batches: Iterator[pa.RecordBatch]) -> Iterator[pa.RecordBatch]:
     """
-    Parse EDI content and return ONE ROW PER CLAIM.
+    Parse EDI content and return ONE ROW PER CLAIM with full envelope metadata.
     
     This function avoids the 2GB Arrow buffer limit by emitting individual claims
     instead of the entire EDI structure. Use this for very large EDI files where
     the JSON output would exceed 2GB.
+    
+    The output schema matches from_edi (pk, edi_json) so downstream processing
+    is compatible. Each edi_json contains the full EDI/FunctionalGroup/Transaction
+    envelope metadata but with only a single claim in the Claims array.
     
     Args:
         batches: Iterator of PyArrow RecordBatches containing EDI data
@@ -198,11 +203,8 @@ def from_edi_exploded(batches: Iterator[pa.RecordBatch]) -> Iterator[pa.RecordBa
     Returns:
         Iterator of PyArrow RecordBatches with one row per claim:
         - pk: Original primary key
-        - claim_index: Index of claim within the EDI file (0-based)
-        - transaction_type: EDI transaction type (837P, 837I, 835, 834)
-        - functional_group_index: Index of functional group (0-based)
-        - transaction_index: Index of transaction within functional group (0-based)
-        - claim_json: JSON string of individual claim (small, typically 1-10KB)
+        - edi_json: JSON string with EDI envelope, FunctionalGroup, Transaction,
+                    and a single Claim (same structure as from_edi output)
     
     Example:
         result_df = df.mapInArrow(from_edi_exploded, get_exploded_schema())
@@ -213,74 +215,68 @@ def from_edi_exploded(batches: Iterator[pa.RecordBatch]) -> Iterator[pa.RecordBa
         
         # Accumulate results
         result_pk = []
-        result_claim_index = []
-        result_transaction_type = []
-        result_fg_index = []
-        result_trnx_index = []
-        result_claim_json = []
+        result_edi_json = []
         
         for pk, edi_string in zip(pk_list, value_list):
             try:
                 if not edi_string or len(edi_string.strip()) == 0:
                     # Empty EDI - emit error row
                     result_pk.append(pk)
-                    result_claim_index.append(0)
-                    result_transaction_type.append("")
-                    result_fg_index.append(0)
-                    result_trnx_index.append(0)
-                    result_claim_json.append(json.dumps({"error": "Empty EDI string"}))
+                    result_edi_json.append(json.dumps({"error": "Empty EDI string"}))
                     continue
                 
                 edi_obj = EDI(edi_string, strict_transactions=False)
                 claim_counter = 0
                 
+                # Get EDI-level metadata once
+                edi_metadata = EDIManager.class_metadata(edi_obj)
+                
                 for fg_idx, fg in enumerate(edi_obj.functional_segments()):
+                    # Get FunctionalGroup metadata
+                    fg_metadata = EDIManager.class_metadata(fg)
+                    
                     for trnx_idx, trnx in enumerate(fg.transaction_segments()):
-                        transaction_type = trnx.transaction_type
+                        # Get Transaction metadata
+                        trnx_metadata = EDIManager.class_metadata(trnx)
                         claims = hm.from_transaction(trnx)
                         
                         for claim in claims:
+                            # Build the same structure as from_edi but with single claim
+                            edi_json = {
+                                **edi_metadata,
+                                'FunctionalGroup': [{
+                                    **fg_metadata,
+                                    'Transactions': [{
+                                        **trnx_metadata,
+                                        'Claims': [claim.to_json()]
+                                    }]
+                                }]
+                            }
                             result_pk.append(pk)
-                            result_claim_index.append(claim_counter)
-                            result_transaction_type.append(transaction_type)
-                            result_fg_index.append(fg_idx)
-                            result_trnx_index.append(trnx_idx)
-                            result_claim_json.append(json.dumps(claim.to_json()))
+                            result_edi_json.append(json.dumps(edi_json))
                             claim_counter += 1
                 
                 # If no claims were found, emit a row indicating that
                 if claim_counter == 0:
                     result_pk.append(pk)
-                    result_claim_index.append(0)
-                    result_transaction_type.append("")
-                    result_fg_index.append(0)
-                    result_trnx_index.append(0)
-                    result_claim_json.append(json.dumps({"error": "No claims found in EDI"}))
+                    result_edi_json.append(json.dumps({"error": "No claims found in EDI"}))
                     
             except Exception as e:
                 # Error parsing - emit error row
                 result_pk.append(pk)
-                result_claim_index.append(0)
-                result_transaction_type.append("")
-                result_fg_index.append(0)
-                result_trnx_index.append(0)
-                result_claim_json.append(json.dumps({
+                result_edi_json.append(json.dumps({
                     "error": f"Failed to parse EDI: {type(e).__name__}",
                     "message": str(e),
                     "edi_preview": edi_string[:500] if edi_string else ""
                 }))
         
-        # Yield batch with all claims
+        # Yield batch with all claims (same schema as from_edi)
         yield pa.RecordBatch.from_arrays(
             [
                 pa.array(result_pk, type=pa.string()),
-                pa.array(result_claim_index, type=pa.int32()),
-                pa.array(result_transaction_type, type=pa.string()),
-                pa.array(result_fg_index, type=pa.int32()),
-                pa.array(result_trnx_index, type=pa.int32()),
-                pa.array(result_claim_json, type=pa.string()),
+                pa.array(result_edi_json, type=pa.string()),
             ],
-            names=['pk', 'claim_index', 'transaction_type', 'functional_group_index', 'transaction_index', 'claim_json']
+            names=['pk', 'edi_json']
         )
 
 
@@ -289,16 +285,11 @@ def get_exploded_schema() -> StructType:
     Returns the output schema for from_edi_exploded function.
     
     Returns:
-        StructType schema for Spark with one row per claim
+        StructType schema for Spark - same as get_output_schema() for compatibility
     """
-    from pyspark.sql.types import IntegerType
     return StructType([
         StructField("pk", StringType(), True),
-        StructField("claim_index", IntegerType(), True),
-        StructField("transaction_type", StringType(), True),
-        StructField("functional_group_index", IntegerType(), True),
-        StructField("transaction_index", IntegerType(), True),
-        StructField("claim_json", StringType(), True),
+        StructField("edi_json", StringType(), True),
     ])
 
 
