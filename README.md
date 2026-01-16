@@ -134,6 +134,24 @@ final_df.write.mode("append").saveAsTable("...")
 | `Transaction.*` | Struct containing metadata about the specific EDI Transaction (e.g., ST segment details). |
 | `*` | The fully parsed and structured view of claims information (837, 835, 834). One row per claim. See the data dictionaries under "doc" to see all fields parsed out |
 
+Atlernatively build final_df from the result_df using scala (avoid python serialization on jvm)
+```scala
+import spark.implicits._
+
+//assuming result_df saved off to a table first
+val result_df = spark.read.table("...")
+
+// Option 1: Using spark.read.json with RDD (direct translation)
+val jsonRdd = result_df.select("pk", "edi_json").rdd.map { row =>
+  val pk = row.getAs[String]("pk")
+  val ediJson = row.getAs[String]("edi_json")
+  s"""{"pk":"$pk","edi_json":$ediJson}"""
+}
+
+val final_df = spark.read.json(jsonRdd.toDS())
+final_df.write.mode("append").saveAsTable("...")
+```
+
 #### Splitting with RDDs (not recommended)
 
 ```python
