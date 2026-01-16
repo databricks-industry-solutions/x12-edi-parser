@@ -88,7 +88,8 @@ final_df.write.mode("append").saveAsTable("...")
 Returns one row per claim directly—avoids the 2GB limit entirely since individual claims are typically 1-10KB. No additional `flatten_edi()` call needed.
 
 ```python
-from ember.hls.mapinarrow_functions import from_edi_exploded, get_exploded_schema, flatten_edi
+from ember.hls.mapinarrow_functions import from_edi_exploded, get_exploded_schema
+from pyspark.sql.functions import from_json, col
 
 # Parse EDI and explode to one row per claim in a single step
 result_df = df.mapInArrow(
@@ -96,9 +97,10 @@ result_df = df.mapInArrow(
     schema=get_exploded_schema()
 )
 # Output: pk, edi_json (same structure as from_edi but with single claim per row)
+# NOTE: Do NOT use flatten_edi() here - data is already one row per claim
 
-# Use the same flatten_edi() function - it works with both from_edi and from_edi_exploded
-final_df = flatten_edi(result_df, spark)
+row_map = lambda x: {**{'pk': x.pk}, **{'edi_json': json.loads(x.edi_json)}}
+final_df = spark.read.json(result_df.rdd.map(row_map))
 
 # Save the content
 final_df.write.mode("append").saveAsTable("...")
