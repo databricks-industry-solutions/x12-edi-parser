@@ -82,6 +82,59 @@ final_df.write.mode("append").saveAsTable("...")
 > 
 > Only set `include_original_edi_content=True` if you need the original EDI for validation, auditing, or reprocessing purposes.
 
+#### Handling Very Large EDI Files (2GB Arrow Buffer Limit)
+
+Apache Arrow has a **2GB limit per string value** due to 32-bit offsets in `StringArray`. When processing very large EDI files, the parsed JSON output can exceed this limit and cause errors like:
+
+```
+Cannot grow BufferHolder by size X because the size after growing exceeds size limitation 2147483632
+```
+
+**Two options are available:**
+
+| Function | Best For | Output | 2GB Risk |
+|----------|----------|--------|----------|
+| `from_edi` | Small/medium files (<100MB EDI) | 1 row per file, then use Spark `explode()` | ⚠️ Possible if JSON >2GB |
+| `from_edi_exploded` | Large files or many claims | 1 row per claim (no `explode()` needed) | ✅ Safe (claims are ~5KB each) |
+
+**Option 1: `from_edi` (default, faster for small files)**
+
+Returns one row per EDI file with nested JSON. Use Spark's `flatten_edi()` to explode to rows.
+
+```python
+from ember.hls.mapinarrow_functions import from_edi, get_output_schema, flatten_edi
+
+result_df = df.mapInArrow(
+    lambda batches: from_edi(batches),
+    schema=get_output_schema()
+)
+final_df = flatten_edi(result_df, spark)  # Spark explodes to rows
+```
+
+**Option 2: `from_edi_exploded` (safe for very large files)**
+
+Returns one row per claim directly—avoids the 2GB limit entirely since individual claims are typically 1-10KB.
+
+```python
+from ember.hls.mapinarrow_functions import from_edi_exploded, get_exploded_schema
+
+result_df = df.mapInArrow(
+    from_edi_exploded,
+    schema=get_exploded_schema()
+)
+# Output: One row per claim, no additional explode() needed
+# Columns: pk, claim_index, transaction_type, functional_group_index, transaction_index, claim_json
+```
+
+> [!NOTE]  
+> **When to use `from_edi_exploded`:**
+> - EDI files larger than ~100MB
+> - Files with 50,000+ claims
+> - When you see Arrow buffer errors
+> - When memory pressure is a concern
+>
+> **Trade-off**: `from_edi` + Spark `explode()` is slightly faster for small files because Spark's native explode is optimized. Use `from_edi_exploded` when file size is a concern.
+
 ##### First Output (`result_df`). Also see the (html notebook)[https://databricks-industry-solutions.github.io/x12-edi-parser/#x12-edi-parser_1.html] for sample output values
 
 | Name | Description/Purpose |
