@@ -74,51 +74,6 @@ class ClaimBuilder(EDI):
         )
 
     #
-    # Need to end the subscriber list at the start of the clm
-    #
-    def get_subscriber_loop(self, subscriber_loop_plus): 
-        return subscriber_loop_plus[0:(self.index_of_segment(subscriber_loop_plus, "CLM") if self.index_of_segment(subscriber_loop_plus, "CLM") > 0 else len(subscriber_loop_plus)-1)]
-    #
-    # Determine claim loop: starts at the clm index and ends at LX segment, or CLM segment, or end of data
-    #
-    def get_claim_loop(self, clm_idx):
-        sl_start_indexes = list(map(lambda x: x[0], filter(lambda x: x[0] > clm_idx, self.segments_by_name_index("LX"))))
-        clm_indexes = list(map(lambda x: x[0], filter(lambda x: x[0] > clm_idx, self.segments_by_name_index("CLM"))))
-
-        if sl_start_indexes:
-            clm_end_idx = min(sl_start_indexes)
-        elif clm_indexes:
-            clm_end_idx = min(clm_indexes + [len(self.data)])
-        else:
-            clm_end_idx = len(self.data)
-        
-        return self.data[clm_idx:clm_end_idx]
-
-    #
-    # fetch the indices of LX and CLM segments that are beyond the current clm index
-    #
-    def get_service_line_loop(self, clm_idx):
-        sl_starts = list(map(lambda x: x[0], filter(lambda x: x[0] > clm_idx, self.segments_by_name_index("LX"))))
-        if not sl_starts:
-            return []
-        sl_start = min(sl_starts)
-        clm_idxs = list(map(lambda x: x[0],filter(lambda x: x[0] > clm_idx, self.segments_by_name_index("CLM"))))
-        se_idxs = list(map(lambda x: x[0], filter(lambda x: x[0] > clm_idx, self.segments_by_name_index("SE"))))
-        sl_end = min(clm_idxs + se_idxs + [len(self.data)])
-        return self.data[sl_start:sl_end]
-
-    def get_submitter_receiver_loop(self, clm_idx):
-        bht_start_indexes = list(map(lambda x: x[0], filter(lambda x: x[0] < clm_idx, self.segments_by_name_index("BHT"))))
-        bht_end_indexes = list(map(lambda x: x[0], filter(lambda x: x[0] < clm_idx and x[1].element(3) == '20', self.segments_by_name_index("HL"))))
-        if bht_start_indexes:
-            sub_rec_start_idx = max(bht_start_indexes)
-            sub_rec_end_idx = max(bht_end_indexes)
-
-            return self.data[sub_rec_start_idx:sub_rec_end_idx]
-        return []
-
-
-    #
     # Given transaction type, transaction segments, and delim info, build out claims in the transaction
     #  @return a list of Claim for each "clm" segment
     #

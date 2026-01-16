@@ -16,6 +16,15 @@ Usage Examples:
         lambda batches: from_edi(batches, include_original_edi_content=True),
         schema=get_output_schema(include_original_edi_content=True)
     )
+    
+    # EXPLODED: One row per claim (avoids 2GB Arrow limit for very large files)
+    from databricksx12.hls.mapinarrow_functions import from_edi_exploded, get_exploded_schema
+    
+    result_df = df.mapInArrow(
+        from_edi_exploded,
+        schema=get_exploded_schema()
+    )
+    # Output: One row per claim with claim_json column (no Spark explode() needed)
 """
 
 import pyarrow as pa
@@ -169,6 +178,132 @@ def flatten_edi(from_edi_df, spark):
             .select(*select_cols)
             .drop("FunctionalGroups", "Transactions", "Claims")
     )
+
+
+#
+# EXPLODED VERSION: One row per claim to avoid 2GB Arrow buffer limit
+#
+def from_edi_exploded(batches: Iterator[pa.RecordBatch]) -> Iterator[pa.RecordBatch]:
+    """
+    Parse EDI content and return ONE ROW PER CLAIM.
+    
+    This function avoids the 2GB Arrow buffer limit by emitting individual claims
+    instead of the entire EDI structure. Use this for very large EDI files where
+    the JSON output would exceed 2GB.
+    
+    Args:
+        batches: Iterator of PyArrow RecordBatches containing EDI data
+                 Expected columns: 'pk' (optional), 'value' (EDI content)
+    
+    Returns:
+        Iterator of PyArrow RecordBatches with one row per claim:
+        - pk: Original primary key
+        - claim_index: Index of claim within the EDI file (0-based)
+        - transaction_type: EDI transaction type (837P, 837I, 835, 834)
+        - functional_group_index: Index of functional group (0-based)
+        - transaction_index: Index of transaction within functional group (0-based)
+        - claim_json: JSON string of individual claim (small, typically 1-10KB)
+    
+    Example:
+        result_df = df.mapInArrow(from_edi_exploded, get_exploded_schema())
+    """
+    for batch in batches:
+        pk_list = batch.column("pk").to_pylist() if "pk" in batch.schema.names else [""] * batch.num_rows
+        value_list = batch.column("value").to_pylist()
+        
+        # Accumulate results
+        result_pk = []
+        result_claim_index = []
+        result_transaction_type = []
+        result_fg_index = []
+        result_trnx_index = []
+        result_claim_json = []
+        
+        for pk, edi_string in zip(pk_list, value_list):
+            try:
+                if not edi_string or len(edi_string.strip()) == 0:
+                    # Empty EDI - emit error row
+                    result_pk.append(pk)
+                    result_claim_index.append(0)
+                    result_transaction_type.append("")
+                    result_fg_index.append(0)
+                    result_trnx_index.append(0)
+                    result_claim_json.append(json.dumps({"error": "Empty EDI string"}))
+                    continue
+                
+                edi_obj = EDI(edi_string, strict_transactions=False)
+                claim_counter = 0
+                
+                for fg_idx, fg in enumerate(edi_obj.functional_segments()):
+                    for trnx_idx, trnx in enumerate(fg.transaction_segments()):
+                        transaction_type = trnx.transaction_type
+                        claims = hm.from_transaction(trnx)
+                        
+                        for claim in claims:
+                            result_pk.append(pk)
+                            result_claim_index.append(claim_counter)
+                            result_transaction_type.append(transaction_type)
+                            result_fg_index.append(fg_idx)
+                            result_trnx_index.append(trnx_idx)
+                            result_claim_json.append(json.dumps(claim.to_json()))
+                            claim_counter += 1
+                
+                # If no claims were found, emit a row indicating that
+                if claim_counter == 0:
+                    result_pk.append(pk)
+                    result_claim_index.append(0)
+                    result_transaction_type.append("")
+                    result_fg_index.append(0)
+                    result_trnx_index.append(0)
+                    result_claim_json.append(json.dumps({"error": "No claims found in EDI"}))
+                    
+            except Exception as e:
+                # Error parsing - emit error row
+                result_pk.append(pk)
+                result_claim_index.append(0)
+                result_transaction_type.append("")
+                result_fg_index.append(0)
+                result_trnx_index.append(0)
+                result_claim_json.append(json.dumps({
+                    "error": f"Failed to parse EDI: {type(e).__name__}",
+                    "message": str(e),
+                    "edi_preview": edi_string[:500] if edi_string else ""
+                }))
+        
+        # Yield batch with all claims
+        yield pa.RecordBatch.from_arrays(
+            [
+                pa.array(result_pk, type=pa.string()),
+                pa.array(result_claim_index, type=pa.int32()),
+                pa.array(result_transaction_type, type=pa.string()),
+                pa.array(result_fg_index, type=pa.int32()),
+                pa.array(result_trnx_index, type=pa.int32()),
+                pa.array(result_claim_json, type=pa.string()),
+            ],
+            names=['pk', 'claim_index', 'transaction_type', 'functional_group_index', 'transaction_index', 'claim_json']
+        )
+
+
+def get_exploded_schema() -> StructType:
+    """
+    Returns the output schema for from_edi_exploded function.
+    
+    Returns:
+        StructType schema for Spark with one row per claim
+    """
+    from pyspark.sql.types import IntegerType
+    return StructType([
+        StructField("pk", StringType(), True),
+        StructField("claim_index", IntegerType(), True),
+        StructField("transaction_type", StringType(), True),
+        StructField("functional_group_index", IntegerType(), True),
+        StructField("transaction_index", IntegerType(), True),
+        StructField("claim_json", StringType(), True),
+    ])
+
+
+# Default exploded schema
+exploded_schema = get_exploded_schema()
 
 
 """
