@@ -184,6 +184,9 @@ def flatten_edi(from_edi_df, spark):
 #
 # EXPLODED VERSION: One row per claim to avoid 2GB Arrow buffer limit
 #
+# Batch size for yielding - prevents memory accumulation
+EXPLODED_BATCH_SIZE = 5000
+
 def from_edi_exploded(batches: Iterator[pa.RecordBatch]) -> Iterator[pa.RecordBatch]:
     """
     Parse EDI content and return ONE ROW PER CLAIM with full envelope metadata.
@@ -195,6 +198,8 @@ def from_edi_exploded(batches: Iterator[pa.RecordBatch]) -> Iterator[pa.RecordBa
     The output schema matches from_edi (pk, edi_json) so downstream processing
     is compatible. Each edi_json contains the full EDI/FunctionalGroup/Transaction
     envelope metadata but with only a single claim in the Claims array.
+    
+    Yields batches of ~5000 claims to prevent memory accumulation on large files.
     
     Args:
         batches: Iterator of PyArrow RecordBatches containing EDI data
@@ -209,18 +214,26 @@ def from_edi_exploded(batches: Iterator[pa.RecordBatch]) -> Iterator[pa.RecordBa
     Example:
         result_df = df.mapInArrow(from_edi_exploded, get_exploded_schema())
     """
+    def yield_batch(pk_list, json_list):
+        """Helper to yield a batch if non-empty"""
+        if pk_list:
+            return pa.RecordBatch.from_arrays(
+                [pa.array(pk_list, type=pa.string()), pa.array(json_list, type=pa.string())],
+                names=['pk', 'edi_json']
+            )
+        return None
+    
     for batch in batches:
         pk_list = batch.column("pk").to_pylist() if "pk" in batch.schema.names else [""] * batch.num_rows
         value_list = batch.column("value").to_pylist()
         
-        # Accumulate results
+        # Accumulate results in smaller batches
         result_pk = []
         result_edi_json = []
         
         for pk, edi_string in zip(pk_list, value_list):
             try:
                 if not edi_string or len(edi_string.strip()) == 0:
-                    # Empty EDI - emit error row
                     result_pk.append(pk)
                     result_edi_json.append(json.dumps({"error": "Empty EDI string"}))
                     continue
@@ -228,20 +241,18 @@ def from_edi_exploded(batches: Iterator[pa.RecordBatch]) -> Iterator[pa.RecordBa
                 edi_obj = EDI(edi_string, strict_transactions=False)
                 claim_counter = 0
                 
-                # Get EDI-level metadata once
+                # Get EDI-level metadata once (reuse for all claims)
                 edi_metadata = EDIManager.class_metadata(edi_obj)
                 
-                for fg_idx, fg in enumerate(edi_obj.functional_segments()):
-                    # Get FunctionalGroup metadata
+                for fg in edi_obj.functional_segments():
                     fg_metadata = EDIManager.class_metadata(fg)
                     
-                    for trnx_idx, trnx in enumerate(fg.transaction_segments()):
-                        # Get Transaction metadata
+                    for trnx in fg.transaction_segments():
                         trnx_metadata = EDIManager.class_metadata(trnx)
                         claims = hm.from_transaction(trnx)
                         
                         for claim in claims:
-                            # Build the same structure as from_edi but with single claim
+                            # Build JSON structure with single claim
                             edi_json = {
                                 **edi_metadata,
                                 'FunctionalGroup': [{
@@ -255,14 +266,22 @@ def from_edi_exploded(batches: Iterator[pa.RecordBatch]) -> Iterator[pa.RecordBa
                             result_pk.append(pk)
                             result_edi_json.append(json.dumps(edi_json))
                             claim_counter += 1
+                            
+                            # Yield batch when we hit the batch size threshold
+                            if len(result_pk) >= EXPLODED_BATCH_SIZE:
+                                yield pa.RecordBatch.from_arrays(
+                                    [pa.array(result_pk, type=pa.string()), 
+                                     pa.array(result_edi_json, type=pa.string())],
+                                    names=['pk', 'edi_json']
+                                )
+                                result_pk = []
+                                result_edi_json = []
                 
-                # If no claims were found, emit a row indicating that
                 if claim_counter == 0:
                     result_pk.append(pk)
                     result_edi_json.append(json.dumps({"error": "No claims found in EDI"}))
                     
             except Exception as e:
-                # Error parsing - emit error row
                 result_pk.append(pk)
                 result_edi_json.append(json.dumps({
                     "error": f"Failed to parse EDI: {type(e).__name__}",
@@ -270,14 +289,13 @@ def from_edi_exploded(batches: Iterator[pa.RecordBatch]) -> Iterator[pa.RecordBa
                     "edi_preview": edi_string[:500] if edi_string else ""
                 }))
         
-        # Yield batch with all claims (same schema as from_edi)
-        yield pa.RecordBatch.from_arrays(
-            [
-                pa.array(result_pk, type=pa.string()),
-                pa.array(result_edi_json, type=pa.string()),
-            ],
-            names=['pk', 'edi_json']
-        )
+        # Yield any remaining claims
+        if result_pk:
+            yield pa.RecordBatch.from_arrays(
+                [pa.array(result_pk, type=pa.string()), 
+                 pa.array(result_edi_json, type=pa.string())],
+                names=['pk', 'edi_json']
+            )
 
 
 def get_exploded_schema() -> StructType:
