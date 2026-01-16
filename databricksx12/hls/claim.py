@@ -1,8 +1,8 @@
 from databricksx12.edi import EDI, AnsiX12Delim, Segment
-from databricksx12.hls.loop import Loop
 from databricksx12.hls.identities import *
 from collections import defaultdict
 import json
+import bisect
 
 
 #
@@ -18,7 +18,6 @@ class ClaimBuilder(EDI):
         self.data = trnx_data
         self.format_cls = delim_cls
         self.trnx_cls = trnx_type_cls
-        self.loop = Loop(trnx_data)
 
     #
     # Builds a claim object from
@@ -28,12 +27,12 @@ class ClaimBuilder(EDI):
     #
     #  @return the class containing the relevent claim information
     #
-    def build_claim(self, clm_segment, idx):
+    def build_claim(self, clm_segment, idx, billing_loop, subscriber_loop, patient_loop):
         return self.trnx_cls(
             sender_receiver_loop=self.get_submitter_receiver_loop(idx),
-            billing_loop=self.loop.get_loop_segments(idx, "2000A"),
-            subscriber_loop=self.get_subscriber_loop(self.loop.get_loop_segments(idx, "2000B")),
-            patient_loop=self.loop.get_loop_segments(idx, "2000C"),
+            billing_loop=billing_loop,
+            subscriber_loop=subscriber_loop,
+            patient_loop=patient_loop,
             claim_loop=self.get_claim_loop(idx),
             sl_loop=self.get_service_line_loop(idx),  # service line loop
         )
@@ -75,112 +74,111 @@ class ClaimBuilder(EDI):
         )
 
     #
-    # Need to end the subscriber list at the start of the clm
-    #
-    def get_subscriber_loop(self, subscriber_loop_plus): 
-        return subscriber_loop_plus[0:(self.index_of_segment(subscriber_loop_plus, "CLM") if self.index_of_segment(subscriber_loop_plus, "CLM") > 0 else len(subscriber_loop_plus)-1)]
-    #
-    # Determine claim loop: starts at the clm index and ends at LX segment, or CLM segment, or end of data
-    #
-    def get_claim_loop(self, clm_idx):
-        sl_start_indexes = list(map(lambda x: x[0], filter(lambda x: x[0] > clm_idx, self.segments_by_name_index("LX"))))
-        clm_indexes = list(map(lambda x: x[0], filter(lambda x: x[0] > clm_idx, self.segments_by_name_index("CLM"))))
-
-        if sl_start_indexes:
-            clm_end_idx = min(sl_start_indexes)
-        elif clm_indexes:
-            clm_end_idx = min(clm_indexes + [len(self.data)])
-        else:
-            clm_end_idx = len(self.data)
-        
-        return self.data[clm_idx:clm_end_idx]
-
-    #
-    # fetch the indices of LX and CLM segments that are beyond the current clm index
-    #
-    def get_service_line_loop(self, clm_idx):
-        sl_starts = list(map(lambda x: x[0], filter(lambda x: x[0] > clm_idx, self.segments_by_name_index("LX"))))
-        if not sl_starts:
-            return []
-        sl_start = min(sl_starts)
-        clm_idxs = list(map(lambda x: x[0],filter(lambda x: x[0] > clm_idx, self.segments_by_name_index("CLM"))))
-        se_idxs = list(map(lambda x: x[0], filter(lambda x: x[0] > clm_idx, self.segments_by_name_index("SE"))))
-        sl_end = min(clm_idxs + se_idxs + [len(self.data)])
-        return self.data[sl_start:sl_end]
-
-    def get_submitter_receiver_loop(self, clm_idx):
-        bht_start_indexes = list(map(lambda x: x[0], filter(lambda x: x[0] < clm_idx, self.segments_by_name_index("BHT"))))
-        bht_end_indexes = list(map(lambda x: x[0], filter(lambda x: x[0] < clm_idx and x[1].element(3) == '20', self.segments_by_name_index("HL"))))
-        if bht_start_indexes:
-            sub_rec_start_idx = max(bht_start_indexes)
-            sub_rec_end_idx = max(bht_end_indexes)
-
-            return self.data[sub_rec_start_idx:sub_rec_end_idx]
-        return []
-
-
-    #
     # Given transaction type, transaction segments, and delim info, build out claims in the transaction
     #  @return a list of Claim for each "clm" segment
     #
+    def _build_837_iter(self):
+        """Generator for 837 claims - true single pass with delayed yield."""
+        # HL loop tracking (immutable tuples: start, end)
+        billing_loop = (-1, -1)
+        subscriber_loop = (-1, -1)
+        patient_loop = (-1, -1)
+        
+        # Sender/receiver tracking (computed once)
+        bht_idx = -1
+        first_hl20_idx = -1
+        sender_receiver_loop = None  # Computed lazily
+        
+        # Pending claim state (immutable tuple):
+        # (clm_idx, billing_loop, subscriber_loop, patient_loop, claim_end, sl_start)
+        pending = None
+        
+        for i, seg in enumerate(self.data):
+            name = seg._name
+            
+            if name == "BHT":
+                if bht_idx == -1:
+                    bht_idx = i
+                    
+            elif name == "HL":
+                code = seg.element(3)
+                if code == "20":
+                    if first_hl20_idx == -1:
+                        first_hl20_idx = i
+                        sender_receiver_loop = self.data[bht_idx:i] if bht_idx != -1 else []
+                    # Close billing at this HL*20
+                    if billing_loop[0] != -1 and billing_loop[1] == -1:
+                        billing_loop = (billing_loop[0], i)
+                    billing_loop = (i, -1)
+                    subscriber_loop = (-1, -1)
+                    patient_loop = (-1, -1)
+                elif code == "22":
+                    if billing_loop[0] != -1 and billing_loop[1] == -1:
+                        billing_loop = (billing_loop[0], i)
+                    subscriber_loop = (i, -1)
+                    patient_loop = (-1, -1)
+                elif code == "23":
+                    if subscriber_loop[0] != -1 and subscriber_loop[1] == -1:
+                        subscriber_loop = (subscriber_loop[0], i)
+                    patient_loop = (i, -1)
+                    
+            elif name == "LX":
+                # First LX after CLM marks claim_end and sl_start
+                if pending is not None and pending[4] == -1:
+                    pending = (pending[0], pending[1], pending[2], pending[3], i, i)
+                    
+            elif name == "CLM":
+                # Yield previous pending claim (now we know sl_end = i)
+                if pending is not None:
+                    yield self._build_claim_from_pending(pending, sl_end=i, sender_receiver=sender_receiver_loop)
+                
+                # Snapshot current loops for new pending claim
+                sub_end = subscriber_loop[1] if subscriber_loop[1] != -1 else i
+                pat_end = patient_loop[1] if patient_loop[1] != -1 else i
+                
+                # pending = (clm_idx, billing, subscriber, patient, claim_end, sl_start)
+                pending = (
+                    i,
+                    self.data[billing_loop[0]:billing_loop[1]] if billing_loop[0] != -1 else [],
+                    self.data[subscriber_loop[0]:sub_end] if subscriber_loop[0] != -1 else [],
+                    self.data[patient_loop[0]:pat_end] if patient_loop[0] != -1 else [],
+                    -1,  # claim_end unknown
+                    -1,  # sl_start unknown
+                )
+                
+            elif name == "SE":
+                # End of transaction - yield final pending claim
+                if pending is not None:
+                    # If no LX was seen, claim goes to SE
+                    claim_end = pending[4] if pending[4] != -1 else i
+                    sl_start = pending[5] if pending[5] != -1 else i
+                    pending = (pending[0], pending[1], pending[2], pending[3], claim_end, sl_start)
+                    yield self._build_claim_from_pending(pending, sl_end=i, sender_receiver=sender_receiver_loop)
+                    pending = None
+        
+        # Handle case with no SE
+        if pending is not None:
+            end = len(self.data)
+            claim_end = pending[4] if pending[4] != -1 else end
+            sl_start = pending[5] if pending[5] != -1 else end
+            pending = (pending[0], pending[1], pending[2], pending[3], claim_end, sl_start)
+            yield self._build_claim_from_pending(pending, sl_end=end, sender_receiver=sender_receiver_loop)
+
+    def _build_claim_from_pending(self, pending, sl_end, sender_receiver):
+        """Build claim from pending tuple. No side effects."""
+        clm_idx, billing, subscriber, patient, claim_end, sl_start = pending
+        return self.trnx_cls(
+            sender_receiver_loop=sender_receiver if sender_receiver else [],
+            billing_loop=billing,
+            subscriber_loop=subscriber,
+            patient_loop=patient,
+            claim_loop=self.data[clm_idx:claim_end],
+            sl_loop=self.data[sl_start:sl_end] if sl_start < sl_end else [],
+        )
+
     def build(self):
         if self.trnx_cls.NAME in ['837I', '837P']:
-            # Optimized: Pre-build indices for all segment types needed
-            clm_list = list(self.segments_by_name_index("CLM"))
-            lx_indices = [i for i, seg in self.segments_by_name_index("LX")]
-            se_indices = [i for i, seg in self.segments_by_name_index("SE")]
-            bht_indices = [i for i, seg in self.segments_by_name_index("BHT")]
-            hl_indices = [(i, seg) for i, seg in self.segments_by_name_index("HL")]
-            
-            # Pre-compute HL indices with element(3) == '20' for submitter/receiver loop
-            hl_20_indices = [i for i, seg in hl_indices if seg.element(3) == '20']
-            
-            claims = []
-            for idx_pos, (clm_idx, clm_seg) in enumerate(clm_list):
-                # Pre-compute values for this claim
-                next_clm_idx = clm_list[idx_pos + 1][0] if idx_pos + 1 < len(clm_list) else len(self.data)
-                
-                # Find indices after current claim
-                lx_after = [i for i in lx_indices if i > clm_idx]
-                se_after = [i for i in se_indices if i > clm_idx]
-                clm_after = [i for i, _ in clm_list if i > clm_idx]
-                
-                # Get submitter/receiver loop (shared across all claims in transaction)
-                bht_before = [i for i in bht_indices if i < clm_idx]
-                hl_20_before = [i for i in hl_20_indices if i < clm_idx]
-                if bht_before and hl_20_before:
-                    sender_receiver_loop = self.data[max(bht_before):max(hl_20_before)]
-                else:
-                    sender_receiver_loop = []
-                
-                # Get claim loop end
-                if lx_after:
-                    clm_end_idx = min(lx_after)
-                elif clm_after:
-                    clm_end_idx = min(clm_after + [len(self.data)])
-                else:
-                    clm_end_idx = len(self.data)
-                claim_loop = self.data[clm_idx:clm_end_idx]
-                
-                # Get service line loop
-                if lx_after:
-                    sl_start = min(lx_after)
-                    sl_end = min(clm_after + se_after + [len(self.data)])
-                    sl_loop = self.data[sl_start:sl_end]
-                else:
-                    sl_loop = []
-                
-                claims.append(
-                    self.trnx_cls(
-                        sender_receiver_loop=sender_receiver_loop,
-                        billing_loop=self.loop.get_loop_segments(clm_idx, "2000A"),
-                        subscriber_loop=self.get_subscriber_loop(self.loop.get_loop_segments(clm_idx, "2000B")),
-                        patient_loop=self.loop.get_loop_segments(clm_idx, "2000C"),
-                        claim_loop=claim_loop,
-                        sl_loop=sl_loop,
-                    )
-                )
-            return claims
+            return list(self._build_837_iter())
             
         elif self.trnx_cls.NAME == '835':
             # Optimized: Pre-build indices for all segment types needed
@@ -324,8 +322,8 @@ class MedicalClaim(EDI):
                              ref = self.segments_by_name("REF", data=self.claim_loop[:(len(self.claim_loop)-1 if (temp := [i for i, x in enumerate(self.claim_loop) if x._name == "NM1"]) == [] else temp[0]) ]), #ref up until loop 2310
                              amt = self.segments_by_name("AMT", data=self.claim_loop)) #ref up until loop 2310
 
-
                              
+    
 
     def _populate_payer_info(self):
         return PayerIdentity(self._first([x for x in self.subscriber_loop if x.element(1) == "PR"], "NM1"))
@@ -423,7 +421,8 @@ class Claim837i(MedicalClaim):
                              ref = self.segments_by_name("REF", data=self.claim_loop[:(len(self.claim_loop)-1 if (temp := [i for i, x in enumerate(self.claim_loop) if x._name == "NM1"]) == [] else temp[0]) ]), #ref up until loop 2310 
                              amt = self.segments_by_name("AMT", data=self.claim_loop),
                              principal_hi = self._first([x for x in self.claim_loop if x._name == "HI" and x.element(1,0) == ("BBR")], "HI"),
-                             other_hi = [x for x in self.claim_loop if x._name == "HI" and x.element(1,0) == ("BBQ")]
+                             other_hi = [x for x in self.claim_loop if x._name == "HI" and x.element(1,0) == ("BBQ")],
+                             condition_hi = [x for x in self.claim_loop if x._name == "HI" and x.element(1,0) == "BG"]
                              )
 
     def _populate_sl_loop(self, missing=""):

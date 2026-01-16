@@ -30,11 +30,17 @@ pip install git+https://github.com/databricks-industry-solutions/x12-edi-parser
 > [!NOTE]
 > All types of EDI formats can be procesed with the same code below. However, it is recommended to build dataframes and save by resource type (837i/837p, 835, 834) to avoid confusion over empty values on a row.
 
-The old README instructions can be found (here)[./doc/archive/preMapInArrowREADME]
-
 #### Using mapInArrow (recommended, fastest processing)
 
-mapInArrow() is wrapped [here](./databricksx12/hls/mapinarrow_functions.py). This example shows a simplified way of running the code. 
+mapInArrow() is wrapped [here](./databricksx12/hls/mapinarrow_functions.py). Two functions are available:
+
+| Function | Best For | Output | 2GB Risk |
+|----------|----------|--------|----------|
+| `from_edi` | Small/medium files (<100MB EDI) | 1 row per file, then use Spark `explode()` | ⚠️ Possible if JSON >2GB |
+| `from_edi_exploded` | Large files or many claims | 1 row per claim (no `explode()` needed) | ✅ Safe (files are ~5KB each) |
+
+> [!WARNING]
+> Apache Arrow has a **2GB limit per string value**. When processing very large EDI files, the parsed JSON can exceed this limit and cause: `Cannot grow BufferHolder by size X because the size after growing exceeds size limitation 2147483632`. Use `from_edi_exploded` for large files.
 
 ##### Input DataFrame
 
@@ -43,8 +49,12 @@ mapInArrow() is wrapped [here](./databricksx12/hls/mapinarrow_functions.py). Thi
 | `value` | **Required**. A string column containing the raw EDI file content. |
 | `pk` | **Optional**. A primary key column (string, integer, etc.) to track lineage or file metadata. If provided, it is preserved in the output. |
 
+##### Option 1: `from_edi` (default, faster for small/medium files)
+
+Returns one row per EDI file with nested JSON. Use `flatten_edi()` to explode to rows per claim.
+
 ```python
-from ember.hls.mapinarrow_functions import *
+from ember.hls.mapinarrow_functions import from_edi, get_output_schema, flatten_edi
 
 # Assuming 'df' is your dataframe with 'value' (and optional 'pk') columns
 # 1. Check to make sure you're using the entire cluster
@@ -53,24 +63,15 @@ if df.rdd.getNumPartitions() < spark.sparkContext.defaultParallelism:
     df = df.repartition(spark.sparkContext.defaultParallelism * 5)
 
 # 2. Parse EDI content using mapInArrow
-# OPTION A: Without original EDI content (RECOMMENDED - reduces memory usage and avoids Arrow 2GB buffer limits)
 result_df = df.mapInArrow(
     lambda batches: from_edi(batches, include_original_edi_content=False),
     schema=get_output_schema(include_original_edi_content=False)
 )
 
-# OPTION B: With original EDI content (only if needed for validation/debugging)
-# result_df = df.mapInArrow(
-#     lambda batches: from_edi(batches, include_original_edi_content=True),
-#     schema=get_output_schema(include_original_edi_content=True)
-# )
-
-# 3. Flatten the JSON structure
-# This explodes the nested JSON into rows per claim/transaction
-# flatten_edi() automatically handles whether edi_content column is present or not
+# 3. Flatten the JSON structure (explodes to one row per claim)
 final_df = flatten_edi(result_df, spark)
 
-# And finally save off the content 
+# 4. Save the content 
 final_df.write.mode("append").saveAsTable("...")
 ```
 
@@ -81,6 +82,38 @@ final_df.write.mode("append").saveAsTable("...")
 > - **Improves processing speed** by reducing data transfer between workers
 > 
 > Only set `include_original_edi_content=True` if you need the original EDI for validation, auditing, or reprocessing purposes.
+
+##### Option 2: `from_edi_exploded` (safe for very large files)
+
+Returns one row per claim directly—avoids the 2GB limit entirely since individual claims are typically 1-10KB. No additional `flatten_edi()` call needed.
+
+```python
+from ember.hls.mapinarrow_functions import from_edi_exploded, get_exploded_schema
+from pyspark.sql.functions import from_json, col
+
+# Parse EDI and explode to one row per claim in a single step
+result_df = df.mapInArrow(
+    from_edi_exploded,
+    schema=get_exploded_schema()
+)
+# Output: pk, edi_json (same structure as from_edi but with single claim per row)
+# NOTE: Do NOT use flatten_edi() here - data is already one row per claim
+
+row_map = lambda x: {**{'pk': x.pk}, **{'edi_json': json.loads(x.edi_json)}}
+final_df = spark.read.json(result_df.rdd.map(row_map))
+
+# Save the content
+final_df.write.mode("append").saveAsTable("...")
+```
+
+> [!NOTE]  
+> **When to use `from_edi_exploded`:**
+> - EDI files larger than ~100MB
+> - Files with 50,000+ claims
+> - When you see Arrow buffer errors
+> - When memory pressure is a concern
+>
+> **Trade-off**: `from_edi` + Spark `flatten_edi()` is slightly faster for small files because Spark's native explode is optimized.
 
 ##### First Output (`result_df`). Also see the (html notebook)[https://databricks-industry-solutions.github.io/x12-edi-parser/#x12-edi-parser_1.html] for sample output values
 
@@ -100,6 +133,24 @@ final_df.write.mode("append").saveAsTable("...")
 | `FunctionalGroup.*` | Struct containing metadata about the EDI Functional Group (e.g., GS segment details). |
 | `Transaction.*` | Struct containing metadata about the specific EDI Transaction (e.g., ST segment details). |
 | `*` | The fully parsed and structured view of claims information (837, 835, 834). One row per claim. See the data dictionaries under "doc" to see all fields parsed out |
+
+Atlernatively build final_df from the result_df using scala (avoid python serialization on jvm)
+```scala
+import spark.implicits._
+
+//assuming result_df saved off to a table first
+val result_df = spark.read.table("...")
+
+// Option 1: Using spark.read.json with RDD (direct translation)
+val jsonRdd = result_df.select("pk", "edi_json").rdd.map { row =>
+  val pk = row.getAs[String]("pk")
+  val ediJson = row.getAs[String]("edi_json")
+  s"""{"pk":"$pk","edi_json":$ediJson}"""
+}
+
+val final_df = spark.read.json(jsonRdd.toDS())
+final_df.write.mode("append").saveAsTable("...")
+```
 
 #### Splitting with RDDs (not recommended)
 

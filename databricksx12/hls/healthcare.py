@@ -34,8 +34,8 @@ class HealthcareManager(EDI):
     #
     @classmethod
     def from_transaction(cls, trnx):
-        return ClaimBuilder(cls.mapping.get(trnx.transaction_type),
-                            [x for x in trnx.data if x._name not in ['ST', 'SE']], trnx.format_cls).build()
+        return list(ClaimBuilder(cls.mapping.get(trnx.transaction_type),
+                            [x for x in trnx.data if x._name not in ['ST', 'SE']], trnx.format_cls).build())
 
     #
     # Convert all data to json data

@@ -82,7 +82,7 @@ class MemberEnrollment(MedicalClaim):
         dtp = get_first("DTP")
         
         hd_idx = [i for i, seg in self.segments_by_name_index("HD", data=self.member_detail_loop)] + [len(self.member_detail_loop)]
-        
+
         return {
                 "member_id_code": nm1.element(9),
                 "member_identifier_type": self.IDENTIFIER_TYPE_MAPPING.get(nm1.element(8), nm1.element(8)),
@@ -110,7 +110,7 @@ class MemberEnrollment(MedicalClaim):
                 "health_coverage_elections": [
                     self.build_plan_elections(self.member_detail_loop[t[0]:t[1]]) for t in zip(hd_idx, hd_idx[1:])
                 ]
-            }
+        }
 
     def to_json(self):
         return {
