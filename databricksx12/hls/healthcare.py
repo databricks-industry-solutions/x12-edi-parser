@@ -10,7 +10,8 @@ class HealthcareManager(EDI):
             "221": Remittance, # Remittance "835"
             "222": Claim837p,
             "223": Claim837i,
-            "224": None #Dental 
+            "224": None #Dental,
+            #"279": Benefit #TODO 1 define the mapping between the EDI functional group code to your 270 class name
     }
 
     #
@@ -108,6 +109,7 @@ class HealthcareManager(EDI):
             return cls.build_remittance(seg, i, cls.mapping.get(transaction_type), data, format_cls)
         elif transaction_type == '220':  # 834 Enrollment
             return cls.build_enrollment(seg, i, cls.mapping.get(transaction_type), data, format_cls)
+
         return type("", (), dict({'to_json': lambda: {}}))
 
     @classmethod
@@ -118,6 +120,10 @@ class HealthcareManager(EDI):
     def build_remittance(cls, seg, i, trnx_cls, data, format_cls):
         return ClaimBuilder(trnx_cls, [x for x in data if x._name not in ['SE', 'ST']], format_cls).build_remittance(seg, i-1)
         
+    @classmethod
+    def build_benefit(cls, seg, i, trnx_cls, data, format_cls):
+        return ClaimBuilder(trnx_cls, [x for x in data if x._name not in ['SE', 'ST']], format_cls).build_benefit(seg, i-1)
+
     @classmethod
     def build_enrollment(cls, seg, i, trnx_cls, data, format_cls):
         return ClaimBuilder(trnx_cls, [x for x in data if x._name not in ['SE', 'ST']], format_cls).build_enrollment(seg, i-1)

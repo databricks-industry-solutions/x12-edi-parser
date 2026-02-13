@@ -72,7 +72,6 @@ class ClaimBuilder(EDI):
         return self.trnx_cls(
             member_detail_loop = self.data[idx:end_idx]
         )
-
     #
     # Given transaction type, transaction segments, and delim info, build out claims in the transaction
     #  @return a list of Claim for each "clm" segment
@@ -238,6 +237,12 @@ class ClaimBuilder(EDI):
                 self.trnx_cls(member_detail_loop=self.data[ins_indices[i]:ins_indices[i+1]])
                 for i in range(len(ins_indices) - 1)
             ]
+        elif self.trnx_cls.NAME == '270': 
+            pass                    
+            #TODO iterate over the transaction segments in self.data and call build on each benefit
+            #for i, seg in enumerate(self.data): -> self.data is a list of all segments of the transaction
+            #yield Benefit(loop list 1, loop list 2, etc...)
+
 
 #
 # Base claim class
