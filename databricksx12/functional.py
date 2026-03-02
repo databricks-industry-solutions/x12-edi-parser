@@ -33,7 +33,7 @@ class FunctionalGroup(EDI):
     #
     def transaction_segments(self):
         from databricksx12.transaction import Transaction
-        return [Transaction(self.segments_by_position(a,b + 1), self.format_cls, self.transaction_type) for a,b in self._transaction_locations()]
+        return [Transaction(self.segments_by_position(a,b + 1), self.format_cls, self.transaction_type, self.data[0]) for a,b in self._transaction_locations()]
 
 
     #

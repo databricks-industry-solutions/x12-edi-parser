@@ -1,4 +1,5 @@
 from ember.edi import EDIManager
+from ember.format import AnsiX12Delim
 from ember.supplychain import *
 # Import other supply chain transaction classes here as they are created
 # from .invoice import Invoice_810
@@ -16,53 +17,58 @@ class SupplyChainManager(EDIManager):
     # Maps transaction set codes to their corresponding parser classes.
     # The transaction_type is derived from the GS01 and ST01 segments.
     TRANSACTION_SET_MAPPING = {
-        "832": PurchaseOrder,
+        "832": ProductCatalog,
         "810": Invoice
     }
 
     @classmethod
-    def from_transaction(cls, transaction: Transaction):
-        """
+    def determine_transaction_type(cls, gs_segment): 
+        if gs_segment.element(1) == "IN":
+            return cls.TRANSACTION_SET_MAPPING.get("810")
+        raise Exception("No transaction type available for GS segment " + gs_segment.data)
 
-        Parses a transaction using the appropriate supply chain transaction class.
-        """
-        transaction_set_code = transaction.transaction_set_code
-        parser_class = cls.TRANSACTION_SET_MAPPING.get(transaction_set_code)
 
-        if not parser_class:
-            # You can choose to raise an error or return None if the
-            # transaction type is not supported.
-            return None
-
-        """
-        TODO determine what granularity is needed (e.g. 1 row per INV seg)
-        e.g. row identifiers https://github.com/databricks-industry-solutions/x12-edi-parser/blob/main/databricksx12/hls/healthcare.py#L94-L101
-        TODO pass in how these classes accept data in their respective  __init__() methods
-        e.g. a very complex healthcare example https://github.com/databricks-industry-solutions/x12-edi-parser/blob/main/databricksx12/hls/claim.py#L32-L39
-        TODO call the classes build() method to get the json output. 
-        e.g. calling build https://github.com/databricks-industry-solutions/x12-edi-parser/blob/main/databricksx12/hls/healthcare.py#L115
-        """
-        
-
+    #
+    # Convert a single 
+    #
     @classmethod
-    def flatten(cls, edi, *args, **kwargs):
-        """
-        Flattens an entire EDI file into a list of structured
-        supply chain documents. This method is designed to integrate
-        seamlessly with Spark RDDs.
+    def from_transaction(cls, trnx):
+        return list(SupplyBuilder(cls.determine_transaction_type(trnx.gs_segment),
+                            [x for x in trnx.data if x._name not in ['ST', 'SE']], trnx.format_cls).build())
 
-        Each item in the returned list is a dictionary containing metadata
-        from the EDI structure and the parsed transaction document.
-        """
-        return [
-            {
-                **kwargs,
-                'EDI': cls.class_metadata(edi),
-                'FunctionalGroup': cls.class_metadata(fg),
-                'Transaction': cls.class_metadata(trnx),
-                'Document': doc.to_dict() if doc else None,
-            }
-            for fg in edi.functional_segments()
-            for trnx in fg.transaction_segments()
-            if (doc := cls.from_transaction(trnx)) is not None
-        ]
+
+    #
+    # Convert all data to json data
+    #
+    @classmethod
+    def to_json(cls, edi):
+        return {
+            **EDIManager.class_metadata(edi),
+            'FunctionalGroup': [
+                {
+                    **EDIManager.class_metadata(fg),
+                    'Transactions': [
+                        {
+                            **EDIManager.class_metadata(trnx),
+                            'Supply': [s.to_json() for s in cls.from_transaction(trnx)]
+                        } for trnx in fg.transaction_segments()]
+                } for fg in edi.functional_segments()] 
+        }
+
+class SupplyBuilder():
+
+    def __init__(self, trnx_type_cls, trnx_data, delim_cls=AnsiX12Delim):
+        self.data = trnx_data
+        self.format_cls = delim_cls
+        self.trnx_cls = trnx_type_cls
+
+    #
+    # iterate through the transaction and yield relevant rows
+    #
+    def build(self):
+        if self.trnx_cls.NAME == "810":
+            for i, seg in enumerate(self.data):
+                if seg._name == "BIG": #one row per BIG segment
+                    yield self.trnx_cls(seg)
+        else:
+            Exception("transaction class not implemented yet: " + str(self.trnx_type_cls))

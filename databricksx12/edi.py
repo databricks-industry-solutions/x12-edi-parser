@@ -154,7 +154,7 @@ class EDI():
             se_indices = self._segment_index.get("SE", [])
             return list(zip(st_indices, se_indices))
     
-    def to_json(self, exclude=["_segment_index", "data", "raw_data", "isa", "format_cls", "fg","_strict_transactions", "st", "se"]):
+    def to_json(self, exclude=["_segment_index", "data", "raw_data", "isa", "format_cls", "fg","gs_segment", "_strict_transactions", "st", "se"]):
         return {str(self.__class__.__name__ + "." + attr): getattr(self, attr) for attr in dir(self) if not callable(getattr(self, attr)) and not attr.startswith("__") and attr not in exclude}
 
     """

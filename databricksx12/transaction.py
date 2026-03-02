@@ -15,10 +15,12 @@ class Transaction(EDI):
     #
     # @param segments is expected as an array of segments starting with ST, ending with SE
     #
-    def __init__(self,segments, delim_cls = AnsiX12Delim, transaction_type=None):
+    # GS needed in order to support non-healthcare industries for determining transaction type
+    def __init__(self,segments, delim_cls = AnsiX12Delim, transaction_type=None, gs_segment=None):
         self.data = segments
         self.format_cls = delim_cls
         self._strict_transactions = True
+        self.gs_segment = gs_segment
 
         self._segment_index = {}
         for i, segment in enumerate(self.data):
@@ -42,6 +44,7 @@ class Transaction(EDI):
             'format_cls': self.format_cls,
             'data': self.data,
             'transaction_type': self.transaction_type,
+            'gs_segment': self.gs_segment,
             'st': self.st,
             'se': self.se,
             'transaction_set_code': self.transaction_set_code,
@@ -57,6 +60,7 @@ class Transaction(EDI):
         self.format_cls = state['format_cls']
         self.data = state['data']
         self.transaction_type = state['transaction_type']
+        self.gs_segment = state.get('gs_segment')
         self.st = state['st']
         self.se = state['se']
         self.transaction_set_code = state['transaction_set_code']
