@@ -112,7 +112,13 @@ class HealthcareManager(EDI):
 
     @classmethod
     def build_claim(cls, seg, i, trnx_cls, data, format_cls):
-        return ClaimBuilder(trnx_cls, [x for x in data if x._name not in ['SE', 'ST']], format_cls).build_claim(seg, i-1)
+        filtered = [x for x in data if x._name not in ['SE', 'ST']]
+        all_claims = ClaimBuilder(trnx_cls, filtered, format_cls).build()
+        for claim in all_claims:
+            if claim.claim_loop and claim.claim_loop[0] is seg:
+                return claim
+        return all_claims[0] if all_claims else None
+
 
     @classmethod
     def build_remittance(cls, seg, i, trnx_cls, data, format_cls):
