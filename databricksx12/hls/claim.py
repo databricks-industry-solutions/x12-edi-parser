@@ -180,54 +180,76 @@ class ClaimBuilder(EDI):
             sl_loop=self.data[sl_start:sl_end] if sl_start < sl_end else [],
         )
 
+    def _build_835_iter(self):
+        """Generator for 835 remittances - single pass with deferred yield."""
+        n1_first = -1
+        n1_second = -1
+        n1_count = 0
+        lx_first = -1
+        lx_last = 0
+        clp_last = 0
+        svc_last = 0
+
+        pending_clp_idx = None
+        pending_claims = []
+
+        data_len = len(self.data)
+
+        for i, seg in enumerate(self.data):
+            name = seg._name
+
+            if pending_clp_idx is not None and i > pending_clp_idx and name in ("LX", "SE"):
+                pending_claims.append((pending_clp_idx, i))
+                pending_clp_idx = None
+                if name == "SE":
+                    break
+
+            if name == "N1":
+                if n1_count == 0:
+                    n1_first = i
+                elif n1_count == 1:
+                    n1_second = i
+                n1_count += 1
+            elif name == "LX":
+                if lx_first == -1:
+                    lx_first = i
+                lx_last = i
+            elif name == "CLP":
+                if pending_clp_idx is not None and i > pending_clp_idx:
+                    pending_claims.append((pending_clp_idx, i))
+                pending_clp_idx = i
+                clp_last = i
+            elif name == "SVC":
+                svc_last = i
+
+        if pending_clp_idx is not None:
+            pending_claims.append((pending_clp_idx, data_len))
+
+        n1_first_idx = n1_first if n1_first != -1 else data_len
+        n1_second_idx = n1_second if n1_second != -1 else data_len
+        lx_first_idx = lx_first if lx_first != -1 else data_len
+
+        trx_header_loop = self.data[0:n1_first_idx]
+        payer_loop = self.data[n1_first_idx:n1_second_idx]
+        payee_loop = self.data[n1_second_idx:lx_first_idx]
+        trx_summary_loop = self.data[max(0, lx_last, clp_last, svc_last):]
+
+        for clp_idx, clm_end in pending_claims:
+            yield self.trnx_cls(
+                trx_header_loop=trx_header_loop,
+                payer_loop=payer_loop,
+                payee_loop=payee_loop,
+                clm_loop=self.data[clp_idx:clm_end],
+                trx_summary_loop=trx_summary_loop,
+                header_number_loop=self.data[lx_first_idx:clp_idx],
+            )
+
     def build(self):
         if self.trnx_cls.NAME in ['837I', '837P']:
             return list(self._build_837_iter())
             
         elif self.trnx_cls.NAME == '835':
-            # Optimized: Pre-build indices for all segment types needed
-            clp_indices = [i for i, seg in self.segments_by_name_index("CLP")]
-            n1_indices = [i for i, seg in self.segments_by_name_index("N1")]
-            lx_indices = [i for i, seg in self.segments_by_name_index("LX")]
-            svc_indices = [i for i, seg in self.segments_by_name_index("SVC")]
-            se_indices = [i for i, seg in self.segments_by_name_index("SE")]
-            
-            # Pre-compute common values used by all remittances
-            n1_first = n1_indices[0] if n1_indices else len(self.data)
-            n1_second = n1_indices[1] if len(n1_indices) > 1 else len(self.data)
-            lx_first = lx_indices[0] if lx_indices else len(self.data)
-            lx_last = lx_indices[-1] if lx_indices else 0
-            clp_last = clp_indices[-1] if clp_indices else 0
-            svc_last = svc_indices[-1] if svc_indices else 0
-            
-            # Pre-build lookup for "next CLP after current index"
-            clp_indices_set = set(clp_indices)
-            
-            remittances = []
-            for idx_pos, idx in enumerate(clp_indices):
-                # Find next CLP index
-                next_clp = clp_indices[idx_pos + 1] if idx_pos + 1 < len(clp_indices) else -1
-                
-                # Find next LX after current idx
-                next_lx = next((lx for lx in lx_indices if lx > idx), -1)
-                
-                # Find next SE after current idx
-                next_se = next((se for se in se_indices if se > idx), -1)
-                
-                # Calculate clm_loop end
-                clm_end = min(filter(lambda x: x > 0, [next_lx, next_clp, next_se, len(self.data)]))
-                
-                remittances.append(
-                    self.trnx_cls(
-                        trx_header_loop=self.data[0:n1_first],
-                        payer_loop=self.data[n1_first:n1_second],
-                        payee_loop=self.data[n1_second:lx_first],
-                        clm_loop=self.data[idx:clm_end],
-                        trx_summary_loop=self.data[max(0, lx_last, clp_last, svc_last):],
-                        header_number_loop=self.data[lx_first:idx]
-                    )
-                )
-            return remittances
+            return list(self._build_835_iter())
             
         elif self.trnx_cls.NAME == '834':
             # Optimized: Pre-build index of all INS positions, then slice between them
