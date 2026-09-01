@@ -37,34 +37,6 @@ class ClaimBuilder(EDI):
             sl_loop=self.get_service_line_loop(idx),  # service line loop
         )
 
-
-        
-    #
-    # https://datainsight.health/edi/payments/dollars-separate/
-    #  trx_header_loop = 0000
-    #  payer_loop = 1000A
-    #  payee_loop = 1000B
-    #  header_number_loop = 2000
-    #  clm_payment_loop = 2100
-    #  srv_payment_loop = 2110
-    def build_remittance(self, pay_segment, idx):
-        return self.trnx_cls(trx_header_loop = self.data[0:self.index_of_segment(self.data, "N1")]
-                             ,payer_loop = self.data[self.index_of_segment(self.data, "N1"):self.index_of_segment(self.data, "N1", self.index_of_segment(self.data, "N1")+1)]
-                             ,payee_loop = self.data[self.index_of_segment(self.data, "N1", self.index_of_segment(self.data, "N1")+1): self.index_of_segment(self.data, "LX")]
-                             ,clm_loop = self.data[idx:min(
-                                 list(filter(lambda x: x > 0, [self.index_of_segment(self.data, "LX", idx+1), 
-                                  self.index_of_segment(self.data, "CLP", idx+1),
-                                  self.index_of_segment(self.data, "SE", idx+1),
-                                  len(self.data)])
-                                ))]
-                             ,trx_summary_loop = self.data[max(0,
-                                self.last_index_of_segment(self.data, "LX"),
-                                self.last_index_of_segment(self.data, "CLP"),
-                                self.last_index_of_segment(self.data, "SVC")
-                             ):]
-                             ,header_number_loop = self.data[self.index_of_segment(self.data, "LX"):idx]
-                            )
-
     def build_enrollment(self, pay_segment, idx):
         ins_next_idx = self.index_of_segment(self.data, "INS", idx+1)
         end_idx = ins_next_idx if ins_next_idx > 0 else self.index_of_segment(self.data, "SE")
