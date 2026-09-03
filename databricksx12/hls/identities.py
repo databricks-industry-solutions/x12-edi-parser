@@ -37,7 +37,7 @@ class PayerIdentity(Identity):
         self.business_entity_type = nm1.element(2)
 
 class PatientIdentity(Identity):
-        def __init__(self, nm1, n3, n4, dmg, pat, sbr, ref = Segment.empty()):
+        def __init__(self, nm1, n3, n4, dmg, pat, sbr, ref_ea=Segment.empty(), ref_sy=Segment.empty()):
             self.subsciber_identifier = nm1.element(9)
             self.name = ' '.join([nm1.element(3), nm1.element(4), nm1.element(5)])
             self.patient_relationship_cd = pat.element(1)
@@ -51,7 +51,8 @@ class PatientIdentity(Identity):
             self.dob = dmg.element(2)
             self.dob_format = dmg.element(1)
             self.gender_cd = dmg.element(3)
-            self.mrn = ref.element(2)
+            self.mrn = ref_ea.element(2)
+            self.ssn = ref_sy.element(2)
 
 class ClaimIdentity(Identity):
     #
